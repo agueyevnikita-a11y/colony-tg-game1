@@ -266,3 +266,41 @@ button { font: inherit; }
 .generatedCode { display:flex; flex-direction:column; gap:4px; padding:11px; border:1px dashed rgba(255,201,92,.35); border-radius:12px; background:rgba(255,201,92,.05); }
 .generatedCode b { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; }
 .generatedCode small { color:var(--muted); }
+
+/* Telegram viewport and system/Telegram safe areas (SDK updates these variables). */
+:root {
+  --app-safe-top: calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px));
+  --app-safe-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px)) + var(--tg-content-safe-area-inset-bottom, 0px));
+  --app-safe-left: calc(max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px)) + var(--tg-content-safe-area-inset-left, 0px));
+  --app-safe-right: calc(max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)) + var(--tg-content-safe-area-inset-right, 0px));
+}
+.app {
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  padding: calc(14px + var(--app-safe-top)) calc(14px + var(--app-safe-right)) calc(90px + var(--app-safe-bottom)) calc(14px + var(--app-safe-left));
+}
+.tabs {
+  z-index: 20;
+  top: calc(var(--tg-viewport-stable-height, 100dvh) - 10px - var(--app-safe-bottom));
+  bottom: auto;
+  transform: translate(-50%, -100%);
+  width: min(calc(100% - 20px - var(--app-safe-left) - var(--app-safe-right)), 740px);
+}
+.accessGate { padding-bottom: calc(18px + var(--app-safe-bottom)); }
+.launchCard { display:grid; gap:12px; }
+.launchCard h1,.launchCard p { margin:0; }
+.launchLink { display:block; text-align:center; text-decoration:none; }
+.connectionNotice { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.connectionNotice span { flex:1 1 220px; }
+.connectionNotice a { color:inherit; }
+.shareFallback { display:block; color:var(--muted); font-size:12px; margin:10px 0; }
+.shareFallback input { width:100%; margin-top:6px; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--text); }
+.profileOverlay {
+  height: var(--tg-viewport-stable-height, 100dvh);
+  bottom: auto;
+  overflow:auto;
+  padding: calc(18px + var(--app-safe-top)) calc(18px + var(--app-safe-right)) calc(18px + var(--app-safe-bottom)) calc(18px + var(--app-safe-left));
+}
+.profileModal { max-height:100%; overflow:auto; }
+button, a, input, select, textarea { touch-action:manipulation; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { .auroraOverlay { animation:none; } .cityCell { transition:none; } }

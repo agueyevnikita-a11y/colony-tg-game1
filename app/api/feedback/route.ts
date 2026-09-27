@@ -4,6 +4,7 @@ import { ensurePlayer } from '@/lib/server/game';
 import { sql, type JsonValue } from '@/lib/server/db';
 import { assertRateLimit } from '@/lib/server/rate-limit';
 import { pushInbox } from '@/lib/server/inbox';
+import { APP_VERSION } from '@/lib/version';
 
 export const runtime='nodejs';
 const categories=new Set(['general','bug','balance','idea','payment']);
@@ -19,7 +20,7 @@ export async function POST(request:Request){
     if(message.length>2000)throw new Error('Сообщение слишком длинное — максимум 2000 символов');
     const rows=await sql<any[]>`
       INSERT INTO player_feedback(user_id,category,message,client_version,context)
-      VALUES(${userId},${category},${message},'1.0.1-beta.1',${sql.json(body.context??{})})
+      VALUES(${userId},${category},${message},${APP_VERSION},${sql.json(body.context??{})})
       RETURNING id
     `;
     await sql.begin(async tx=>{await pushInbox(tx,userId,{kind:'system',dedupeKey:`feedback_${rows[0]?.id}`,title:'Спасибо за обратную связь',body:'Сообщение сохранено. В закрытой бете мы читаем такие сообщения вручную.'});});

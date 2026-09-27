@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: colony
       POSTGRES_USER: colony
-      POSTGRES_PASSWORD: change_me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (use random hex)}
     volumes:
       - colony_pg:/var/lib/postgresql/data
     healthcheck:
@@ -16,21 +16,24 @@ services:
     build:
       context: .
       args:
-        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-replace_me_bot}
+        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:?Set NEXT_PUBLIC_BOT_USERNAME in .env}
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://colony:change_me@db:5432/colony
-      BOT_TOKEN: replace_me
-      BOT_USERNAME: replace_me_bot
-      NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-replace_me_bot}
-      APP_URL: https://your-domain.example
-      TELEGRAM_WEBHOOK_SECRET: replace_me
-      CRON_SECRET: replace_me
-      ADMIN_TELEGRAM_IDS: "123456789"
+      DATABASE_URL: postgres://colony:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (use random hex)}@db:5432/colony
+      BOT_TOKEN: ${BOT_TOKEN:?Set BOT_TOKEN in .env}
+      BOT_USERNAME: ${BOT_USERNAME:?Set BOT_USERNAME in .env}
+      NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:?Set NEXT_PUBLIC_BOT_USERNAME in .env}
+      APP_URL: ${APP_URL:?Set APP_URL in .env}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?Set TELEGRAM_WEBHOOK_SECRET in .env}
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET in .env}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?Set ADMIN_TELEGRAM_IDS in .env}
+      SUPPORT_URL: ${SUPPORT_URL:-}
       ALLOW_DEV_AUTH: "false"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    init: true
 volumes:
   colony_pg:

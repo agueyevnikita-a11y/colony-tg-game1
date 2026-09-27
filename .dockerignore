@@ -9,3 +9,8 @@ colony-v101
 **/.env*
 npm-debug.log*
 *.tsbuildinfo
+*.pem
+*.key
+*.p12
+*.pfx
+coverage

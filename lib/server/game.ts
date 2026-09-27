@@ -25,6 +25,7 @@ export async function ensurePlayer(tg: {
   first_name: string;
   username?: string;
   language_code?: string;
+  allows_write_to_pm?: boolean;
 }, startParam?: string, options: { skipAccessGate?: boolean } = {}) {
   return sql.begin(async (tx) => {
     const rows = await tx<{ id: string; created_at: Date }[]>`
@@ -39,6 +40,11 @@ export async function ensurePlayer(tg: {
     `;
     const user = rows[0];
     if (!user) throw new Error('Could not create player');
+
+    // Only signed Telegram user data or a verified service update can grant this.
+    if (tg.allows_write_to_pm === true) {
+      await tx`UPDATE users SET bot_write_allowed=true WHERE id=${user.id}`;
+    }
 
     // Global per-player protection for all authenticated game API calls.
     await assertRateLimitTx(tx, `global:${user.id}`, 120, 60);

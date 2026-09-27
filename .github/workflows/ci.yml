@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -14,7 +17,7 @@ jobs:
         env:
           POSTGRES_DB: colony_ci
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: colony_ci_only_not_a_secret_2026
         ports:
           - 5432:5432
         options: >-
@@ -23,7 +26,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/colony_ci
+      DATABASE_URL: postgres://postgres:colony_ci_only_not_a_secret_2026@127.0.0.1:5432/colony_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,11 +37,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run db:init
+      - name: Verify schema can be applied again
+        run: npm run db:init
       - run: npm run build
         env:
-          BOT_TOKEN: 123456:ci_placeholder
-          BOT_USERNAME: colony_ci_bot
           NEXT_PUBLIC_BOT_USERNAME: colony_ci_bot
-          APP_URL: https://example.invalid
-          ALLOW_DEV_AUTH: 'false'
-          TELEGRAM_WEBHOOK_SECRET: ci_placeholder
+      - name: Production Telegram launch integration
+        run: npm run test:integration
+        env:
+          COLONY_TEST_DATABASE: '1'
+      - name: Verify deployment image
+        run: docker build --build-arg NEXT_PUBLIC_BOT_USERNAME=colony_ci_bot -t colony-ci .

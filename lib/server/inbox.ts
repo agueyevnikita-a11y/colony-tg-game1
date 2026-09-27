@@ -1,3 +1,5 @@
+import { APP_VERSION } from '@/lib/version';
+
 export async function pushInbox(
   tx: any,
   userId: string,
@@ -15,7 +17,7 @@ export async function ensureWelcomeInbox(tx: any, userId: string) {
     dedupeKey:'welcome_v10',
     title:'Добро пожаловать в COLONY Beta',
     body:'COLONY развивается вместе с первыми игроками. Здесь будут появляться системные сообщения, результаты важных событий и заметки теста.',
-    metadata:{ version:'1.0.1-beta.1' },
+    metadata:{ version:APP_VERSION },
   });
 }
 

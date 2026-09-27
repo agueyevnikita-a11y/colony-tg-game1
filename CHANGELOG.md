@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0-beta.1 — Telegram Launch Preparation
+- Added a clear Telegram entry screen, SDK retry, offline/expired-session recovery, safer request ordering and visibility-aware refresh.
+- Added Telegram safe-area layout, back-button navigation and validated share links.
+- Added `/start`, `/help` and `/paysupport` bot commands with bounded, sanitized Bot API requests.
+- Notification write access now comes from signed Telegram data or an authenticated Telegram service update, never a client claim.
+- Added production configuration validation, bot identity/webhook diagnostics and a preview/apply bot setup command.
+- Added `/api/ready` for production configuration and schema readiness; release metadata now comes from one version source.
+- Added production HTTP integration tests on PostgreSQL and deployment-image verification in CI.
+- Updated deployment guidance and Docker defaults for the first Telegram closed test.
+
 ## 1.0.1-beta.1 — Closed Beta Operations
 - Added server-side maintenance mode and closed-beta access gate.
 - Added limited-use beta invitation codes stored as SHA-256 hashes.

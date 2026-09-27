@@ -1,35 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
+import { APP_VERSION } from '@/lib/version';
+import { useGameConnection } from '@/lib/client/use-game-connection';
+import { botAppLink, playerStartParam, shareTelegramLink, supportsTelegram, telegramHeaders } from '@/lib/client/telegram';
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp: {
-        initData: string;
-        initDataUnsafe?: { start_param?: string; user?: { id: number; first_name: string } };
-        ready: () => void;
-        expand: () => void;
-        openInvoice: (url: string, cb?: (status: string) => void) => void;
-        requestWriteAccess?: (cb?: (granted: boolean) => void) => void;
-        HapticFeedback?: { impactOccurred: (style: string) => void };
-      };
-    };
-  }
-}
-
-type Game = any;
 type Tab = 'city' | 'build' | 'market' | 'missions' | 'shop' | 'social';
-
-function headers() {
-  const initData = window.Telegram?.WebApp?.initData ?? '';
-  return {
-    'content-type': 'application/json',
-    'x-telegram-init-data': initData,
-    ...(initData ? {} : { 'x-dev-user-id': '10001' }),
-  };
-}
+const botLink = botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME);
 
 function n(value: unknown) {
   return new Intl.NumberFormat('ru-RU', {
@@ -66,10 +44,11 @@ function durationText(seconds:number){ const h=Math.floor(Number(seconds)/3600);
 function marketResourceLabel(resource:string){return ({ore:'⛏ Руда',energy:'⚡ Энергия',parts:'⚙️ Детали'} as Record<string,string>)[resource]??resource;}
 
 export default function Home() {
-  const [game, setGame] = useState<Game | null>(null);
+  const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
   const [tab, setTab] = useState<Tab>('city');
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const [shareFallbackLink, setShareFallbackLink] = useState('');
+  const handledStart = useRef(false);
+  const requestingAccess = useRef(false);
   const [viewedCity, setViewedCity] = useState<any | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [placementType, setPlacementType] = useState<string | null>(null);
@@ -92,35 +71,6 @@ export default function Home() {
   const [feedbackMessage,setFeedbackMessage]=useState('');
   const [adminGeneratedCode,setAdminGeneratedCode]=useState('');
 
-  async function api(path: string, body: object = {}) {
-    setBusy(true);
-    setMessage('');
-    try {
-      const res = await fetch(path, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Ошибка');
-      if (data.state) setGame((old: any) => ({ ...(old ?? {}), ...data }));
-      return data;
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Ошибка');
-      throw e;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function refresh() {
-    try {
-      const data = await api('/api/session');
-      setGame(data);
-      setProfileName((v)=>v || data.profile?.colony_name || `Колония ${data.telegramUser?.first_name ?? ''}`.trim());
-      setProfileBio((v)=>v || data.profile?.profile_bio || '');
-      return data;
-    } catch {
-      return null;
-    }
-  }
-
   async function viewCity(telegramId: number) {
     try {
       const data = await api('/api/social/city', { telegramId });
@@ -130,35 +80,57 @@ export default function Home() {
   }
 
   useEffect(() => {
-    window.Telegram?.WebApp?.ready();
-    window.Telegram?.WebApp?.expand();
+    if (!game || phase !== 'ready') return;
+    setProfileName((value) => value || game.profile?.colony_name || `Колония ${game.telegramUser?.first_name ?? ''}`.trim());
+    setProfileBio((value) => value || game.profile?.profile_bio || '');
+    if (handledStart.current || game.limited) return;
+    handledStart.current = true;
     void (async () => {
-      await refresh();
       const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (start?.startsWith('city_')) {
+      if (start && /^city_[1-9]\d*$/.test(start)) {
         const id = Number(start.slice(5));
-        if (Number.isFinite(id)) await viewCity(id);
+        if (Number.isSafeInteger(id)) await viewCity(id);
       }
-      if (start?.startsWith('ally_')) {
+      if (start && /^ally_[a-zA-Z0-9_-]{1,64}$/.test(start)) {
         setAllianceCode(start.slice(5).toUpperCase());
         setTab('social');
       }
     })();
-    const id = setInterval(refresh, 30_000);
-    return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [game, phase]);
 
   useEffect(() => {
+    const app = window.Telegram?.WebApp;
+    if (phase !== 'ready' || !supportsTelegram(app, '6.1') || !app?.BackButton) return;
+    const back = () => {
+      if (placementType || decorPlacementType || moveBuildingId) { cancelMapAction(); return; }
+      if (selectedBuildingId || selectedDecorId) { setSelectedBuildingId(null); setSelectedDecorId(null); return; }
+      if (viewedCity) { setViewedCity(null); return; }
+      setTab('city');
+    };
+    const visible = !!game && !game.limited && !!game.profile?.profile_completed_at && (tab !== 'city' || !!viewedCity || !!placementType || !!decorPlacementType || !!moveBuildingId || !!selectedBuildingId || !!selectedDecorId);
+    app.BackButton.onClick(back);
+    if (visible) app.BackButton.show(); else app.BackButton.hide();
+    return () => { app.BackButton?.offClick(back); app.BackButton?.hide(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, tab, viewedCity, placementType, decorPlacementType, moveBuildingId, selectedBuildingId, selectedDecorId, game?.limited, game?.profile?.profile_completed_at]);
+
+  useEffect(() => {
+    if (phase !== 'ready') return;
     const report = (message: string, stack?: string) => {
-      fetch('/api/client/error', { method:'POST', headers:headers(), body:JSON.stringify({ message, stack, path:window.location.pathname }) }).catch(()=>{});
+      if (!navigator.onLine) return;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5_000);
+      try {
+        void fetch('/api/client/error', { method:'POST', headers:telegramHeaders(window.Telegram?.WebApp?.initData ?? '', process.env.NODE_ENV === 'development'), body:JSON.stringify({ message, stack, path:window.location.pathname }), signal:controller.signal }).catch(()=>{}).finally(() => clearTimeout(timeout));
+      } catch { clearTimeout(timeout); }
     };
     const onError = (event: ErrorEvent) => report(event.message || 'window.error', event.error?.stack);
     const onRejection = (event: PromiseRejectionEvent) => report(`unhandledrejection: ${String(event.reason?.message ?? event.reason)}`, event.reason?.stack);
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onRejection);
     return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); };
-  }, []);
+  }, [phase]);
 
   const available = useMemo(
     () => (game?.catalog ?? []).filter((x: any) => x.type !== 'hq' && x.unlockHq <= Number(game?.state?.hq_level ?? 1)),
@@ -194,19 +166,30 @@ export default function Home() {
       } catch {}
       return;
     }
-    const requestAccess = window.Telegram?.WebApp?.requestWriteAccess;
-    if (!requestAccess) {
+    const app = window.Telegram?.WebApp;
+    if (!app?.requestWriteAccess || !supportsTelegram(app, '6.9')) {
       setMessage('Разрешение на сообщения доступно только внутри актуального Telegram');
       return;
     }
-    requestAccess(async (granted) => {
-      if (!granted) { setMessage('Telegram не дал разрешение на сообщения'); return; }
-      try {
-        const data = await api('/api/settings/notifications', { enabled: true, permissionGranted: true });
-        setGame((old:any)=>({ ...old, notifications: data.notifications }));
-        setMessage('Уведомления включены');
-      } catch {}
-    });
+    if (requestingAccess.current) return;
+    requestingAccess.current = true;
+    const timeout = setTimeout(() => { requestingAccess.current = false; }, 30_000);
+    try {
+      app.requestWriteAccess(async (granted) => {
+        clearTimeout(timeout);
+        requestingAccess.current = false;
+        if (!granted) { setMessage('Telegram не дал разрешение на сообщения'); return; }
+        try {
+          const data = await api('/api/settings/notifications', { enabled: true });
+          setGame((old:any)=>({ ...old, notifications: data.notifications }));
+          setMessage(data.notifications?.bot_write_allowed ? 'Уведомления включены' : 'Разрешение получено, подтверждение Telegram ожидается');
+        } catch {}
+      });
+    } catch {
+      clearTimeout(timeout);
+      requestingAccess.current = false;
+      setMessage('Не удалось запросить разрешение. Обновите Telegram и попробуйте снова.');
+    }
   }
 
   async function loadAdminDashboard() {
@@ -243,43 +226,40 @@ export default function Home() {
 
   async function buyStars(productId: string) {
     if (game?.flags?.stars_shop === false) { setMessage('Магазин Stars временно отключён для закрытого теста'); return; }
+    const app = window.Telegram?.WebApp;
+    if (!supportsTelegram(app, '6.1') || !app?.openInvoice) { setMessage('Покупки доступны внутри актуального Telegram.'); return; }
     try {
       const data = await api('/api/payments/invoice', { productId });
-      if (window.Telegram?.WebApp?.openInvoice) {
-        window.Telegram.WebApp.openInvoice(data.invoiceLink, () => setTimeout(refresh, 1000));
-      } else {
-        window.location.href = data.invoiceLink;
-      }
-    } catch {}
+      const invoice = new URL(data.invoiceLink);
+      if (invoice.protocol !== 'https:' || invoice.hostname !== 't.me') throw new Error('Не удалось открыть счёт Telegram. Попробуйте позже.');
+      app.openInvoice(invoice.href, (status) => {
+        if (status === 'paid') setMessage('Платёж принят. Обновляем покупки…');
+        if (status === 'failed') setMessage('Платёж не завершён. Проверьте покупки перед повтором.');
+        void refresh(true);
+      });
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Не удалось открыть счёт Telegram.'); }
   }
 
-  function shareReferral() {
-    const bot = process.env.NEXT_PUBLIC_BOT_USERNAME || 'YOUR_BOT';
-    const tgId = game?.telegramUser?.id;
-    const link = `https://t.me/${bot}?startapp=ref_${tgId}`;
-    const text = `Я строю колонию в COLONY. Забирай свою: ${link}`;
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else navigator.clipboard.writeText(link).then(() => setMessage('Реферальная ссылка скопирована'));
+  async function shareLink(start: string | undefined, text: string) {
+    const link = start ? botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, start) : null;
+    if (!link) { setMessage('Ссылка приглашения пока недоступна. Попробуйте позже.'); return; }
+    setShareFallbackLink('');
+    const result = await shareTelegramLink(link, text, window.Telegram?.WebApp, navigator);
+    if (result === 'copied') setMessage('Ссылка скопирована');
+    if (result === 'manual') { setShareFallbackLink(link); setMessage('Не удалось скопировать автоматически. Нажмите на поле со ссылкой и скопируйте её.'); }
   }
 
   function shareCity() {
-    const bot = process.env.NEXT_PUBLIC_BOT_USERNAME || 'YOUR_BOT';
-    const tgId = game?.telegramUser?.id;
-    const link = `https://t.me/${bot}?startapp=city_${tgId}`;
-    const text = `Посмотри мою колонию в COLONY: ${link}`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else navigator.clipboard.writeText(link).then(() => setMessage('Ссылка на город скопирована'));
+    void shareLink(playerStartParam('city', game?.telegramUser?.id), 'Посмотри мою колонию в COLONY');
+  }
+
+  function shareReferral() {
+    void shareLink(playerStartParam('ref', game?.telegramUser?.id), 'Я строю колонию в COLONY. Забирай свою');
   }
 
   function shareAlliance() {
-    const bot = process.env.NEXT_PUBLIC_BOT_USERNAME || 'YOUR_BOT';
     const code = game?.alliance?.alliance?.code;
-    if (!code) return;
-    const link = `https://t.me/${bot}?startapp=ally_${code}`;
-    const text = `Вступай в наш альянс «${game.alliance.alliance.name}» в COLONY. Код ${code}: ${link}`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else navigator.clipboard.writeText(link).then(() => setMessage('Ссылка альянса скопирована'));
+    void shareLink(typeof code === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(code) ? `ally_${code}` : undefined, `Вступай в наш альянс «${game?.alliance?.alliance?.name}» в COLONY`);
   }
 
   async function handleCityCell(x: number, y: number, building?: any, decor?: any) {
@@ -360,19 +340,30 @@ export default function Home() {
     setMessage('Действие отменено');
   }
 
+  if (phase !== 'ready') {
+    return <main className="app accessGate"><section className="card accessCard launchCard">
+      <div className="betaMark">COLONY · v{APP_VERSION}</div>
+      <h1>{phase === 'loading' ? 'Подключаем Telegram…' : phase === 'outside' ? 'Ваша колония в Telegram' : 'Не удалось подключить Telegram'}</h1>
+      <p>{phase === 'loading' ? 'Проверяем запуск приложения. Это займёт несколько секунд.' : phase === 'outside' ? 'Откройте COLONY кнопкой приложения в нашем боте. Telegram безопасно передаст данные для входа и сохранения прогресса.' : 'Проверьте подключение к интернету и попробуйте снова. Если эта страница открыта в браузере, перейдите в бота.'}</p>
+      {phase !== 'loading' && <>{botLink ? <a className="action launchLink" href={botLink}>Открыть COLONY в Telegram</a> : <p>Откройте приложение через бота, который прислал вам приглашение.</p>}<button className="action secondary" onClick={retry}>Попробовать снова</button></>}
+    </section></main>;
+  }
+
   if (!game) {
-    return <main className="app"><div className="card"><h2>COLONY</h2><p>Создаём вашу колонию…</p>{message && <><div className="notice error" role="alert">{message}</div><button className="action" disabled={busy} onClick={() => refresh()}>Попробовать снова</button></>}</div></main>;
+    const error = message || connectionError;
+    return <main className="app accessGate"><section className="card accessCard launchCard"><div className="betaMark">COLONY · v{APP_VERSION}</div><h1>{error ? 'Колония пока недоступна' : 'Загружаем вашу колонию…'}</h1>{error && <><div className="notice error" role="alert">{error}</div><button className="action" disabled={busy} onClick={() => refresh()}>Попробовать снова</button>{botLink && <a className="action secondary launchLink" href={botLink}>Открыть из бота</a>}</>}</section></main>;
   }
 
   if (game.limited) {
     const maintenance=game.access?.blockReason==='maintenance';
     return <main className="app accessGate"><section className="card accessCard">
-      <div className="betaMark">COLONY · v1.0 BETA</div>
+      <div className="betaMark">COLONY · v{APP_VERSION}</div>
       <h1>{maintenance?'🛠 Техническое обслуживание':'🔐 Закрытая бета'}</h1>
       <p>{maintenance?(game.access?.maintenance?.message??'Мы временно закрыли игру на обслуживание. Прогресс сохранён.'):'Для этого этапа нужен beta-код. После одной успешной активации доступ сохраняется за вашим Telegram-аккаунтом.'}</p>
       {!maintenance&&<><input className="gateInput" value={betaCode} maxLength={64} onChange={e=>setBetaCode(e.target.value.toUpperCase())} placeholder="Введите beta-код"/><button className="action" disabled={busy||betaCode.trim().length<4} onClick={redeemBetaAccess}>Активировать доступ</button></>}
       {maintenance&&<button className="action secondary" disabled={busy} onClick={()=>refresh()}>Проверить снова</button>}
       {message&&<div className="notice error">{message}</div>}
+      {connectionError && connectionError !== message && <div className="notice error" role="status">{connectionError}</div>}
       <small>Telegram ID: {game.telegramUser?.id} · версия {game.version}</small>
     </section></main>;
   }
@@ -386,7 +377,7 @@ export default function Home() {
   return (
     <main className="app">
       {!game.profile?.profile_completed_at && <div className="profileOverlay"><div className="profileModal">
-        <div className="betaMark">CLOSED BETA · v1.0</div><h1>Назови свою колонию</h1><p>Это имя будут видеть другие игроки в рейтингах, на рынке и при просмотре города. Его можно изменить позже.</p>
+        <div className="betaMark">CLOSED BETA · v{APP_VERSION}</div><h1>Назови свою колонию</h1><p>Это имя будут видеть другие игроки в рейтингах, на рынке и при просмотре города. Его можно изменить позже.</p>
         <label>Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)} placeholder="Например: Новый Байконур"/></label>
         <label>Короткое описание · необязательно<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
         <button className="action" disabled={busy || profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Колония получила имя')).catch(()=>{})}>Основать колонию</button>
@@ -406,9 +397,12 @@ export default function Home() {
         <div className="resource"><span>🧠 Наука</span><b>{n(s.science)}</b></div>
       </div>
 
-      {game.flags?.closed_beta_banner && <div className="betaBanner"><b>🧪 Закрытая бета v1.0</b><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></div>}
+      {game.flags?.closed_beta_banner && <div className="betaBanner"><b>🧪 Закрытая бета v{APP_VERSION}</b><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></div>}
 
-      {message && <div className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
+      {connectionError && <div className="notice error connectionNotice" role="status"><span>{connectionError}</span><button className="miniButton" disabled={busy} onClick={() => refresh()}>Обновить</button>{botLink && connectionError.includes('Сессия Telegram') && <a href={botLink}>Открыть из бота</a>}</div>}
+      {shareFallbackLink && <label className="shareFallback">Ссылка приглашения<input readOnly value={shareFallbackLink} onFocus={event => event.target.select()} /></label>}
+
+      {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       {tab === 'city' && <>
         <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2>🔥 Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
@@ -425,7 +419,7 @@ export default function Home() {
         </section>}
         {game.tutorial?.completed && <section className="card compactSuccess"><b>✅ Базовое обучение завершено</b><span>Дальше колония развивается свободно: рынок, наука, экспедиции и альянсы.</span></section>}
         <section className="card notificationCard">
-          <div className="cardTitleRow"><div><h2>🔔 Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled?'Включены':'Выключены'}</span></div>
+          <div className="cardTitleRow"><div><h2>🔔 Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
           <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
         </section>
         <section className="card inboxCard"><div className="cardTitleRow"><div><h2>📨 Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
@@ -488,7 +482,7 @@ export default function Home() {
           <h2>Производство</h2><p>100 руды + 40 энергии → 35 деталей. Улучшение литейного цеха ускоряет цикл и повышает выход.</p>
           <div className="grid2">
             <button className="action" disabled={busy} onClick={() => api('/api/game/foundry/start').then(() => setMessage('Плавка запущена')).catch(()=>{})}>⚙️ Запустить плавку</button>
-            <button className="action secondary" disabled={busy} onClick={refresh}>↻ Обновить</button>
+            <button className="action secondary" disabled={busy} onClick={() => refresh()}>↻ Обновить</button>
           </div>
           {(game.activeJobs?.length ?? 0) > 0 && <p>Активных плавок: {game.activeJobs.length}. Детали начислятся автоматически.</p>}
         </section>

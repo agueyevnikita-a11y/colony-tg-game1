@@ -14,13 +14,11 @@ export async function POST(request: Request) {
     const userId = await ensurePlayer(auth.user, auth.startParam);
     const body = await request.json().catch(() => ({}));
     const enabled = !!body.enabled;
-    const permissionGranted = !!body.permissionGranted;
     const prefs = await sql.begin(async (tx) => {
       await tx`
         INSERT INTO notification_preferences(user_id,enabled) VALUES(${userId},${enabled})
         ON CONFLICT(user_id) DO UPDATE SET enabled=${enabled},updated_at=now()
       `;
-      if (permissionGranted) await tx`UPDATE users SET bot_write_allowed=true WHERE id=${userId}`;
       if (!enabled) {
         await tx`UPDATE notification_jobs SET cancelled_at=now(),processing_at=NULL WHERE user_id=${userId} AND sent_at IS NULL AND cancelled_at IS NULL`;
       } else {

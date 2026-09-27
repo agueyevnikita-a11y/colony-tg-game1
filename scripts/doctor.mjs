@@ -1,13 +1,14 @@
 import './env.mjs';
-import postgres from 'postgres';
-const required=['BOT_TOKEN','DATABASE_URL','APP_URL','TELEGRAM_WEBHOOK_SECRET','CRON_SECRET','ADMIN_TELEGRAM_IDS','NEXT_PUBLIC_BOT_USERNAME'];
-let failed=false;
-for(const key of required){const ok=Boolean(process.env[key]);console.log(`${ok?'✓':'✗'} ${key}`);if(!ok)failed=true;}
-if(process.env.DATABASE_URL){
-  const sql=postgres(process.env.DATABASE_URL,{max:1,connect_timeout:5});
-  try{await sql`SELECT 1`;console.log('✓ PostgreSQL connection');}catch(e){console.error('✗ PostgreSQL connection:',e.message);failed=true;}finally{await sql.end();}
+import { runDoctor } from './launch-tools.mjs';
+
+const args = process.argv.slice(2);
+if (args.some((arg) => arg !== '--local')) {
+  console.error('Usage: npm run doctor -- [--local]');
+  process.exitCode = 1;
+} else {
+  const result = await runDoctor({ local: args.includes('--local') });
+  for (const check of result.checks) console.log(`${check.ok ? 'OK' : 'FAIL'} ${check.name}${check.message ? `: ${check.message}` : ''}`);
+  for (const warning of result.warnings) console.log(`NOTE ${warning}`);
+  console.log(result.ok ? 'COLONY doctor: checks passed.' : 'COLONY doctor: launch checks failed.');
+  if (!result.ok) process.exitCode = 1;
 }
-if(process.env.BOT_TOKEN){
-  try{const r=await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/getMe`);const d=await r.json();if(!d.ok)throw new Error(d.description);console.log(`✓ Telegram bot @${d.result.username}`);}catch(e){console.error('✗ Telegram Bot API:',e.message);failed=true;}
-}
-if(failed)process.exitCode=1; else console.log('COLONY doctor: all required checks passed.');
