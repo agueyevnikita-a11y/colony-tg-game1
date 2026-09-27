@@ -1,0 +1,15 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+.local-tools/
+.local-cache/
+*.pem
+*.key
+*.p12
+*.pfx
+npm-debug.log*
+.DS_Store
+coverage
+*.tsbuildinfo

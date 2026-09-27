@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+colony-v101
+.local-tools
+.local-cache
+*.zip
+.env*
+**/.env*
+npm-debug.log*
+*.tsbuildinfo

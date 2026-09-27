@@ -1,0 +1,10 @@
+import './env.mjs';
+const token=process.env.BOT_TOKEN;
+const appUrl=(process.env.APP_URL??'').replace(/\/$/,'');
+const secret=process.env.TELEGRAM_WEBHOOK_SECRET;
+if(!token||!appUrl||!secret) throw new Error('BOT_TOKEN, APP_URL and TELEGRAM_WEBHOOK_SECRET are required');
+const url=`https://api.telegram.org/bot${token}/setWebhook`;
+const res=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:`${appUrl}/api/telegram/webhook`,secret_token:secret,allowed_updates:['message','pre_checkout_query']})});
+const data=await res.json();
+if(!data.ok)throw new Error(data.description??'setWebhook failed');
+console.log('Telegram webhook configured:',`${appUrl}/api/telegram/webhook`);

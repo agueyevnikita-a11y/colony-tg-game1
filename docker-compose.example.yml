@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: colony
+      POSTGRES_USER: colony
+      POSTGRES_PASSWORD: change_me
+    volumes:
+      - colony_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U colony -d colony"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-replace_me_bot}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://colony:change_me@db:5432/colony
+      BOT_TOKEN: replace_me
+      BOT_USERNAME: replace_me_bot
+      NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-replace_me_bot}
+      APP_URL: https://your-domain.example
+      TELEGRAM_WEBHOOK_SECRET: replace_me
+      CRON_SECRET: replace_me
+      ADMIN_TELEGRAM_IDS: "123456789"
+      ALLOW_DEV_AUTH: "false"
+    ports:
+      - "3000:3000"
+volumes:
+  colony_pg:
