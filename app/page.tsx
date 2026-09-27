@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
+import { ResourceShortage } from '@/components/ResourceShortage';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
+import { RequestCancelled } from '@/lib/client/requests';
 import { botAppLink, playerStartParam, shareTelegramLink, supportsTelegram, telegramHeaders } from '@/lib/client/telegram';
 
 type Tab = 'city' | 'build' | 'market' | 'missions' | 'shop' | 'social';
@@ -55,6 +57,10 @@ export default function Home() {
   const [moveBuildingId, setMoveBuildingId] = useState<string | null>(null);
   const [decorPlacementType, setDecorPlacementType] = useState<string | null>(null);
   const [selectedDecorId, setSelectedDecorId] = useState<string | null>(null);
+  const [constructionFeedback, setConstructionFeedback] = useState<{ target: string; text: string; error: boolean } | null>(null);
+  const cityMapRef = useRef<HTMLElement>(null);
+  const mapFeedbackRef = useRef<HTMLDivElement>(null);
+  const constructionFeedbackRef = useRef<HTMLDivElement>(null);
   const [marketResource,setMarketResource]=useState<'ore'|'energy'|'parts'>('ore');
   const [marketAmount,setMarketAmount]=useState('100');
   const [marketPrice,setMarketPrice]=useState('3');
@@ -70,6 +76,39 @@ export default function Home() {
   const [feedbackCategory,setFeedbackCategory]=useState('general');
   const [feedbackMessage,setFeedbackMessage]=useState('');
   const [adminGeneratedCode,setAdminGeneratedCode]=useState('');
+
+  useEffect(() => {
+    if (tab === 'city' && (placementType || decorPlacementType || moveBuildingId)) {
+      cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, [tab, placementType, decorPlacementType, moveBuildingId]);
+
+  useEffect(() => {
+    if (constructionFeedback?.error) {
+      const feedback = constructionFeedback.target === 'map' ? mapFeedbackRef.current : constructionFeedbackRef.current;
+      feedback?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [tab, constructionFeedback]);
+
+  function constructionNotice(target: string) {
+    if (constructionFeedback?.target !== target) return null;
+    return <div ref={constructionFeedbackRef} className={`notice actionFeedback ${constructionFeedback.error ? 'error' : ''}`} role={constructionFeedback.error ? 'alert' : 'status'}>{constructionFeedback.text}</div>;
+  }
+
+  async function constructionAction(target: string, path: string, body: object, successText: string) {
+    setConstructionFeedback(null);
+    try {
+      await api(path, body);
+      setConstructionFeedback({ target, text: successText, error: false });
+      return true;
+    } catch (error) {
+      if (!(error instanceof RequestCancelled)) {
+        setMessage('');
+        setConstructionFeedback({ target, text: error instanceof Error ? error.message : 'Не удалось выполнить действие.', error: true });
+      }
+      return false;
+    }
+  }
 
   async function viewCity(telegramId: number) {
     try {
@@ -267,41 +306,35 @@ export default function Home() {
     if (building) {
       setSelectedBuildingId(building.id);
       setSelectedDecorId(null);
-      if (placementType || decorPlacementType || moveBuildingId) setMessage('Клетка занята. Выбери свободную.');
+      setConstructionFeedback(placementType || decorPlacementType || moveBuildingId ? { target: 'map', text: 'Клетка занята. Выбери свободную.', error: true } : null);
       return;
     }
     if (decor) {
       setSelectedDecorId(decor.id);
       setSelectedBuildingId(null);
-      if (placementType || decorPlacementType || moveBuildingId) setMessage('Клетка занята декором. Выбери свободную.');
+      setConstructionFeedback(placementType || decorPlacementType || moveBuildingId ? { target: 'map', text: 'Клетка занята декором. Выбери свободную.', error: true } : null);
       return;
     }
     if (decorPlacementType) {
       const type = decorPlacementType;
-      try {
-        await api('/api/game/decor/place', { type, x, y });
+      if (await constructionAction('map', '/api/game/decor/place', { type, x, y }, 'Декор размещён')) {
         setDecorPlacementType(null);
-        setMessage('Декор размещён');
-      } catch {}
+      }
       return;
     }
     if (placementType) {
       const type = placementType;
-      try {
-        await api('/api/game/build', { type, x, y });
+      if (await constructionAction('map', '/api/game/build', { type, x, y }, 'Строительство начато')) {
         setPlacementType(null);
-        setMessage('Строительство начато');
-      } catch {}
+      }
       return;
     }
     if (moveBuildingId) {
       const buildingId = moveBuildingId;
-      try {
-        await api('/api/game/building/move', { buildingId, x, y });
+      if (await constructionAction('map', '/api/game/building/move', { buildingId, x, y }, 'Здание перемещено')) {
         setMoveBuildingId(null);
         setSelectedBuildingId(buildingId);
-        setMessage('Здание перемещено');
-      } catch {}
+      }
     }
   }
 
@@ -312,7 +345,8 @@ export default function Home() {
     setSelectedBuildingId(null);
     setSelectedDecorId(null);
     setTab('city');
-    setMessage(`Выбери свободную клетку для «${name}»`);
+    setMessage('');
+    setConstructionFeedback({ target: 'map', text: `Выбери свободную клетку для «${name}»`, error: false });
   }
 
   function beginMove(building: any) {
@@ -320,7 +354,8 @@ export default function Home() {
     setPlacementType(null);
     setDecorPlacementType(null);
     setSelectedDecorId(null);
-    setMessage('Выбери новую свободную клетку');
+    setMessage('');
+    setConstructionFeedback({ target: 'map', text: 'Выбери новую свободную клетку', error: false });
   }
 
   function beginDecorPlacement(type: string, name: string) {
@@ -330,14 +365,16 @@ export default function Home() {
     setSelectedBuildingId(null);
     setSelectedDecorId(null);
     setTab('city');
-    setMessage(`Выбери свободную клетку для «${name}»`);
+    setMessage('');
+    setConstructionFeedback({ target: 'map', text: `Выбери свободную клетку для «${name}»`, error: false });
   }
 
   function cancelMapAction() {
     setPlacementType(null);
     setDecorPlacementType(null);
     setMoveBuildingId(null);
-    setMessage('Действие отменено');
+    setMessage('');
+    setConstructionFeedback(null);
   }
 
   if (phase !== 'ready') {
@@ -426,7 +463,7 @@ export default function Home() {
           <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
           {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
         </section>
-        <section className="card cityCard">
+        <section className="card cityCard" ref={cityMapRef}>
           <div className="cardTitleRow"><div><h2>{game.profile?.colony_name || 'Ваша колония'}</h2><p>{game.gridSize}×{game.gridSize} · занято {usedCells}/{totalCells} · City Score {n(s.city_score)}. Территория расширяется развитием HQ.</p></div><button className="miniButton" onClick={shareCity}>Поделиться</button></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
             <span>{placementType ? '🏗️ Режим размещения' : decorPlacementType ? '🌳 Режим декора' : '↔️ Режим перемещения'}</span>
@@ -448,6 +485,10 @@ export default function Home() {
             buildingSkin={equippedBuildingSkin}
             onCell={handleCityCell}
           />
+          <div className="mapFeedback" ref={mapFeedbackRef}>
+            {constructionNotice('map')}
+            {placementType && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}
+          </div>
         </section>
 
         {selectedBuilding && <section className="card buildingInspector">
@@ -461,9 +502,11 @@ export default function Home() {
               </div>
               {selectedBuilding.nextUpgrade && <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costText(selectedBuilding.nextUpgrade.cost)}</b></div>}
               <div className="grid2">
-                <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => api('/api/game/building/upgrade', { buildingId: selectedBuilding.id }).then(() => setMessage('Улучшение запущено')).catch(()=>{})}>⬆️ Улучшить</button>
+                <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => constructionAction(`upgrade:${selectedBuilding.id}`, '/api/game/building/upgrade', { buildingId: selectedBuilding.id }, 'Улучшение запущено')}>⬆️ Улучшить</button>
                 <button className="action secondary" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => beginMove(selectedBuilding)}>↔️ Переместить</button>
               </div>
+              {selectedBuilding.status === 'active' && <ResourceShortage cost={selectedBuilding.nextUpgrade?.cost} resources={s} />}
+              {constructionNotice(`upgrade:${selectedBuilding.id}`)}
             </>;
           })()}
         </section>}
@@ -505,13 +548,16 @@ export default function Home() {
               <div style={{fontSize:24}}>{item.emoji}</div><b>{item.name}</b>
               <small>{costText(item.baseBuildCost)} · {durationText(item.baseBuildTimeSec)}</small>
               <button className="action secondary" disabled={busy} onClick={() => beginPlacement(item.type, item.name)}>Выбрать место</button>
+              <ResourceShortage cost={item.baseBuildCost} resources={s} />
             </div>)}
           </div>
         </section>
         <section className="card">
           <h2>Центр управления</h2><p>HQ3 расширяет территорию до 7×7 и квалифицирует приглашённого игрока. HQ5 расширяет карту до 8×8.</p>
           <div className="upgradeBox"><span>Следующее улучшение</span><b>{hq?.nextUpgrade ? costText(hq.nextUpgrade.cost) : 'пока максимум'}</b></div>
-          <button className="action" disabled={busy || !hq?.nextUpgrade || hq?.status !== 'active'} onClick={() => api('/api/game/building/upgrade', { buildingId: hq.id }).then(() => setMessage('Улучшение HQ запущено')).catch(()=>{})}>🏛️ Улучшить HQ</button>
+          <button className="action" disabled={busy || !hq?.nextUpgrade || hq?.status !== 'active'} onClick={() => constructionAction('hq', '/api/game/building/upgrade', { buildingId: hq.id }, 'Улучшение HQ запущено')}>🏛️ Улучшить HQ</button>
+          {hq?.status === 'active' && <ResourceShortage cost={hq.nextUpgrade?.cost} resources={s} />}
+          {constructionNotice('hq')}
         </section>
 
         <section className="card scienceCard">

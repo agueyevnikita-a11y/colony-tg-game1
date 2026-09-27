@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         const target = hq.level + 1;
         const up = HQ_UPGRADES[target];
         if (!up) throw new Error('HQ upgrade is not configured yet');
-        if (!canPay(state, up.cost)) throw new Error('Not enough resources');
+        if (!canPay(state, up.cost)) throw new Error('Не хватает ресурсов');
         const seconds = Math.max(5, Math.ceil(up.timeSec * (premium ? 0.95 : 1)));
         await tx`
           UPDATE game_states SET
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       }
 
       if (state.hq_level < cfg.unlockHq) throw new Error(`Requires HQ level ${cfg.unlockHq}`);
-      if (!canPay(state, cfg.baseBuildCost)) throw new Error('Not enough resources');
+      if (!canPay(state, cfg.baseBuildCost)) throw new Error('Не хватает ресурсов');
       const buildings = await tx<any[]>`SELECT x, y FROM buildings WHERE user_id=${userId}`;
       const decor = await tx<any[]>`SELECT x, y FROM city_decor WHERE user_id=${userId}`;
       const occupiedCells = [...buildings, ...decor];

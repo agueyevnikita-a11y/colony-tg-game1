@@ -44,6 +44,10 @@ button { font: inherit; }
 .tab.active { color:var(--text); background:var(--panel2); border-radius:12px; }
 .notice { padding:10px 12px; border-radius:13px; background:rgba(114,228,173,.08); border:1px solid rgba(114,228,173,.2); color:#bff3d9; font-size:12px; margin-bottom:10px; }
 .error { color:#ffc0c0; background:rgba(255,80,80,.08); border-color:rgba(255,80,80,.2); }
+.resourceShortage { color:#ffc0c0; font-size:12px; line-height:1.4; margin-top:8px; overflow-wrap:anywhere; }
+.actionFeedback { margin:10px 0 0; }
+.actionFeedback, .mapFeedback { scroll-margin-bottom:calc(100px + env(safe-area-inset-bottom, 0px)); }
+.cityCard { scroll-margin-top:12px; }
 .shopItem { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); }
 .shopItem:last-child { border-bottom:0; }
 .shopItem strong { display:block; font-size:13px; }
