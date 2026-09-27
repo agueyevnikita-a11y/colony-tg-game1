@@ -23,7 +23,7 @@ export async function databaseReadiness(): Promise<{ database: 'ok' | 'error'; s
   try {
     const columns = await sql<{ table_name: string; column_name: string }[]>`
       SELECT table_name,column_name FROM information_schema.columns
-      WHERE table_schema=current_schema() AND table_name=ANY(${sql.array(Object.keys(REQUIRED_SCHEMA))}::text[])
+      WHERE table_schema=current_schema()
     `;
     return { database: 'ok', schema: schemaIsReady(columns) ? 'ok' : 'error' };
   } catch {

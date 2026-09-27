@@ -48,3 +48,15 @@ jobs:
           COLONY_TEST_DATABASE: '1'
       - name: Verify deployment image
         run: docker build --build-arg NEXT_PUBLIC_BOT_USERNAME=colony_ci_bot -t colony-ci .
+      - name: Verify container startup as non-root
+        run: |
+          docker run --detach --name colony-ci-smoke --publish 127.0.0.1:3220:3000 colony-ci
+          trap 'docker logs colony-ci-smoke; docker rm --force colony-ci-smoke' EXIT
+          test "$(docker exec colony-ci-smoke id -u)" != '0'
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3220/api/health/live; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
