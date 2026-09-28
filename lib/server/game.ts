@@ -19,6 +19,7 @@ import { getFeatureFlags } from '@/lib/server/feature-flags';
 import { assertRateLimitTx } from '@/lib/server/rate-limit';
 import { getAccessState } from '@/lib/server/access';
 import { accrueIncome } from '@/lib/server/passive-income';
+import { collectableFoundryJobs } from '@/lib/game/foundry';
 
 export async function ensurePlayer(tg: {
   id: number;
@@ -220,11 +221,13 @@ export async function reconcilePlayer(userId: string) {
     const finishedJobs = await tx<any[]>`
       SELECT * FROM foundry_jobs
       WHERE user_id=${userId} AND claimed_at IS NULL AND completes_at <= now()
+      ORDER BY completes_at ASC, id ASC
       FOR UPDATE
     `;
-    const partsFromJobs = finishedJobs.reduce((sum, j) => sum + Number(j.parts_reward), 0);
-    if (finishedJobs.length) {
-      await tx`UPDATE foundry_jobs SET claimed_at=now() WHERE id = ANY(${tx.array(finishedJobs.map((j) => j.id))}::uuid[])`;
+    const collectableJobs = collectableFoundryJobs(finishedJobs, liquidCaps.parts - Number(state.parts));
+    const partsFromJobs = collectableJobs.reduce((sum, j) => sum + Number(j.parts_reward), 0);
+    if (collectableJobs.length) {
+      await tx`UPDATE foundry_jobs SET claimed_at=now() WHERE id IN ${tx(collectableJobs.map((job) => job.id))}`;
     }
 
     const carry = state.passive_carry ?? {};
@@ -234,7 +237,7 @@ export async function reconcilePlayer(userId: string) {
     const scienceIncome = accrueIncome({ current: Number(state.science ?? 0), gain: scienceGain, carry: Number(carry.science ?? 0) });
     const ore = oreIncome.amount;
     const energy = energyIncome.amount;
-    const parts = Math.min(Number(state.parts) + partsFromJobs, liquidCaps.parts);
+    const parts = Number(state.parts) + partsFromJobs;
     const credits = creditIncome.amount;
     const science = scienceIncome.amount;
     const hq = buildings.find((b) => b.type === 'hq');
@@ -330,6 +333,7 @@ export async function reconcilePlayer(userId: string) {
       decor,
       decorCatalog: Object.entries(DECOR_CATALOG).map(([type, cfg]) => ({ type, ...cfg })),
       activeJobs,
+      production: { partsMultiplier: researchEffects.foundryParts },
       caps,
       escrow,
       contracts,

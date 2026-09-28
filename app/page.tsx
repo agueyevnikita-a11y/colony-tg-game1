@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
 import { ResourceShortage } from '@/components/ResourceShortage';
+import { ProductionPanel } from '@/components/ProductionPanel';
+import type { FoundryLink, FoundryMode } from '@/lib/game/foundry';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { RequestCancelled } from '@/lib/client/requests';
@@ -61,6 +63,7 @@ export default function Home() {
   const cityMapRef = useRef<HTMLElement>(null);
   const mapFeedbackRef = useRef<HTMLDivElement>(null);
   const constructionFeedbackRef = useRef<HTMLDivElement>(null);
+  const pendingProduction = useRef<{ key: string; requestId: string } | null>(null);
   const [marketResource,setMarketResource]=useState<'ore'|'energy'|'parts'>('ore');
   const [marketAmount,setMarketAmount]=useState('100');
   const [marketPrice,setMarketPrice]=useState('3');
@@ -116,6 +119,21 @@ export default function Home() {
       setViewedCity(data.city);
       setTab('social');
     } catch {}
+  }
+
+  async function startProduction(body: { buildingId: string; mode: FoundryMode; link: FoundryLink; cycles: number }) {
+    const key = JSON.stringify(body);
+    if (pendingProduction.current?.key !== key) {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 15) | 64;
+      bytes[8] = (bytes[8] & 63) | 128;
+      const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+      pendingProduction.current = { key, requestId: `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}` };
+    }
+    const succeeded = await constructionAction(`production:${body.buildingId}`, '/api/game/foundry/start',
+      { ...body, requestId: pendingProduction.current.requestId }, 'Партия принята. Цех выполнит циклы по порядку, даже когда игра закрыта.');
+    if (succeeded) pendingProduction.current = null;
+    return succeeded;
   }
 
   useEffect(() => {
@@ -442,27 +460,6 @@ export default function Home() {
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       {tab === 'city' && <>
-        <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2>🔥 Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
-          {game.dailyLogin?.today && <div className="dailyReward"><span>День {game.dailyLogin.today.cycle_day}/7</span><b>💰 {n(game.dailyLogin.today.credit_reward)}{Number(game.dailyLogin.today.crystal_reward)>0?` · 💎 ${n(game.dailyLogin.today.crystal_reward)}`:''}</b><button className="miniButton" disabled={busy||!!game.dailyLogin.today.claimed_at} onClick={()=>api('/api/game/daily-login/claim').then(()=>setMessage('Ежедневная награда получена')).catch(()=>{})}>{game.dailyLogin.today.claimed_at?'Получено':'Забрать'}</button></div>}
-        </section>
-        {!game.tutorial?.completed && game.tutorial?.current && <section className="card tutorialCard">
-          <div className="cardTitleRow"><div><h2>🧭 Первые шаги · {Number(game.tutorial.step)+1}/{game.tutorial.total}</h2><p>{game.tutorial.current.title}</p></div><span className="pill">{game.tutorial.current.conditionMet?'Готово':'В процессе'}</span></div>
-          <p>{game.tutorial.current.description}</p>
-          <div className="tutorialReward"><span>Награда</span><b>{costText(game.tutorial.current.reward)}</b></div>
-          <div className="grid2">
-            <button className="action secondary" onClick={()=>setTab(game.tutorial.current.actionTab)}>Показать, куда идти</button>
-            <button className="action" disabled={busy||!game.tutorial.current.conditionMet} onClick={()=>api('/api/game/tutorial/claim').then(()=>setMessage('Шаг обучения завершён')).catch(()=>{})}>Забрать награду</button>
-          </div>
-        </section>}
-        {game.tutorial?.completed && <section className="card compactSuccess"><b>✅ Базовое обучение завершено</b><span>Дальше колония развивается свободно: рынок, наука, экспедиции и альянсы.</span></section>}
-        <section className="card notificationCard">
-          <div className="cardTitleRow"><div><h2>🔔 Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
-          <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
-        </section>
-        <section className="card inboxCard"><div className="cardTitleRow"><div><h2>📨 Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
-          <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
-          {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
-        </section>
         <section className="card cityCard" ref={cityMapRef}>
           <div className="cardTitleRow"><div><h2>{game.profile?.colony_name || 'Ваша колония'}</h2><p>{game.gridSize}×{game.gridSize} · занято {usedCells}/{totalCells} · City Score {n(s.city_score)}. Территория расширяется развитием HQ.</p></div><button className="miniButton" onClick={shareCity}>Поделиться</button></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
@@ -480,6 +477,8 @@ export default function Home() {
             placementMode={!!placementType}
             decorPlacementMode={!!decorPlacementType}
             moveMode={!!moveBuildingId}
+            planningType={placementType ?? (game.buildings ?? []).find((building: any) => building.id === moveBuildingId)?.type}
+            movingBuildingId={moveBuildingId ?? undefined}
             theme={equippedTheme}
             weather={equippedWeather}
             buildingSkin={equippedBuildingSkin}
@@ -519,16 +518,25 @@ export default function Home() {
           </>})()}
         </section>}
 
+        <ProductionPanel
+          buildings={game.buildings ?? []}
+          jobs={game.activeJobs ?? []}
+          resources={s}
+          partsCapacity={Math.max(0, Number(game.caps?.parts ?? 800) - Number(game.escrow?.parts ?? 0))}
+          partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
+          busy={busy}
+          selectedBuildingId={selectedBuildingId}
+          onFoundryChange={setSelectedBuildingId}
+          onChangeSelection={() => setConstructionFeedback(null)}
+          onStart={startProduction}
+          onRefresh={() => { void refresh(); }}
+          onBuild={() => beginPlacement('foundry', 'Литейный цех')}
+          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }}
+          feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
+        />
+
         <section className="card"><h2>🌳 Дороги и декор</h2><p>Покупаются только за игровые кредиты. На развитие и рейтинг не влияют.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span>{d.emoji}</span><b>{d.name}</b><small>💰 {n(d.credits)}</small></button>)}</div></section>
 
-        <section className="card">
-          <h2>Производство</h2><p>100 руды + 40 энергии → 35 деталей. Улучшение литейного цеха ускоряет цикл и повышает выход.</p>
-          <div className="grid2">
-            <button className="action" disabled={busy} onClick={() => api('/api/game/foundry/start').then(() => setMessage('Плавка запущена')).catch(()=>{})}>⚙️ Запустить плавку</button>
-            <button className="action secondary" disabled={busy} onClick={() => refresh()}>↻ Обновить</button>
-          </div>
-          {(game.activeJobs?.length ?? 0) > 0 && <p>Активных плавок: {game.activeJobs.length}. Детали начислятся автоматически.</p>}
-        </section>
         <section className="card">
           <h2>NPC-контракты</h2>
           {(game.contracts?.length ?? 0) === 0 ? <p>Построй торговый узел — здесь появятся первые контракты. Они создают кредиты, но сжигают реальные ресурсы.</p> : <div className="stack">
@@ -537,6 +545,27 @@ export default function Home() {
               <button className="miniButton" disabled={busy} onClick={() => api('/api/game/contracts/complete', { contractId: c.id }).then(() => setMessage('Контракт выполнен')).catch(()=>{})}>Выполнить</button>
             </div>)}
           </div>}
+        </section>
+        <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2>🔥 Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
+          {game.dailyLogin?.today && <div className="dailyReward"><span>День {game.dailyLogin.today.cycle_day}/7</span><b>💰 {n(game.dailyLogin.today.credit_reward)}{Number(game.dailyLogin.today.crystal_reward)>0?` · 💎 ${n(game.dailyLogin.today.crystal_reward)}`:''}</b><button className="miniButton" disabled={busy||!!game.dailyLogin.today.claimed_at} onClick={()=>api('/api/game/daily-login/claim').then(()=>setMessage('Ежедневная награда получена')).catch(()=>{})}>{game.dailyLogin.today.claimed_at?'Получено':'Забрать'}</button></div>}
+        </section>
+        {!game.tutorial?.completed && game.tutorial?.current && <section className="card tutorialCard">
+          <div className="cardTitleRow"><div><h2>🧭 Первые шаги · {Number(game.tutorial.step)+1}/{game.tutorial.total}</h2><p>{game.tutorial.current.title}</p></div><span className="pill">{game.tutorial.current.conditionMet?'Готово':'В процессе'}</span></div>
+          <p>{game.tutorial.current.description}</p>
+          <div className="tutorialReward"><span>Награда</span><b>{costText(game.tutorial.current.reward)}</b></div>
+          <div className="grid2">
+            <button className="action secondary" onClick={()=>setTab(game.tutorial.current.actionTab)}>Показать, куда идти</button>
+            <button className="action" disabled={busy||!game.tutorial.current.conditionMet} onClick={()=>api('/api/game/tutorial/claim').then(()=>setMessage('Шаг обучения завершён')).catch(()=>{})}>Забрать награду</button>
+          </div>
+        </section>}
+        {game.tutorial?.completed && <section className="card compactSuccess"><b>✅ Базовое обучение завершено</b><span>Дальше колония развивается свободно: рынок, наука, экспедиции и альянсы.</span></section>}
+        <section className="card notificationCard">
+          <div className="cardTitleRow"><div><h2>🔔 Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
+          <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
+        </section>
+        <section className="card inboxCard"><div className="cardTitleRow"><div><h2>📨 Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
+          <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
+          {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
         </section>
       </>}
 

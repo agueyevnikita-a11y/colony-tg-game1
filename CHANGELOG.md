@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0-beta.1 — City Production
+- Added individual foundry controls, economy/standard/rush modes, and serial batches that run offline.
+- Added one selectable adjacency bonus: an active mine saves 15% ore or an active solar plant saves 20% energy. Map placement previews eligible cells.
+- Added exact batch cost, output, duration, queue and warehouse previews near the production action.
+- Preserved existing production jobs and retained completed output that cannot yet fit in storage.
+- Added durable duplicate-request protection and PostgreSQL regressions for ownership, charging, concurrency and collection.
+- Moved the city map and production above secondary home-screen cards; construction errors remain beside their actions.
+
 ## 1.1.0-beta.1 — Telegram Launch Preparation
 - Added a clear Telegram entry screen, SDK retry, offline/expired-session recovery, safer request ordering and visibility-aware refresh.
 - Added Telegram safe-area layout, back-button navigation and validated share links.
