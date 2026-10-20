@@ -37,7 +37,7 @@
 .shopSectionHeading .cosmeticPermanent { color:#dcc595; padding:5px 8px; border:1px solid rgba(231,194,124,.2); border-radius:9px; }
 .cosmeticsShop .founderOffer > p { color:var(--shop-muted); font-size:13px; line-height:1.5; }
 .founderCombinedPreview { margin:15px 0; }
-.founderCombinedPreview .cosmeticPreviewSurface { height:190px; }
+.founderCombinedPreview .cosmeticPreviewSurface { --cosmetic-preview-height:190px; }
 .founderContents { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:15px 0; }
 .founderPreview { display:flex; flex-direction:column; min-width:0; padding:0 0 10px; overflow:hidden; border:1px solid rgba(220,194,138,.18); border-radius:13px; background:rgba(230,191,115,.025); color:var(--text); text-align:left; cursor:pointer; }
 .founderCosmeticArt { width:100%; min-height:95px; }

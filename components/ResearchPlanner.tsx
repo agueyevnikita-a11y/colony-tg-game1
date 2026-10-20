@@ -156,8 +156,8 @@ export function ResearchPlanner(props: Props) {
     <div id={`${id}-choices`} className="researchPlanChoices" hidden={!!plan && !choicesOpen}>
       <div className="researchPlanGoals" role="group" aria-label="Цели развития">
         {goals.map((goal) => <button type="button" key={goal.key} data-research-goal={goal.key} className={`researchPlanGoal ${props.targetKey === goal.key ? 'isSelected' : ''}`} aria-pressed={props.targetKey === goal.key} disabled={props.busy} onClick={() => { props.onTargetChange(goal.key); setChoicesOpen(false); }}>
-          {'building' in goal ? <BuildingArt type={goal.building!} /> : <GameIcon name={goal.icon!} size={25} />}
-          <span>{goal.name}</span>{completed.has(goal.key) && <GameIcon name="check" size={12} />}
+          <span className="researchPlanGoalVisual" aria-hidden="true">{'building' in goal ? <BuildingArt type={goal.building!} /> : <GameIcon name={goal.icon!} size={22} />}</span>
+          <span className="researchPlanGoalLabel">{goal.name}</span>{completed.has(goal.key) && <GameIcon name="check" size={12} />}
         </button>)}
       </div>
       <p className="researchPlanSelectionHint">Выбор цели сохраняется на этом устройстве. Исследования запускаются отдельно в карточках технологий.</p>

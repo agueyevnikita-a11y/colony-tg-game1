@@ -56,16 +56,15 @@
 .cityMonumentDisplay.founder_monument .founderMonumentArt { width:78px; filter:drop-shadow(0 0 4px rgba(221,174,90,.2)); }
 .founderMonumentArt { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:contain; }
 .cosmeticPreview { width:100%; min-width:0; margin:0; }
-.cosmeticPreviewSurface { position:relative; height:156px; min-width:0; padding:12px!important; overflow:hidden; border-radius:15px; }
+.cosmeticPreviewSurface { --cosmetic-preview-height:156px; position:relative; height:var(--cosmetic-preview-height); min-width:0; padding:12px!important; overflow:hidden; border-radius:15px; }
 .cosmeticPreviewName { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:6px; color:#d9e7ee; font-size:11px; font-weight:700; letter-spacing:.1em; }
 .cosmeticPreviewName .cosmeticBadge { width:21px; height:23px; }
 .cosmeticPreviewTitle { display:block; max-width:200px; margin-top:4px; color:#b7c9d8; font-size:9px; font-weight:500; line-height:1.4; letter-spacing:0; }
 .cosmeticPreviewBuildings { position:absolute; z-index:2; inset:28px 12px 6px; display:flex; align-items:flex-end; justify-content:center; gap:0; }
-.cosmeticPreviewBuildings > .buildingArt { width:34%; max-height:100%; }
-.cosmeticPreviewBuildings > .founderMonumentArt { width:34%; max-height:100%; object-fit:contain; }
+.cosmeticPreviewBuildings > .buildingArt,.cosmeticPreviewBuildings > .founderMonumentArt { width:min(32%,calc(var(--cosmetic-preview-height) - 42px)); height:auto; aspect-ratio:1; max-height:none; flex:0 0 auto; }
 .cosmeticPreview figcaption { margin-top:7px; font-size:11px; line-height:1.4; color:var(--muted); }
 @keyframes cosmeticAurora { from { transform:translate3d(-6%,-4%,0) rotate(-12deg); opacity:.7; } to { transform:translate3d(8%,12%,0) rotate(4deg); opacity:1; } }
 @keyframes cosmeticFounderSky { from { transform:translate3d(-5%,-4%,0) rotate(-10deg); opacity:.65; } to { transform:translate3d(6%,9%,0) rotate(7deg); opacity:1; } }
 @keyframes cosmeticSignal { 0% { transform:scale(.3); opacity:0; } 20% { opacity:.5; } 100% { transform:scale(2.7); opacity:0; } }
-@media(max-width:420px) { .cityMap.cosmeticFrame { padding:10px; } .cosmeticPreviewSurface { height:145px; } }
+@media(max-width:420px) { .cityMap.cosmeticFrame { padding:10px; } .cosmeticPreviewSurface { --cosmetic-preview-height:145px; } }
 @media(prefers-reduced-motion:reduce) { .cosmeticSky i,.cosmeticSignal i { animation:none; } .cosmeticSky i { opacity:.8; } .cosmeticSignal i { opacity:.22; transform:scale(1.2); } .cosmeticSignal i + i { transform:scale(1.8); } }

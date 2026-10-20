@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.1-beta.1 — Beta Visual Feedback
+- Reduced research goal thumbnails, removed negative margins and reserved a consistent visual area inside each button.
+- Added comfortable spacing around goal art without reducing the touch target or changing research behavior.
+- Preserved square building proportions in wide cosmetic previews instead of squeezing images against the frame.
+- Checked narrow mobile layouts and larger goal labels; no migration or economy changes.
+
 ## 1.9.0-beta.1 — Focused Screens and Reliable Rewards
 - Split long primary tabs into compact task-focused subsections and paginated market orders.
 - Collapsed detailed resource cards and completed-tutorial guidance; kept direct navigation, placement and Telegram Back aware of subsections.
