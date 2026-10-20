@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       const state = (await tx<any[]>`SELECT user_id FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
       if (!state) throw new Error('Игровой профиль не найден');
       const rows = await tx<any[]>`
-        SELECT uc.acquired_at::text AS acquired_at, c.category
+        SELECT uc.acquired_at::text AS acquired_at, uc.equipped, c.category
         FROM user_cosmetics uc JOIN cosmetics c ON c.id=uc.cosmetic_id
         WHERE uc.user_id=${userId} AND uc.cosmetic_id=${cosmeticId}
           AND (uc.expires_at IS NULL OR uc.expires_at > clock_timestamp())
@@ -43,17 +43,19 @@ export async function POST(request: Request) {
           UPDATE user_cosmetics uc SET equipped=false
           FROM cosmetics c
           WHERE uc.cosmetic_id=c.id AND uc.user_id=${userId} AND c.category=${owned.category} AND uc.equipped=true
-            AND NOT (uc.cosmetic_id=${cosmeticId} AND uc.acquired_at=${owned.acquired_at})
+            AND NOT (uc.cosmetic_id=${cosmeticId} AND uc.acquired_at=${owned.acquired_at}::text::timestamptz)
           RETURNING uc.cosmetic_id
         `;
-        // Keep the timestamp as text: converting this composite key to a JS Date
-        // would discard PostgreSQL microseconds and may update no matching row.
+        // Force the parameter to text before PostgreSQL casts it: inferring it
+        // as timestamptz makes postgres.js serialize through JS Date and discard
+        // the microseconds of this composite key, even when given a string.
         const selected = await tx<any[]>`
           UPDATE user_cosmetics SET equipped=true
-          WHERE user_id=${userId} AND cosmetic_id=${cosmeticId} AND acquired_at=${owned.acquired_at} AND equipped=false
+          WHERE user_id=${userId} AND cosmetic_id=${cosmeticId} AND acquired_at=${owned.acquired_at}::text::timestamptz
           RETURNING cosmetic_id
         `;
-        if (cleared.length || selected.length) await analyticsEvent(tx, userId, 'cosmetic_equipped', { cosmetic_id: cosmeticId, category: owned.category });
+        if (selected.length !== 1) throw new Error('Не удалось применить предмет. Попробуй ещё раз.');
+        if (cleared.length || !owned.equipped) await analyticsEvent(tx, userId, 'cosmetic_equipped', { cosmetic_id: cosmeticId, category: owned.category });
       }
     });
 

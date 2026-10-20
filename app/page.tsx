@@ -16,6 +16,8 @@ import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
 import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
+import { PRODUCTS } from '@/lib/game/config';
+import { permanentProductOwned } from '@/lib/game/product-ownership';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { RequestCancelled } from '@/lib/client/requests';
@@ -31,6 +33,15 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
   shop: { title: 'Магазин', hint: 'Оформление твоей колонии' },
   social: { title: 'Связи', hint: 'Профиль, альянс и другие колонии' },
 };
+function readAwaitingProducts(key: string): string[] {
+  try {
+    const stored: unknown = JSON.parse(sessionStorage.getItem(key) ?? '[]');
+    return Array.isArray(stored) ? [...new Set(stored.filter((id): id is string => typeof id === 'string' && Object.hasOwn(PRODUCTS, id) && PRODUCTS[id as keyof typeof PRODUCTS].kind !== 'premium'))] : [];
+  } catch { return []; }
+}
+function saveAwaitingProducts(key: string, products: string[]) {
+  try { if (products.length) sessionStorage.setItem(key, JSON.stringify(products)); else sessionStorage.removeItem(key); } catch { /* The in-memory hold still protects this session. */ }
+}
 
 function n(value: unknown) {
   return new Intl.NumberFormat('ru-RU', {
@@ -82,6 +93,7 @@ export default function Home() {
   const productionNavigationPending = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [awaitingPurchases, setAwaitingPurchases] = useState<{ key: string; products: string[] }>({ key: '', products: [] });
   const invoiceOpening = useRef(false);
   const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
@@ -105,6 +117,23 @@ export default function Home() {
   const [feedbackCategory,setFeedbackCategory]=useState('general');
   const [feedbackMessage,setFeedbackMessage]=useState('');
   const [adminGeneratedCode,setAdminGeneratedCode]=useState('');
+  const purchaseUser = game?.userId ?? game?.telegramUser?.id;
+  const purchaseStorageKey = purchaseUser ? `colony:awaiting-cosmetics:${purchaseUser}` : '';
+  const awaitingProducts = awaitingPurchases.key === purchaseStorageKey ? awaitingPurchases.products : [];
+
+  useEffect(() => {
+    if (!purchaseStorageKey) return;
+    setAwaitingPurchases(previous => {
+      const products = previous.key === purchaseStorageKey ? previous.products : readAwaitingProducts(purchaseStorageKey);
+      const waiting = products.filter(id => !permanentProductOwned(id, game?.cosmetics ?? []));
+      if (previous.key === purchaseStorageKey && waiting.length === products.length) return previous;
+      return { key: purchaseStorageKey, products: waiting };
+    });
+  }, [purchaseStorageKey, game?.cosmetics]);
+
+  useEffect(() => {
+    if (awaitingPurchases.key) saveAwaitingProducts(awaitingPurchases.key, awaitingPurchases.products);
+  }, [awaitingPurchases]);
 
   useEffect(() => {
     if (!navigationToTop.current) return;
@@ -384,6 +413,7 @@ export default function Home() {
   async function buyStars(productId: string) {
     if (game?.flags?.stars_shop === false) throw new Error('Покупки за Stars временно недоступны.');
     if (invoiceOpening.current) throw new Error('Сначала заверши или закрой открытый счёт Telegram.');
+    if (awaitingProducts.includes(productId)) throw new Error('Ожидаем подтверждения предыдущей оплаты. Проверь покупку перед повтором.');
     const app = window.Telegram?.WebApp;
     if (!supportsTelegram(app, '6.1') || !app?.openInvoice) throw new Error('Покупки доступны внутри актуального Telegram.');
     invoiceOpening.current = true;
@@ -394,6 +424,12 @@ export default function Home() {
       if (invoice.protocol !== 'https:' || invoice.hostname !== 't.me') throw new Error('Не удалось открыть счёт Telegram. Попробуйте позже.');
       await new Promise<void>((resolve, reject) => {
         app.openInvoice!(invoice.href, (status) => {
+          const product = PRODUCTS[productId as keyof typeof PRODUCTS];
+          if ((status === 'paid' || status === 'pending') && product?.kind !== 'premium' && purchaseStorageKey) {
+            const products = [...new Set([...awaitingProducts, productId])];
+            saveAwaitingProducts(purchaseStorageKey, products);
+            setAwaitingPurchases({ key: purchaseStorageKey, products });
+          }
           invoiceOpening.current = false;
           setInvoiceOpen(false);
           void refresh(true);
@@ -779,6 +815,7 @@ export default function Home() {
       {tab === 'shop' && <CosmeticsShop
         cosmetics={game.cosmetics ?? []} shopCosmetics={game.shopCosmetics ?? []}
         busy={busy || invoiceOpen} starsEnabled={game.flags?.stars_shop !== false}
+        awaitingProducts={awaitingProducts}
         premium={!!s.premium} premiumUntil={s.premium_until} crystals={Number(s.crystals ?? 0)}
         onBuy={buyStars}
         onEquip={async (cosmeticId, equipped = true) => {

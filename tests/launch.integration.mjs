@@ -1006,6 +1006,35 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.deepEqual((await sql`SELECT ore,energy,parts,credits,crystals FROM game_states WHERE user_id=${userId}`)[0], moneyBefore, 'Changing appearance does not charge game resources');
   });
 
+  await t.test('invoices reject permanently owned cosmetics and a complete Founder Pack before creating a purchase', async () => {
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    await sql`DELETE FROM user_cosmetics WHERE user_id=${userId}`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${userId}`}`;
+    for (const cosmeticId of ['theme_neon', 'weather_aurora', 'frame_orbit', 'founder_badge', 'founder_monument', 'founder_frame', 'founder_sky']) {
+      await sql`INSERT INTO user_cosmetics (user_id,cosmetic_id,source) VALUES (${userId},${cosmeticId},'integration')`;
+    }
+    // Existing created invoices are deliberately not used as an ownership test:
+    // they may be cancelled, and the player must be able to retry those purchases.
+    await sql`
+      INSERT INTO purchases (user_id,product_id,stars_paid,invoice_payload)
+      VALUES (${userId},'theme_neon',149,${`integration:cancelled:${crypto.randomUUID()}`})
+    `;
+    const before = await sql`SELECT id,product_id,status,invoice_payload FROM purchases WHERE user_id=${userId} ORDER BY id`;
+    for (const productId of ['theme_neon', 'weather_aurora', 'frame_orbit', 'founder_pack']) {
+      const rejected = await request('/api/payments/invoice', { method: 'POST', auth: initData(playerId), body: { productId } });
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+      assert.match(rejected.data.error, /уже есть у тебя навсегда/);
+      assert.deepEqual(await sql`SELECT id,product_id,status,invoice_payload FROM purchases WHERE user_id=${userId} ORDER BY id`, before,
+        'Owned products must be rejected before inserting a purchase or reaching the subsequent Telegram request');
+    }
+    for (const productId of ['constructor', 'toString', 'missing_product']) {
+      const rejected = await request('/api/payments/invoice', { method: 'POST', auth: initData(playerId), body: { productId } });
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+      assert.equal(rejected.data.error, 'Товар не найден');
+      assert.deepEqual(await sql`SELECT id,product_id,status,invoice_payload FROM purchases WHERE user_id=${userId} ORDER BY id`, before);
+    }
+  });
+
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;
     await sql`UPDATE system_settings SET value='{"enabled":true,"message":"Launch test"}'::jsonb WHERE setting_key='maintenance'`;
