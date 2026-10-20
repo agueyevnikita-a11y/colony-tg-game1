@@ -1,4 +1,4 @@
-# COLONY v1.6 Beta
+# COLONY v1.7 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -13,6 +13,8 @@ v1.4 adds research-gated production recipes: save ore with precision casting or 
 v1.5 refreshes the mobile interface with illustrated city buildings, consistent resource icons, a welcome screen, guided first steps and an in-game mechanics reference. Construction, production and research retain their existing rules; tutorial rewards and progression are preserved. City activity animations respect reduced-motion preferences. No additional migration is required from v1.4; upgrading from v1.3 still requires the v1.4 recipe migration above. See [interface scope and verification](docs/FRONTEND_v1.5.md) and [art assets](docs/ART_v1.5.md).
 
 v1.6 gives each tab a compact contextual header and keeps the full resource overview and guide on the city screen. Paid cosmetics now have visual previews, shared effects on the real city, profile frames and founder art. Owned cosmetics can be equipped or removed; server-side ownership, expiry and category exclusivity are preserved. No new database migration is required from v1.4/v1.5. See [cosmetics and interface rules](docs/COSMETICS_v1.6.md).
+
+v1.7 adds a player-selected research goal with an ordered prerequisite path, remaining research costs and actionable HQ/laboratory/resource requirements. The home guide follows actual research and building status, while completed technologies link to their buildings or recipes. Goals are stored per player on the current device; choosing a plan never launches or pays for research. No migration or economy change is required. See [research planning and verification](docs/RESEARCH_PLAN_v1.7.md).
 
 ## Stack
 - Next.js 16 / React 19 / TypeScript

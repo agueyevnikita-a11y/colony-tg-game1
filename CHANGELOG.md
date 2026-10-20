@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.1 — Research Goals
+- Added a player-selected research goal with an ordered, deduplicated prerequisite path and remaining research cost/time.
+- Excluded completed and already paid active research from future charges while retaining their visible progress.
+- Added direct links to missing HQ/lab upgrades, prerequisites, resource production and unlocked buildings/recipes.
+- Adapted the home guide to building timers, active research, selected goals and a fully completed technology tree.
+- Moved research before the building catalog and improved repeat navigation and keyboard focus.
+- Preserved research effects, prices, paid jobs, tutorial rewards and player progress; no new database migration is required.
+
 ## 1.6.0-beta.1 — Cosmetics and Focused Tabs
 - Replaced the repeated colony-name header with COLONY and contextual section titles, with the full resource overview and guide on the city screen.
 - Added visual previews for the existing Stars products and collection controls for applying or removing cosmetics.

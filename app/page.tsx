@@ -88,6 +88,8 @@ export default function Home() {
   const constructionFeedbackRef = useRef<HTMLDivElement>(null);
   const pendingProduction = useRef<{ key: string; requestId: string } | null>(null);
   const [focusedResearch, setFocusedResearch] = useState<string | null>(null);
+  const [researchFocusVersion, setResearchFocusVersion] = useState(0);
+  const [researchTarget, setResearchTarget] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
@@ -120,6 +122,32 @@ export default function Home() {
   const purchaseUser = game?.userId ?? game?.telegramUser?.id;
   const purchaseStorageKey = purchaseUser ? `colony:awaiting-cosmetics:${purchaseUser}` : '';
   const awaitingProducts = awaitingPurchases.key === purchaseStorageKey ? awaitingPurchases.products : [];
+  const planOwner = purchaseUser ? String(purchaseUser) : '';
+  const plannedResearchKey = researchTarget.owner === planOwner ? researchTarget.key : null;
+
+  useEffect(() => {
+    if (!planOwner || !game?.research?.catalog) return;
+    setResearchTarget(previous => {
+      let key = previous.owner === planOwner ? previous.key : null;
+      if (previous.owner !== planOwner) {
+        try { key = localStorage.getItem(`colony:research-target:${planOwner}`); } catch { /* Planning remains available in memory. */ }
+      }
+      if (key && !game.research.catalog.some((item: any) => item.key === key)) key = null;
+      return previous.owner === planOwner && previous.key === key ? previous : { owner: planOwner, key };
+    });
+  }, [planOwner, game?.research?.catalog]);
+
+  function chooseResearchTarget(key: string | null) {
+    if (!planOwner || (key && !game?.research?.catalog?.some((item: any) => item.key === key))) return;
+    setResearchTarget({ owner: planOwner, key });
+    try {
+      const storageKey = `colony:research-target:${planOwner}`;
+      if (key) localStorage.setItem(storageKey, key); else localStorage.removeItem(storageKey);
+    } catch { /* The selected plan still works until this page is closed. */ }
+    setFocusedResearch(null);
+    guideNavigationPending.current = 'research';
+    setGuideNavigationVersion(version => version + 1);
+  }
 
   useEffect(() => {
     if (!purchaseStorageKey) return;
@@ -143,6 +171,7 @@ export default function Home() {
 
   function openSection(nextTab: Tab) {
     navigationToTop.current = true;
+    setFocusedResearch(null);
     guideNavigationPending.current = null;
     productionNavigationPending.current = false;
     setPlacementType(null);
@@ -192,7 +221,9 @@ export default function Home() {
     setPlacementType(null);
     setMoveBuildingId(null);
     setDecorPlacementType(null);
+    setSelectedDecorId(null);
     productionNavigationPending.current = false;
+    guideNavigationPending.current = null;
     if (action === 'build_foundry') return beginPlacement('foundry', 'Литейный цех');
     if (action === 'build_trade_hub') return beginPlacement('trade_hub', 'Торговый узел');
     if (action === 'build_lab') return beginPlacement('research_lab', 'Исследовательский центр');
@@ -207,9 +238,21 @@ export default function Home() {
       const center = (game?.buildings ?? []).find((building: any) => building.type === 'hq');
       if (center) setSelectedBuildingId(center.id);
       setTab('city'); guideNavigationPending.current = 'map';
+    } else if (action === 'upgrade_lab') {
+      const labs = (game?.buildings ?? []).filter((building: any) => building.type === 'research_lab');
+      const lab = labs.filter((building: any) => building.status === 'active').sort((a: any, b: any) => Number(b.level) - Number(a.level))[0]
+        ?? labs.sort((a: any, b: any) => Number(b.level) - Number(a.level))[0];
+      if (lab) setSelectedBuildingId(lab.id);
+      setTab('city'); guideNavigationPending.current = 'map';
+    } else if (action.startsWith('research:')) {
+      const key = action.slice('research:'.length);
+      if (game?.research?.catalog?.some((item: any) => item.key === key)) {
+        setFocusedResearch(key);
+        setResearchFocusVersion(version => version + 1);
+      }
+      setTab('build');
     } else if (action === 'research') {
-      const next = game?.research?.catalog?.find((item: any) => item.status !== 'completed' && item.unlockedByHq && item.unlockedByLab && item.prereqsMet);
-      setFocusedResearch(next?.key ?? null);
+      setFocusedResearch(null);
       setTab('build'); guideNavigationPending.current = 'research';
     } else if (action === 'build') {
       setTab('build'); guideNavigationPending.current = 'build';
@@ -601,7 +644,7 @@ export default function Home() {
 
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
-      {tab === 'city' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} busy={busy}
+      {tab === 'city' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
         onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
         onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
 
@@ -684,7 +727,7 @@ export default function Home() {
           onFoundryChange={setSelectedBuildingId}
           onChangeSelection={() => setConstructionFeedback(null)}
           onStart={startProduction}
-          onResearch={(key) => { setFocusedResearch(key); setTab('build'); }}
+          onResearch={(key) => navigateGuide(`research:${key}`)}
           onRefresh={() => { void refresh(); }}
           onBuild={() => beginPlacement('foundry', 'Литейный цех')}
           onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }}
@@ -717,6 +760,30 @@ export default function Home() {
 
       {tab === 'build' && <>
         <nav className="developmentNavigation" aria-label="Разделы развития"><a href="#colony-research"><GameIcon name="research" size={17} /> Исследования и чертежи</a><a href="#colony-buildings"><GameIcon name="build" size={17} /> Постройки</a></nav>
+        {game.research && <div id="colony-research" ref={researchPanelRef}><ResearchPanel
+          research={game.research}
+          resources={s}
+          hqLevel={Number(s.hq_level)}
+          scienceRate={Number(game.scienceRate ?? 0)}
+          offlineCapHours={Number(game.offlineCapHours ?? 8)}
+          busy={busy}
+          focusResearchKey={focusedResearch}
+          focusResearchVersion={researchFocusVersion}
+          plannedResearchKey={plannedResearchKey}
+          onPlanChange={chooseResearchTarget}
+          onInspectResearch={(key) => navigateGuide(`research:${key}`)}
+          onUpgradeHq={() => navigateGuide('upgrade_hq')}
+          onUpgradeLab={() => navigateGuide('upgrade_lab')}
+          onShowProduction={() => navigateGuide('production')}
+          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); setTab('city'); }}
+          onStart={async (researchKey) => {
+            try { await api('/api/game/research/start', { researchKey }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onBuildLab={() => beginPlacement('research_lab', 'Исследовательский центр')}
+          onBuild={beginPlacement}
+          onRefresh={() => { void refresh(); }}
+        /></div>}
         <section className="card" id="colony-buildings" ref={buildingCatalogRef}>
           <h2><GameIcon name="build" />Строительство</h2><p>Выбери здание и место на карте. У каждой постройки есть своя роль: добыча, производство или новые возможности. Можно вести 2 стройки одновременно, с Premium — 3.</p>
           <div className="catalog">
@@ -726,6 +793,7 @@ export default function Home() {
               <small>{costDisplay(item.baseBuildCost)}</small><small><GameIcon name="clock" size={13} /> {durationText(item.baseBuildTimeSec)}</small>
               <button className="action secondary" disabled={busy || item.unlockedByResearch === false} onClick={() => beginPlacement(item.type, item.name)}>{item.unlockedByResearch === false ? 'Нужна технология' : 'Выбрать место'}</button>
               {item.unlockedByResearch === false && <small className="buildingResearchRequirement">Изучи «{item.researchRequirementName ?? item.unlockResearch}» в исследованиях.</small>}
+              {item.unlockedByResearch === false && item.unlockResearch && <button type="button" className="miniButton buildingResearchPlan" disabled={busy} onClick={() => chooseResearchTarget(item.unlockResearch)}><GameIcon name="research" size={14} />План открытия</button>}
               <ResourceShortage cost={item.baseBuildCost} resources={s} />
             </div>)}
           </div>
@@ -738,24 +806,6 @@ export default function Home() {
           {hq?.status === 'active' && <ResourceShortage cost={hq.nextUpgrade?.cost} resources={s} />}
           {constructionNotice('hq')}
         </section>
-
-        {game.research && <div id="colony-research" ref={researchPanelRef}><ResearchPanel
-          research={game.research}
-          resources={s}
-          hqLevel={Number(s.hq_level)}
-          scienceRate={Number(game.scienceRate ?? 0)}
-          offlineCapHours={Number(game.offlineCapHours ?? 8)}
-          busy={busy}
-          focusResearchKey={focusedResearch}
-          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); setTab('city'); }}
-          onStart={async (researchKey) => {
-            try { await api('/api/game/research/start', { researchKey }); }
-            catch (error) { setMessage(''); throw error; }
-          }}
-          onBuildLab={() => beginPlacement('research_lab', 'Исследовательский центр')}
-          onBuild={beginPlacement}
-          onRefresh={() => { void refresh(); }}
-        /></div>}
 
         <section className="card expeditionCard">{game.flags?.expeditions===false&&<div className="notice">🚧 Экспедиции временно отключены feature flag.</div>}
           <div className="cardTitleRow"><div><h2><GameIcon name="rocket" />Экспедиции</h2><p>Отправляй аппараты за ресурсами, научными данными и редкими артефактами.</p></div><span className="pill">{game.expeditions?.activeCount ?? 0}/{game.expeditions?.slots ?? 1}</span></div>

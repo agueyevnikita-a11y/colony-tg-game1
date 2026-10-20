@@ -10,6 +10,7 @@
 .researchApplied li { display:grid; gap:3px; }
 .researchApplied li span { color:var(--muted); line-height:1.4; }
 .buildingResearchRequirement { color:#bdd0ff; line-height:1.5; }
+.colonyApp .buildingResearchPlan { margin-top:8px; font-size:11px; width:100%; }
 .developmentNavigation { display:flex; gap:8px; margin-bottom:12px; }
 .developmentNavigation a { flex:1; padding:12px 8px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); color:var(--text); text-decoration:none; text-align:center; font-size:12px; }
 #colony-research, #colony-buildings { scroll-margin-top:12px; }
@@ -40,6 +41,8 @@
 .technologyCard.isAvailable { border-color:rgba(128,170,255,.28); }
 .technologyCard.isResearching { border-color:rgba(128,170,255,.45); }
 .technologyCard.isFocused { outline:2px solid #a3bcff; outline-offset:2px; scroll-margin-block:20px; }
+.technologyCard.isPlanned { border-color:rgba(222,193,126,.5); }
+.technologyCard .technologyPlanButton { margin-bottom:10px; color:#dfcc9d; font-size:11px; min-height:36px; }
 .technologyCard.isCompleted { border-color:rgba(114,228,173,.23); background:rgba(114,228,173,.035); }
 .technologyTitle { display:flex; align-items:flex-start; gap:9px; }
 .technologyTitle > span { flex-shrink:0; font-size:24px; line-height:1.2; }
@@ -53,6 +56,8 @@
 .technologyRequirements { display:flex; flex-wrap:wrap; gap:5px; list-style:none; margin:0 0 11px; padding:0; }
 .technologyRequirements li { max-width:100%; overflow-wrap:anywhere; padding:5px 6px; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:10px; line-height:1.4; }
 .technologyRequirements li.isMet { color:#b2ddc8; background:rgba(114,228,173,.035); }
+.technologyPrereqLinks { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+.technologyPrereqLinks .miniButton { white-space:normal; font-size:11px; line-height:1.5; text-align:left; }
 .technologyCost { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 10px; color:var(--text); font-size:11px; margin-bottom:9px; line-height:1.5; }
 .technologyCost > span:last-child { color:var(--muted); }
 .technologyCard .action { font-size:12px; line-height:1.4; }
