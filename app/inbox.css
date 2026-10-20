@@ -1,0 +1,42 @@
+.inboxPanel { min-width: 0; }
+.inboxHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.inboxHeading > div { min-width: 0; }
+.inboxHeading h2 { display: flex; align-items: center; gap: 9px; }
+.inboxHeading p { margin-bottom: 0; }
+.inboxHeading > .pill { flex: 0 0 auto; font-size: 11px; margin-top: 3px; }
+.inboxToolbar { display: flex; gap: 8px; align-items: center; margin-top: 18px; }
+.inboxFilters { display: flex; flex: 1; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: #09172170; min-width: 0; }
+.inboxFilters > button { flex: 1; min-width: 0; min-height: 40px; padding: 8px 6px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font: inherit; font-size: 12px; cursor: pointer; }
+.inboxFilters > button.isActive { background: #77c6c31a; color: #b1e9dd; box-shadow: inset 0 0 0 1px #77c6c33b; }
+.inboxFilters > button:disabled { opacity: .6; cursor: default; }
+.inboxRefresh { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; }
+.inboxHint, .inboxPageNote { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 11px 0 15px; }
+.inboxStatus { color: var(--muted); font-size: 12px; }
+.inboxMessages { display: grid; gap: 9px; }
+.inboxMessage { min-width: 0; border: 1px solid var(--line); border-radius: 13px; background: #09172155; overflow: hidden; }
+.inboxMessage.isUnread { border-color: #8b7bcf66; background: #9a7eff0b; }
+.inboxMessage summary { display: flex; align-items: center; gap: 9px; min-height: 64px; padding: 11px; cursor: pointer; list-style: none; }
+.inboxMessage summary::-webkit-details-marker { display: none; }
+.inboxMessage summary::marker { content: ''; }
+.inboxMessageIcon { width: 30px; height: 32px; flex: 0 0 30px; display: grid; place-items: center; color: var(--muted); }
+.isUnread .inboxMessageIcon { color: #bba9ff; }
+.inboxMessageHeading { flex: 1; display: grid; gap: 6px; min-width: 0; }
+.inboxMessageHeading > strong { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.inboxMessageHeading > span { display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 10px; color: var(--muted); }
+.inboxMessage summary > svg { flex: 0 0 auto; color: var(--muted); transition: transform .16s ease; }
+.inboxMessage details[open] summary > svg { transform: rotate(90deg); }
+.inboxMessageBody { padding: 0 13px 13px; border-top: 1px solid var(--line); }
+.inboxMessageBody > p { margin: 12px 0; font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.inboxMessageBody > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; width: 100%; font-size: 12px; }
+.inboxReadPage { width: 100%; min-height: 42px; margin-top: 12px; font-size: 12px; white-space: normal; }
+.inboxPagination { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-top: 15px; }
+.inboxPagination > button { min-height: 40px; }
+.inboxPagination > span { color: var(--muted); font-size: 12px; }
+.inboxPageNote { margin-bottom: 0; text-align: center; }
+.inboxEmpty { display: grid; justify-items: center; gap: 10px; padding: 24px 8px 12px; text-align: center; }
+.inboxEmpty > svg { color: #91c7c5; }
+.inboxEmpty > strong { font-size: 15px; }
+.inboxEmpty > p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0; }
+.inboxEmpty > button { margin-top: 6px; min-height: 40px; }
+@media(max-width:360px) { .inboxHeading { gap: 8px; flex-wrap: wrap; } .inboxFilters > button { font-size: 11px; padding-inline: 4px; } }
+@media(prefers-reduced-motion:reduce) { .inboxMessage summary > svg { transition: none; } }

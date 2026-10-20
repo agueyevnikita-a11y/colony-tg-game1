@@ -12,7 +12,9 @@ import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
 import { ResearchPanel } from '@/components/ResearchPanel';
 import { GameIcon, GameAmount } from '@/components/GameIcon';
-import { AchievementEmblem } from '@/components/AchievementEmblem';
+import { AchievementsPanel, type AchievementCategory } from '@/components/AchievementsPanel';
+import { InboxPanel } from '@/components/InboxPanel';
+import { AlliancePanel } from '@/components/AlliancePanel';
 import { BuildingArt } from '@/components/BuildingArt';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ConstructionStatus } from '@/components/ConstructionStatus';
@@ -138,10 +140,8 @@ export default function Home() {
   const contractsRef = useRef<HTMLDivElement>(null);
   const researchPanelRef = useRef<HTMLDivElement>(null);
   const buildingCatalogRef = useRef<HTMLElement>(null);
-  const [allianceName,setAllianceName]=useState('');
   const [allianceCode,setAllianceCode]=useState('');
-  const [allianceResource,setAllianceResource]=useState<'ore'|'energy'|'parts'>('ore');
-  const [allianceAmount,setAllianceAmount]=useState('500');
+  const [achievementFocus, setAchievementFocus] = useState<{ category: AchievementCategory; requestId: number }>({ category: 'all', requestId: 0 });
   const [adminDashboard,setAdminDashboard]=useState<any | null>(null);
   const [profileName,setProfileName]=useState('');
   const [profileBio,setProfileBio]=useState('');
@@ -213,8 +213,15 @@ export default function Home() {
     if (alreadyVisible) window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
+  function openAchievements(category: AchievementCategory = 'all') {
+    setAchievementFocus(previous => ({ category, requestId: previous.requestId + 1 }));
+    openSection('missions');
+    showSection('missions', 'achievements');
+  }
+
   function openSubsection(section: string) {
     if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
+    if (tab === 'missions' && section === 'achievements') setAchievementFocus(previous => ({ category: 'all', requestId: previous.requestId + 1 }));
     navigationToTop.current = true;
     guideNavigationPending.current = null;
     productionNavigationPending.current = false;
@@ -452,6 +459,7 @@ export default function Home() {
     const unlocked = new Map((game?.achievements ?? []).map((x: any) => [x.achievement_key, x]));
     return (game?.achievementCatalog ?? []).map((a: any) => ({ ...a, status: unlocked.get(a.key), progress: Number(game?.stats?.[a.stat] ?? 0) }));
   }, [game]);
+  const readyAchievementCount = achievementRows.filter((achievement: any) => achievement.status && !achievement.status.claimed_at).length;
 
   const selectedBuilding = useMemo(
     () => (game?.buildings ?? []).find((b: any) => b.id === selectedBuildingId) ?? null,
@@ -743,7 +751,7 @@ export default function Home() {
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       <SectionTabs key={tab} label={`Подразделы: ${SECTION_TITLES[tab].title}`}
-        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : undefined }))}
+        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' && item.key === 'achievements' ? readyAchievementCount : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
       {tab === 'city' && subsections.city === 'map' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
@@ -903,7 +911,7 @@ export default function Home() {
         /></div>
         </div>}
         {subsections.city === 'decor' && <div data-section-panel="city-decor">
-          <DecorPanel catalog={game.decorCatalog ?? []} decor={game.decor ?? []} hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)} onPlace={beginDecorPlacement} onResearch={chooseResearchTarget} onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => { openSection('missions'); showSection('missions', 'achievements'); }} />
+          <DecorPanel catalog={game.decorCatalog ?? []} decor={game.decor ?? []} hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)} onPlace={beginDecorPlacement} onResearch={chooseResearchTarget} onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => openAchievements('comfort')} />
         </div>}
       </>}
 
@@ -1017,21 +1025,9 @@ export default function Home() {
         </div></section>
         </div>}
         {subsections.missions === 'achievements' && <div data-section-panel="missions-achievements">
-<section className="card"><h2><GameIcon name="trophy" />Достижения</h2><p>За развитие колонии — кристаллы и оформление. Срок действия указан рядом с наградой.</p><div className="stack">
-          {achievementRows.map((a: any) => {
-            const unlocked = !!a.status;
-            const claimed = !!a.status?.claimed_at;
-            const reward = a.reward ?? {};
-            return <div className={`rowCard achievementCard ${unlocked ? 'isUnlocked' : ''} ${claimed ? 'isClaimed' : ''}`} key={a.key}>
-              <AchievementEmblem achievementKey={a.key} stat={a.stat} target={Number(a.target)} unlocked={unlocked} claimed={claimed} />
-              <div className="achievementCardBody"><strong>{a.title}</strong><small>{a.description}</small>
-                <div className="achievementRewards">{reward.crystals && <GameAmount resource="crystals">{n(reward.crystals)}</GameAmount>}{reward.cosmeticId && <span className="achievementRewardAppearance"><GameIcon name="palette" size={14} />Оформление · {reward.cosmeticDays ? `${reward.cosmeticDays} дн.` : 'навсегда'}</span>}</div>
-                <div className="progress"><i style={{width:`${pct(a.progress,a.target)}%`}} /></div>
-                <div className="achievementCardFoot"><small>{Math.min(a.progress,a.target)}/{a.target} · {claimed ? 'Награда получена' : unlocked ? 'Открыто' : 'В процессе'}</small>{unlocked && <button className="miniButton" disabled={busy || claimed} onClick={() => api('/api/game/achievements/claim', { achievementKey:a.key }).then(() => setMessage('Достижение получено')).catch(()=>{})}>{claimed ? <><GameIcon name="check" size={13} />Получено</> : 'Забрать'}</button>}</div>
-              </div>
-            </div>;
-          })}
-        </div></section>
+          <AchievementsPanel key={planOwner} rows={achievementRows} busy={busy} focusCategory={achievementFocus.category} focusRequestId={achievementFocus.requestId}
+            onClaim={async (achievementKey) => { try { await api('/api/game/achievements/claim', { achievementKey }); } catch (error) { setMessage(''); throw error; } }}
+            onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}
         {subsections.missions === 'season' && <div data-section-panel="missions-season">
 {!game.season && <section className="card"><h2>Новый сезон готовится</h2><p>Пока можно выполнять ежедневные и недельные задания. Следующий сезон появится здесь.</p></section>}
@@ -1072,39 +1068,15 @@ export default function Home() {
         </section>
         </div>}
         {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
-{game.flags?.alliances===false&&<section className="card"><h2><GameIcon name="shield" />Альянсы временно на паузе</h2><p>Альянсы недоступны на текущем этапе закрытого теста. Уже созданные данные сохраняются.</p></section>}
-        {game.flags?.alliances!==false && (game.alliance?.membership ? <>
-          <section className="card allianceHero">
-            <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{game.alliance.alliance.name}</h2><p>Код: <b>{game.alliance.alliance.code}</b> · {game.alliance.alliance.members?.length ?? 0}/{game.alliance.alliance.memberLimit} участников · престиж {n(game.alliance.alliance.prestige)}</p></div><div className="seasonPoints">{n(game.alliance.alliance.seasonPoints)}<span>AP</span></div></div>
-            <div className="grid2"><button className="action" onClick={shareAlliance}><GameIcon name="share" size={15} className="interfaceActionIcon" />Пригласить в альянс</button><button className="action secondary" disabled={busy} onClick={()=>api('/api/alliance/leave').then(()=>setMessage('Вы вышли из альянса')).catch(()=>{})}>Выйти</button></div>
-          </section>
-          <section className="card"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает только участник, который внёс вклад до завершения цели.</p><div className="stack">{(game.alliance.dailyGoals??[]).map((g:any)=>{const done=!!g.completed_at;const contributed=Number(g.my_contribution??0)>0;return <div className="mission" key={g.goal_key}><div className="missionHead"><div><strong>{g.title??g.goal_key}</strong><small>{g.description}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(g.reward_crystals)}</GameAmount><GameAmount resource="credits">{n(g.reward_credits)}</GameAmount></span></div><div className="progress"><i style={{width:`${pct(g.progress,g.target)}%`}}/></div><div className="missionFoot"><span>{n(g.progress)}/{n(g.target)} · ваш вклад {n(g.my_contribution)}</span><button className="miniButton" disabled={busy||!done||!contributed||!!g.my_claimed_at} onClick={()=>api('/api/alliance/daily/claim',{goalKey:g.goal_key}).then(()=>setMessage('Командная награда получена')).catch(()=>{})}>{g.my_claimed_at?'Получено':done?(contributed?'Забрать':'Нет вклада'):'В процессе'}</button></div></div>})}</div></section>
-          <section className="card">
-            <div className="cardTitleRow"><div><h2><GameIcon name="signal" />{game.alliance.project.title}</h2><p>{game.alliance.project.description}</p></div><div className="projectStage">{game.alliance.project.status==='completed'?`Цикл ${game.alliance.project.cycle} готов`:`Цикл ${game.alliance.project.cycle} · этап ${game.alliance.project.stage}/3`}</div></div>
-            {game.alliance.project.status==='active' ? <>
-              <h3>{game.alliance.project.stageConfig.title}</h3><p>{game.alliance.project.stageConfig.description}</p>
-              <div className="projectResources">
-                {(['ore','energy','parts'] as const).map((resource)=>{const column:any={ore:'ore_contributed',energy:'energy_contributed',parts:'parts_contributed'};const have=Number(game.alliance.project[column[resource]]??0);const target=Number(game.alliance.project.stageConfig.target[resource]??1);return <div className="projectResource" key={resource}><div><b className="allianceResourceAmount"><GameAmount resource={resource}>{n(have)}</GameAmount></b><span>/ {n(target)}</span></div><div className="progress"><i style={{width:`${pct(have,target)}%`}}/></div></div>})}
-              </div>
-              <div className="allianceContribution"><select value={allianceResource} onChange={e=>setAllianceResource(e.target.value as 'ore'|'energy'|'parts')}><option value="ore">Руда</option><option value="energy">Энергия</option><option value="parts">Детали</option></select><input inputMode="numeric" value={allianceAmount} onChange={e=>setAllianceAmount(e.target.value)} placeholder="Количество"/><button className="action" disabled={busy} onClick={()=>api('/api/alliance/contribute',{resource:allianceResource,amount:Number(allianceAmount)}).then((d:any)=>setMessage(`Вклад принят: ${n(d.result?.accepted)} · +${n(d.result?.points)} AP`)).catch(()=>{})}>Внести</button></div>
-              <p className="finePrint">Ресурсы не возвращаются. Stars в мегапроекте не используются. Награда этапа выдаётся только участникам, набравшим минимум {n(game.alliance.project.stageConfig.minimumContributionPoints)} очков личного вклада.</p>
-            </> : <div className="projectComplete"><b><GameIcon name="check" size={16} className="interfaceActionIcon" />Цикл {game.alliance.project.cycle} завершён</b><span>Следующий цикл сложнее на 35%, зато повышает пожизненный престиж альянса и продлевает ветеранский визуальный эффект.</span>{game.alliance.project.canRestart&&<button className="action" disabled={busy||new Date(game.alliance.project.restartAvailableAt).getTime()>Date.now()} onClick={()=>api('/api/alliance/project/restart').then(()=>setMessage('Новый цикл мегапроекта запущен')).catch(()=>{})}><GameIcon name="refresh" size={15} className="interfaceActionIcon" />{new Date(game.alliance.project.restartAvailableAt).getTime()>Date.now()?`Доступно через ${timeLeft(game.alliance.project.restartAvailableAt)}`:'Запустить следующий цикл'}</button>}</div>}
-          </section>
-          <section className="card"><h2>Участники альянса</h2><p className="finePrint">Владелец может назначить до {game.alliance.rules?.officerLimit??5} офицеров. Офицеры могут исключать обычных участников и запускать новый цикл мегапроекта.</p><div className="stack">{(game.alliance.alliance.members??[]).map((m:any,i:number)=>{const myRole=game.alliance.membership?.role;const isMe=Number(m.telegram_id)===Number(game.telegramUser?.id);const canKick=(myRole==='owner'&&!isMe&&m.role!=='owner')||(myRole==='officer'&&!isMe&&m.role==='member');return <div className="memberCard" key={m.telegram_id}><div><strong>{i+1}. {m.colony_name||m.first_name||m.username||m.telegram_id} {m.role==='owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : m.role==='officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>HQ {m.hq_level} · City Score {n(m.city_score)} · вклад {n(m.contribution_points)} AP</small></div><div className="memberActions"><button className="miniButton" onClick={()=>viewCity(Number(m.telegram_id))}>Город</button>{myRole==='owner'&&!isMe&&m.role!=='owner'&&<button className="miniButton" disabled={busy} onClick={()=>api('/api/alliance/manage/role',{telegramId:m.telegram_id,role:m.role==='officer'?'member':'officer'}).then(()=>setMessage(m.role==='officer'?'Офицер понижен':'Офицер назначен')).catch(()=>{})}>{m.role==='officer'?'Снять':'Офицер'}</button>}{myRole==='owner'&&!isMe&&<button className="miniButton" disabled={busy} onClick={()=>api('/api/alliance/manage/transfer',{telegramId:m.telegram_id}).then(()=>setMessage('Руководство передано')).catch(()=>{})}>Передать</button>}{canKick&&<button className="miniButton dangerMini" disabled={busy} onClick={()=>api('/api/alliance/manage/kick',{telegramId:m.telegram_id}).then(()=>setMessage('Участник исключён')).catch(()=>{})}>Исключить</button>}</div></div>})}</div></section>
-        </> : <>
-          <section className="card"><h2><GameIcon name="shield" />Альянсы</h2><p>Совместные мегапроекты и сезонный командный рейтинг. Вступление доступно с HQ{game.alliance?.rules?.joinHq ?? 2}, создание — с HQ{game.alliance?.rules?.createHq ?? 3}. Stars здесь ничего не ускоряют.</p>
-            <div className="allianceJoin"><input value={allianceCode} onChange={e=>setAllianceCode(e.target.value.toUpperCase())} placeholder="Код альянса"/><button className="action" disabled={busy||Number(s.hq_level)<Number(game.alliance?.rules?.joinHq??2)} onClick={()=>api('/api/alliance/join',{code:allianceCode}).then(()=>setMessage('Вы вступили в альянс')).catch(()=>{})}>Вступить</button></div>
-            <div className="allianceCreate"><input value={allianceName} onChange={e=>setAllianceName(e.target.value)} placeholder="Название нового альянса"/><button className="action secondary" disabled={busy||Number(s.hq_level)<Number(game.alliance?.rules?.createHq??3)} onClick={()=>api('/api/alliance/create',{name:allianceName}).then(()=>setMessage('Альянс создан')).catch(()=>{})}>Создать · <GameAmount resource="credits">{n(game.alliance?.rules?.createCost??5000)}</GameAmount></button></div>
-            <p className="finePrint">После выхода действует cooldown {game.alliance?.rules?.rejoinCooldownHours ?? 24} ч. Лимит — {game.alliance?.rules?.memberLimit ?? 30} участников.</p>
-          </section>
-          {(game.alliance?.recommended?.length??0)>0&&<section className="card"><h2>Открытые альянсы</h2><div className="stack">{game.alliance.recommended.map((a:any)=><div className="rowCard" key={a.id}><div><strong>{a.name}</strong><small>{a.code} · {a.members}/{a.member_limit} · {n(a.season_points)} AP</small></div><button className="miniButton" disabled={busy||Number(s.hq_level)<Number(game.alliance?.rules?.joinHq??2)} onClick={()=>api('/api/alliance/join',{code:a.code}).then(()=>setMessage(`Вы вступили в «${a.name}»`)).catch(()=>{})}>Вступить</button></div>)}</div></section>}
-        </>)}
+          <AlliancePanel key={planOwner} alliance={game.alliance} resources={s} hqLevel={Number(s.hq_level)} telegramId={game.telegramUser?.id} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
+            onShare={shareAlliance} onViewCity={viewCity}
+            onAction={async (path, body) => { try { return await api(path, body); } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'rating' && <div data-section-panel="social-rating">
 <section className="card"><h2><GameIcon name="trophy" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div><p className="finePrint">AP начисляются за реальные вклады ресурсов в мегапроект. Покупки за Stars не дают рейтинговых очков.</p></section>
         </div>}
         {subsections.social === 'friends' && <div data-section-panel="social-friends">
-          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => { openSection('missions'); showSection('missions', 'achievements'); }} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
+          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
         {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)}{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
@@ -1124,11 +1096,9 @@ export default function Home() {
         </section>}
         </div>}
         {subsections.social === 'inbox' && <div data-section-panel="social-inbox">
-{(game.inbox?.items?.length ?? 0) === 0 && <div className="notice">Сообщений пока нет. Здесь появятся важные результаты и новости твоей колонии.</div>}
-<section className="card inboxCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
-          <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
-          {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
-        </section>
+          <InboxPanel key={planOwner} initialInbox={game.inbox} busy={busy}
+            onLoadPage={async (query) => { try { const data = await api('/api/inbox/list', query); return data.inboxPage; } catch (error) { setMessage(''); throw error; } }}
+            onRead={async (ids) => { try { const data = await api('/api/inbox/read', { ids }); return data.inbox ?? data.inboxCounts; } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'settings' && <div data-section-panel="social-settings">
 <section className="card notificationCard">

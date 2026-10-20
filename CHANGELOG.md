@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.2-beta.1 — Rewards and Messages Within Reach
+- Split achievements into ready, in-progress and claimed views with five cards per page; comfort and referral links open the relevant reward topic.
+- Added a direct link from earned cosmetics to the owned collection and a ready-achievement badge.
+- Added server-side inbox pages, unread filtering and exact whole-inbox counters, preserving timestamp precision and player ownership. Reading explicitly marks the current message or visible page; older open clients remain compatible.
+- Added local alliance action results, contribution cost/points previews and clear shortage messages; leadership transfer, exclusion and leaving show inline confirmations.
+- Preserved existing reward values, project rules, progress and balances; no database migration is required from v1.10.
+
 ## 1.10.1-beta.1 — Clear Next Steps
 - Kept a compact next step visible on the city map after the tutorial, with direct laboratory, research and base-upgrade guidance.
 - Split the mechanics reference into short topics, including comfort and invitations, with direct navigation to each feature.
