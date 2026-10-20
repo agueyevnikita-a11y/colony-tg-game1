@@ -28,6 +28,8 @@ function parsePageQuery(input: unknown): { filter: InboxFilter; limit: number; c
 /** Count and page in one statement, using the same database snapshot. */
 export async function getInboxPage(tx: any, userId: string, input: InboxPageQuery = {}): Promise<InboxPage> {
   const { filter, limit, cursor } = parsePageQuery(input);
+  // Send cursor dates as TEXT first: postgres.js otherwise serializes an
+  // inferred timestamptz through JavaScript Date, truncating microseconds.
   const [result] = await tx`
     WITH counts AS (
       SELECT count(*)::integer AS total,count(*) FILTER(WHERE read_at IS NULL)::integer AS unread
@@ -39,7 +41,7 @@ export async function getInboxPage(tx: any, userId: string, input: InboxPageQuer
       FROM game_inbox
       WHERE user_id=${userId} AND (expires_at IS NULL OR expires_at > now())
         AND (${filter === 'all'} OR read_at IS NULL)
-        AND (${cursor === null} OR (created_at,id) < (${cursor?.date ?? null}::timestamptz,${cursor?.id ?? null}::uuid))
+        AND (${cursor === null} OR (created_at,id) < ((${cursor?.date ?? null}::text)::timestamptz,${cursor?.id ?? null}::uuid))
       ORDER BY created_at DESC,id DESC LIMIT ${limit + 1}
     )
     SELECT total,unread,

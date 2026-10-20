@@ -48,3 +48,6 @@
   .allianceRecommendedRow { grid-template-columns:minmax(0,1fr); }
   .allianceRecommendedRow>.miniButton { justify-self:start; }
 }
+@media(max-width:420px) {
+  .alliancePanel .cardTitleRow:has(>.projectStage)>div:first-child { flex:0 1 auto; }
+}
