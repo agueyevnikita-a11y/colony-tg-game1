@@ -109,7 +109,7 @@ export async function runReferralsIntegration({ t, sql, request, initData, playe
     assert.equal((await claim(inviter.telegramId)).data.result.count, 0);
   });
 
-  await t.test('referral counters and pending bonuses include friends outside the latest 100 rows', async () => {
+  await t.test('referral counters and bulk claims include more than 100 friends with a bounded inbox receipt key', async () => {
     const inviter = await player({ ageSeconds: 1000 });
     const firstId = sequence;
     const extraIds = Array.from({ length: 101 }, (_, index) => firstId + index);
@@ -127,6 +127,23 @@ export async function runReferralsIntegration({ t, sql, request, initData, playe
     assert.equal(game.referralProgram.friends.length, 100);
     assert.equal(game.referralProgram.pendingCount, 51);
     assert.deepEqual(game.referralProgram.pendingReward, { credits: 25500, crystals: 510 });
+    await sql`UPDATE users SET referral_qualified_at=now() WHERE referred_by=${inviter.userId} AND referral_qualified_at IS NULL`;
+    const before = await balance(inviter.userId);
+    const paid = await claim(inviter.telegramId);
+    assert.equal(paid.status, 200, JSON.stringify(paid.data));
+    assert.deepEqual(paid.data.result, { count: 101, credits: 50500, crystals: 1010 });
+    assert.deepEqual(await balance(inviter.userId), { credits: before.credits+50500, crystals: before.crystals+1010 });
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM referral_bonus_claims WHERE user_id=${inviter.userId}`)[0].count), 101);
+    const inbox = await sql`SELECT dedupe_key FROM game_inbox WHERE user_id=${inviter.userId} AND dedupe_key LIKE 'referral_bonus_%'`;
+    assert.equal(inbox.length, 1);
+    assert.match(inbox[0].dedupe_key, /^referral_bonus_[a-f0-9]{64}$/);
+    assert.ok(inbox[0].dedupe_key.length < 100, 'Bulk awards must not overflow the unique inbox index entry');
+    const settled = await balance(inviter.userId);
+    const retries = await Promise.all([claim(inviter.telegramId), claim(inviter.telegramId)]);
+    assert.ok(retries.every((reply) => reply.status === 200), JSON.stringify(retries));
+    assert.deepEqual(retries.map((reply) => reply.data.result.count), [0, 0]);
+    assert.deepEqual(await balance(inviter.userId), settled);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM game_inbox WHERE user_id=${inviter.userId} AND dedupe_key LIKE 'referral_bonus_%'`)[0].count), 1);
   });
 
   await t.test('historical mutual referrals qualify concurrently without reversing balance lock order', async () => {

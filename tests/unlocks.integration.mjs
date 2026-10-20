@@ -184,6 +184,19 @@ export async function runUnlocksIntegration({ t, sql, request, initData, playerI
       });
     });
   } finally {
-    if (ids.length) await sql`DELETE FROM users WHERE telegram_id=ANY(${sql.array(ids)}::bigint[])`;
+    if (ids.length) await sql.begin(async (tx) => {
+      const users = await tx`SELECT id FROM users WHERE telegram_id=ANY(${sql.array(ids)}::bigint[])`;
+      const isolatedIds = users.map((user) => user.id);
+      if (!isolatedIds.length) return;
+      // Trade history deliberately restricts account/order deletion. Remove
+      // only this module's isolated trades before their orders and accounts.
+      await tx`
+        DELETE FROM market_trades
+        WHERE seller_user_id=ANY(${sql.array(isolatedIds)}::uuid[])
+           OR buyer_user_id=ANY(${sql.array(isolatedIds)}::uuid[])
+      `;
+      await tx`DELETE FROM market_orders WHERE user_id=ANY(${sql.array(isolatedIds)}::uuid[])`;
+      await tx`DELETE FROM users WHERE id=ANY(${sql.array(isolatedIds)}::uuid[])`;
+    });
   }
 }

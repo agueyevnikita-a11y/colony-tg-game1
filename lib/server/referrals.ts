@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { sql } from '@/lib/server/db';
 import { REFERRAL_BONUS, REFERRAL_QUALIFICATION_HQ, referralBonusForCount, referralRoadmapStatus, type ReferralProgram } from '@/lib/game/referrals';
 import { pushInbox } from '@/lib/server/inbox';
@@ -128,8 +129,10 @@ export async function claimReferralBonuses(userId: string) {
     }), { credits: 0, crystals: 0 });
     if (receipts.length) {
       await tx`UPDATE game_states SET credits=credits+${reward.credits},crystals=crystals+${reward.crystals},updated_at=now() WHERE user_id=${userId}`;
+      const receiptHash = createHash('sha256')
+        .update(receipts.map((row) => row.invited_user_id).sort().join(':')).digest('hex');
       await pushInbox(tx, userId, {
-        kind: 'reward', dedupeKey: `referral_bonus_${receipts.map((row) => row.invited_user_id).sort().join('_')}`,
+        kind: 'reward', dedupeKey: `referral_bonus_${receiptHash}`,
         title: 'Связь колоний укрепилась',
         body: `Получено за развитие приглашённых колоний: ${reward.credits} кредитов и ${reward.crystals} кристаллов.`,
         metadata: { count: receipts.length, ...reward },
