@@ -34,6 +34,9 @@ export type AchievementReward = {
 };
 
 export const ACHIEVEMENTS = [
+  { key: 'comfort_25', title: 'Уютный квартал', description: 'Достигни 25 очков комфорта города', stat: 'max_comfort', target: 25, reward: { crystals: 10 } },
+  { key: 'comfort_50', title: 'Живая колония', description: 'Достигни 50 очков комфорта города', stat: 'max_comfort', target: 50, reward: { cosmeticId: 'frame_garden' } },
+  { key: 'comfort_80', title: 'Город для колонистов', description: 'Достигни 80 очков комфорта города', stat: 'max_comfort', target: 80, reward: { crystals: 25 } },
   { key: 'builder_10', title: 'Прораб', description: 'Начни 10 строительств', stat: 'buildings_started', target: 10, reward: { crystals: 25 } },
   { key: 'builder_100', title: 'Архитектор', description: 'Начни 100 строительств', stat: 'buildings_started', target: 100, reward: { cosmeticId: 'theme_neon', cosmeticDays: 7 } },
   { key: 'builder_10000', title: 'Город без конца', description: 'Начни 10 000 строительств', stat: 'buildings_started', target: 10000, reward: { cosmeticId: 'theme_neon' } },

@@ -1,0 +1,56 @@
+.referralsPanel { display: grid; gap: 14px; min-width: 0; }
+.referralsPanel > .card { margin: 0; min-width: 0; }
+.referralsPanel h2 { display: flex; align-items: center; gap: 9px; }
+.referralPairReward { display: grid; gap: 10px; padding: 14px; margin: 16px 0; border: 1px solid #5aaea74d; border-radius: 14px; background: #65d5c50b; }
+.referralPairReward > span { color: var(--muted); font-size: 12px; }
+.referralPairReward > div { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 21px; font-weight: 750; }
+.referralSteps { display: grid; gap: 12px; list-style: none; margin: 0 0 18px; padding: 0; }
+.referralSteps > li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.referralSteps > li > b { flex: 0 0 25px; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; background: #77c6c31a; color: #a4e4d9; }
+.referralShareActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.referralShareActions > button { display: flex; gap: 7px; align-items: center; justify-content: center; padding-inline: 8px; font-size: 13px; min-width: 0; min-height: 44px; }
+.referralShareActions > button:first-child:last-child { grid-column: 1/-1; }
+.referralLinkDetails { margin-top: 12px; color: var(--muted); font-size: 12px; }
+.referralLinkDetails > summary { cursor: pointer; padding-block: 8px; }
+.referralLinkDetails > input { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid var(--line); border-radius: 9px; padding: 11px; background: #0e1c25; color: var(--text); font-size: 12px; }
+.referralCounts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-bottom: 20px; }
+.referralCounts > div { display: grid; gap: 4px; text-align: center; min-width: 0; }
+.referralCounts b { font-size: 23px; }
+.referralCounts span { font-size: 11px; line-height: 1.4; color: var(--muted); }
+.referralClaimSummary { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; }
+.referralClaimSummary > svg { flex: 0 0 auto; color: #9cddd2; }
+.referralClaimSummary > div, .referralInvitedBy > div { display: grid; gap: 5px; min-width: 0; }
+.referralClaimSummary strong, .referralInvitedBy strong { font-size: 14px; overflow-wrap: anywhere; }
+.referralClaimSummary span, .referralInvitedBy span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.referralClaimReward { display: flex; gap: 20px; margin: 0 0 13px 35px; font-weight: 700; }
+.referralBonusCard > .action { width: 100%; min-height: 44px; }
+.referralBonusCard > .notice { margin-top: 12px; }
+.referralInvitedBy { display: flex; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
+.referralInvitedBy > svg { flex: 0 0 auto; margin-top: 2px; }
+.referralNextReward { display: grid; gap: 7px; padding: 13px; margin-top: 13px; border: 1px solid var(--line); border-radius: 12px; background: #6caea90a; }
+.referralNextReward > span { font-size: 12px; color: var(--muted); }
+.referralNextReward > strong { font-size: 14px; line-height: 1.5; }
+.referralNextReward > button { justify-self: start; }
+.referralRoadmap { margin-top: 12px; }
+.referralRoadmap > summary { font-size: 13px; color: var(--muted); cursor: pointer; padding-block: 10px; }
+.referralRoadmap > ol { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.referralRoadmap li { display: flex; align-items: center; gap: 10px; padding: 12px 8px; border-top: 1px solid var(--line); min-width: 0; }
+.referralMilestoneNumber { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 10px; display: grid; place-items: center; font-size: 13px; background: #9bb1bf12; color: var(--muted); }
+.referralRoadmap li > div { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.referralRoadmap strong { font-size: 13px; }
+.referralRoadmap li > div > span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.referralRoadmap small { font-size: 10px; color: var(--muted); }
+.referralRoadmap .is-received .referralMilestoneNumber, .referralRoadmap .is-available .referralMilestoneNumber { color: #9fdfc6; background: #75d7b11c; }
+.referralRoadmap .is-received small, .referralRoadmap .is-available small { color: #9fdfc6; }
+.referralFriends { display: grid; gap: 8px; margin-top: 14px; }
+.referralFriend { display: flex; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.referralFriendIcon { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; color: var(--muted); border-radius: 10px; background: #a9bec512; }
+.referralFriendIcon.isQualified { color: #a4dfc7; background: #75d7b11c; }
+.referralFriend > div { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.referralFriend strong { font-size: 13px; overflow-wrap: anywhere; }
+.referralFriend small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.referralFriend button { flex: 0 0 auto; min-height: 38px; }
+.referralPagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; }
+.referralPagination > span { color: var(--muted); font-size: 12px; }
+.referralEmpty { margin-bottom: 0; }
+@media(max-width:360px) { .referralShareActions { grid-template-columns: 1fr; } .referralRoadmap li { flex-wrap: wrap; } .referralRoadmap li > button { margin-left: 42px; } }

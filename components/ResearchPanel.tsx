@@ -43,12 +43,14 @@ type Props = {
   onUpgradeHq: () => void;
   onUpgradeLab: () => void;
   onShowProduction: () => void;
+  onOpenFeature?: (feature: 'market' | 'expeditions' | 'decor') => void;
 };
 
 const BRANCHES = [
   { key: 'resources', name: 'Ресурсы', title: 'Ресурсы', icon: 'ore', description: 'Больше руды и энергии. Новые технологии открывают мощные добывающие здания.' },
   { key: 'production', name: 'Производство', title: 'Производство и хранение', icon: 'parts', description: 'Открывай рецепты под запасы колонии, повышай выход деталей и расширяй склад.' },
   { key: 'exploration', name: 'Экспедиции', title: 'Экспедиции', icon: 'rocket', description: 'Открывай маршруты, получай больше научных данных и отправляй аппараты параллельно.' },
+  { key: 'infrastructure', name: 'Колония', title: 'Город и связи', icon: 'city', description: 'Открывай торговлю с игроками и новые предметы благоустройства для комфорта города.' },
 ] as const;
 type Branch = typeof BRANCHES[number]['key'];
 
@@ -64,6 +66,7 @@ function costText(cost: Record<string, number | undefined>) {
 }
 
 function technologyIcon(item: ResearchConfig) {
+  if (item.branch === 'infrastructure') return item.key === 'trade_network' ? 'market' : 'comfort';
   if (item.branch === 'production') return item.key === 'compact_storage' ? 'building' : 'parts';
   if (item.branch === 'exploration') return 'rocket';
   if (item.branch === 'resources') return item.key === 'solar_lattice' || item.key === 'photovoltaic_arrays' ? 'energy' : 'ore';
@@ -179,6 +182,7 @@ export function ResearchPanel(props: Props) {
       </>}
       {done && unlockedBuilding && item.unlockBuilding && <button type="button" className="action secondary technologyBuild" disabled={locked || props.hqLevel < unlockedBuilding.unlockHq} onClick={() => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? `Для постройки нужен HQ${unlockedBuilding.unlockHq}` : `Построить: ${unlockedBuilding.name}`}</button>}
       {done && item.unlockRecipe && props.onProduction && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onProduction?.(item.unlockRecipe!)}>Открыть рецепт в производстве</button>}
+      {done && item.unlockFeature && props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.(item.unlockFeature!)}>{item.unlockFeature === 'market' ? 'Открыть рынок' : item.unlockFeature === 'expeditions' ? 'Открыть экспедиции' : 'Перейти к благоустройству'}</button>}
       {feedback?.key === item.key && <div ref={feedbackRef} className={`notice researchFeedback ${feedback.error ? 'error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
     </article>;
   }

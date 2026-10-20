@@ -8,8 +8,11 @@ import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import postgres from 'postgres';
 import { runContractsIntegration } from './contracts.integration.mjs';
+import { runDecorIntegration } from './decor.integration.mjs';
+import { runReferralsIntegration } from './referrals.integration.mjs';
+import { runUnlocksIntegration } from './unlocks.integration.mjs';
 
-test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 120_000 }, async (t) => {
+test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
   assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(databaseUrl.hostname), 'Integration tests require a local test database');
   assert.match(databaseUrl.pathname, /^\/colony_(ci|test)$/, 'Use colony_ci or colony_test, never the live game database');
@@ -44,8 +47,8 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     await sql.end({ timeout: 2 });
   });
 
-  function initData(id, userFields = {}, authDate = Math.floor(Date.now() / 1000)) {
-    const params = new URLSearchParams({ auth_date: String(authDate), user: JSON.stringify({ id, first_name: 'Launch test', ...userFields }) });
+  function initData(id, userFields = {}, authDate = Math.floor(Date.now() / 1000), startParam) {
+    const params = new URLSearchParams({ auth_date: String(authDate), user: JSON.stringify({ id, first_name: 'Launch test', ...userFields }), ...(startParam ? { start_param: startParam } : {}) });
     const data = [...params].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
     const key = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     params.set('hash', crypto.createHmac('sha256', key).update(data).digest('hex'));
@@ -139,6 +142,9 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(second.status, 200, JSON.stringify(second.data));
     assert.equal(second.data.userId, first.data.userId);
     assert.equal(second.data.buildings.length, 4);
+    // This existing regression fixture represents a colony with retained access.
+    // Separate unlock tests exercise fresh accounts without these grants.
+    await sql`INSERT INTO colony_feature_access(user_id,feature_key) VALUES(${first.data.userId},'market'),(${first.data.userId},'expeditions') ON CONFLICT DO NOTHING`;
   });
   await t.test('client claims cannot grant bot write access; signed Telegram data can', async () => {
     const fakeGrant = await request('/api/settings/notifications', { method: 'POST', auth: initData(playerId), body: { enabled: true, permissionGranted: true } });
@@ -160,6 +166,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     if (!foreignFoundryId) {
       const admin = await request('/api/session', { method: 'POST', auth: initData(adminId) });
       assert.equal(admin.status, 200, JSON.stringify(admin.data));
+      await sql`INSERT INTO colony_feature_access(user_id,feature_key) VALUES(${admin.data.userId},'market'),(${admin.data.userId},'expeditions') ON CONFLICT DO NOTHING`;
       foreignFoundryId = (await sql`
         INSERT INTO buildings (user_id,type,level,x,y,status)
         VALUES (${admin.data.userId},'foundry',1,1,1,'active') RETURNING id
@@ -1416,6 +1423,9 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   });
 
   await runContractsIntegration({ t, sql, request, initData, playerId, adminId });
+  await runDecorIntegration({ t, sql, request, initData, playerId, adminId });
+  await runReferralsIntegration({ t, sql, request, initData, playerId, adminId });
+  await runUnlocksIntegration({ t, sql, request, initData, playerId, adminId });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;

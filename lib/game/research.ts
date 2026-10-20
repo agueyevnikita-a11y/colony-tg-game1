@@ -15,11 +15,16 @@ export type ResearchKey =
   | 'signal_analysis'
   | 'autonomous_drones'
   | 'archive_network'
-  | 'deep_space_protocol';
+  | 'deep_space_protocol'
+  | 'urban_ecology'
+  | 'public_spaces'
+  | 'trade_network'
+  | 'expedition_protocols';
 
 export type ResearchConfig = {
   key: ResearchKey;
-  branch: 'foundation' | 'resources' | 'production' | 'exploration';
+  branch: 'foundation' | 'resources' | 'production' | 'exploration' | 'infrastructure';
+  unlockFeature?: 'market' | 'expeditions' | 'decor';
   unlockBuilding?: BuildingType;
   unlockRecipe?: FoundryRecipeKey;
   name: string;
@@ -35,6 +40,30 @@ export type ResearchConfig = {
 };
 
 export const RESEARCH_TREE: ResearchConfig[] = [
+  {
+    key: 'trade_network', branch: 'infrastructure', name: 'Межколониальная торговля', emoji: '',
+    description: 'Сеть торговых терминалов связывает колонию с рынком других игроков. Контракты торгового узла доступны и без этой технологии.',
+    unlockHq: 2, labLevel: 1, science: 50, cost: { credits: 400 }, timeSec: 300, prereqs: ['basic_theory'],
+    effectText: 'Открывает рынок игроков. Для сделок нужен работающий торговый узел.', unlockFeature: 'market',
+  },
+  {
+    key: 'urban_ecology', branch: 'infrastructure', name: 'Городская экология', emoji: '',
+    description: 'Замкнутые биосистемы позволяют выращивать цветники в условиях далёкой планеты.',
+    unlockHq: 2, labLevel: 1, science: 60, cost: { credits: 400 }, timeSec: 600, prereqs: ['basic_theory'],
+    effectText: 'Открывает цветники для комфорта и оформления города.', unlockFeature: 'decor',
+  },
+  {
+    key: 'public_spaces', branch: 'infrastructure', name: 'Общественные пространства', emoji: '',
+    description: 'Площади и водные сады создают места отдыха и делают колонию уютнее.',
+    unlockHq: 3, labLevel: 2, science: 140, cost: { credits: 1000 }, timeSec: 1200, prereqs: ['urban_ecology'],
+    effectText: 'Открывает водный сад и площадь колонии для повышения комфорта.', unlockFeature: 'decor',
+  },
+  {
+    key: 'expedition_protocols', branch: 'exploration', name: 'Экспедиционные протоколы', emoji: '',
+    description: 'Подготовка исследовательских аппаратов и безопасного возвращения находок в колонию.',
+    unlockHq: 3, labLevel: 1, science: 90, cost: { credits: 800 }, timeSec: 600, prereqs: ['basic_theory'],
+    effectText: 'Открывает центр экспедиций и отправку аппаратов.', unlockBuilding: 'expedition_center', unlockFeature: 'expeditions',
+  },
   {
     key: 'basic_theory', branch: 'foundation', name: 'Прикладная ксенология', emoji: '🧬',
     description: 'Базовые методы анализа неизвестных сигналов и материалов.',

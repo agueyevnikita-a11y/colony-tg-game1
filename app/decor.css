@@ -1,0 +1,31 @@
+.decorPanel { min-width:0; }
+.decorPanelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.decorPanelHeading h2 { display:flex; align-items:center; gap:8px; }
+.decorPanelHeading p { margin:6px 0 0; }
+.decorComfortValue { display:flex; align-items:center; gap:4px; padding:9px 10px; border:1px solid rgba(125,205,165,.26); border-radius:12px; color:#9edeb6; background:rgba(75,153,111,.08); white-space:nowrap; }
+.decorComfortValue strong { font-size:20px; }.decorComfortValue small { color:var(--muted); font-size:11px; }
+.decorComfortTrack { height:7px; margin-top:17px; background:rgba(122,174,149,.12); border-radius:7px; overflow:hidden; }
+.decorComfortTrack i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#4b9a80,#9bddb0); transition:width .3s ease; }
+.decorComfortSummary { display:flex; justify-content:space-between; gap:8px; margin-top:7px; font-size:11px; color:var(--muted); }
+.decorComfortSummary > span:first-child { color:#a9d8c3; }
+.decorPanel .decorPurpose { margin:13px 0; font-size:12px; line-height:1.6; }
+.decorMilestones { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.decorMilestones > div { display:flex; flex-direction:column; gap:5px; min-width:0; padding:9px 7px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:rgba(11,23,29,.2); font-size:10px; line-height:1.5; }
+.decorMilestones strong { display:flex; align-items:center; gap:4px; font-size:11px; color:#b8caca; }.decorMilestones .isReached { border-color:rgba(122,203,162,.3); background:rgba(87,159,123,.08); }.decorMilestones .isReached strong { color:#a5dfba; }
+.decorRewardsLink { width:100%; justify-content:center; gap:6px; margin-top:8px; }
+.decorInstructions { margin-top:13px; padding:10px 11px; border:1px solid var(--line); border-radius:11px; font-size:12px; color:var(--muted); line-height:1.6; }
+.decorInstructions summary { cursor:pointer; color:#b8d1cc; }.decorInstructions summary .gameIcon { margin-right:5px; }.decorInstructions ol { padding-left:19px; margin:10px 0; }.decorInstructions li + li { margin-top:6px; }.decorInstructions p { font-size:11px; line-height:1.6; margin:10px 0 0; }
+.decorFilters { display:flex; gap:6px; margin:16px 0 12px; }
+.decorFilters button { flex:1; min-height:43px; min-width:0; padding:7px 6px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:rgba(12,26,33,.35); font:inherit; font-size:11px; line-height:1.45; cursor:pointer; }
+.decorFilters button.isActive { border-color:rgba(126,209,167,.45); color:#c2e4d5; background:rgba(86,158,120,.12); }.decorFilters button span { margin-left:3px; font-size:10px; color:#a3c4b7; }
+.decorItems { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.decorItem { display:flex; align-items:center; flex-direction:column; min-width:0; padding:12px 9px 10px; border:1px solid var(--line); border-radius:13px; background:linear-gradient(155deg,rgba(40,69,72,.18),rgba(15,30,38,.35)); text-align:center; }
+.decorItemArt { display:flex; align-items:center; justify-content:center; flex:0 0 58px; width:58px; height:58px; margin-bottom:8px; }.decorItemArt > * { width:100%; height:auto; max-height:100%; }
+.decorItem h3 { margin:0; font-size:13px; line-height:1.45; overflow-wrap:anywhere; }.decorItemGain { display:block; margin-top:6px; color:#a3dfb4; font-size:11px; line-height:1.4; }.decorItemGain.isNeutral { color:var(--muted); }.decorItemOwned { margin-top:4px; color:var(--muted); font-size:10px; }
+.decorItem p { margin:9px 0 11px; font-size:11px; line-height:1.55; }.decorItemCost { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:5px; margin-top:auto; font-size:12px; }.decorItemCost > span:last-child { color:var(--muted); font-size:10px; }
+.decorItem .action { display:flex; justify-content:center; align-items:center; gap:5px; width:100%; min-height:43px; padding:9px 5px; margin-top:10px; font-size:12px; }.decorItemShortage { display:block; margin-top:7px; color:#eac7a0; font-size:10px; line-height:1.5; }
+.decorItemGate { display:flex; flex-direction:column; gap:5px; width:100%; margin-top:10px; color:#c5bfa5; font-size:10px; line-height:1.5; }.decorItemGate .miniButton { display:flex; align-items:center; justify-content:center; gap:5px; min-height:42px; margin-top:3px; font-size:11px; }
+.decorItem.isLocked { background:rgba(13,27,34,.45); }.decorItem.isLocked .decorItemArt { opacity:.65; }.decorPanel .decorEmpty { margin:14px 0 0; font-size:12px; line-height:1.6; }
+@media (min-width:620px) { .decorItems { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:360px) { .decorPanelHeading { gap:7px; }.decorComfortValue { padding:8px 7px; gap:3px; }.decorComfortValue strong { font-size:18px; }.decorItem { padding:11px 7px 9px; }.decorMilestones > div { padding:8px 5px; }.decorMilestones strong { font-size:10px; } }
+@media (prefers-reduced-motion:reduce) { .decorComfortTrack i { transition:none; } }

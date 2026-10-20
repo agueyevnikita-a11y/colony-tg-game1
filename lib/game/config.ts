@@ -95,7 +95,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
     baseBuildCost: { ore: 600, parts: 120, credits: 800 }, baseBuildTimeSec: 600, maxLevel: 12,
   },
   expedition_center: {
-    name: 'Центр экспедиций', emoji: '🚀', unlockHq: 3,
+    name: 'Центр экспедиций', emoji: '🚀', unlockHq: 3, unlockResearch: 'expedition_protocols',
     description: 'Открывает экспедиции за ресурсами, наукой и артефактами. Отправляй аппараты в разделе развития.',
     baseBuildCost: { ore: 800, parts: 180, credits: 1200 }, baseBuildTimeSec: 900, maxLevel: 12,
   },

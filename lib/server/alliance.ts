@@ -205,7 +205,7 @@ export async function createAlliance(userId: string, rawName: string) {
     const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
     if (!state) throw new Error('Игровой профиль не найден');
     if (Number(state.hq_level) < ALLIANCE_CREATE_HQ) throw new Error(`Создание альянса доступно с HQ${ALLIANCE_CREATE_HQ}`);
-    if (Number(state.credits) < ALLIANCE_CREATE_COST) throw new Error(`Нужно 💰${ALLIANCE_CREATE_COST} кредитов`);
+    if (Number(state.credits) < ALLIANCE_CREATE_COST) throw new Error(`Нужно ${ALLIANCE_CREATE_COST} кредитов`);
     if (await membership(tx, userId)) throw new Error('Вы уже состоите в альянсе');
     await assertCooldown(tx, userId);
 

@@ -63,7 +63,7 @@ export async function startResearch(userId: string, researchKey: string) {
     if (active) throw new Error('Сначала дождись завершения текущего исследования');
     const completed = await completedResearchKeys(tx, userId);
     if (!cfg.prereqs.every((key) => completed.has(key))) throw new Error('Сначала заверши предыдущие исследования ветки');
-    if (Number(state.science ?? 0) < cfg.science) throw new Error(`Нужно 🧠 ${cfg.science} науки`);
+    if (Number(state.science ?? 0) < cfg.science) throw new Error(`Нужно ${cfg.science} науки`);
     if (Number(state.credits) < Number(cfg.cost.credits ?? 0)) throw new Error('Недостаточно кредитов');
     if (Number(state.parts) < Number(cfg.cost.parts ?? 0)) throw new Error('Недостаточно деталей');
 

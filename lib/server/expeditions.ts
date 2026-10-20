@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { sql, type Transaction, type JsonValue } from './db';
+import { requireColonyFeature } from './feature-access';
 import { ARTIFACTS, EXPEDITION_EVENTS, EXPEDITIONS, expeditionByKey, expeditionSlots } from '@/lib/game/expeditions';
 import { productionMultipliers } from '@/lib/game/research';
 import { storageCaps } from '@/lib/game/economy';
@@ -149,6 +150,7 @@ export async function startExpedition(userId: string, expeditionKey: string) {
   const cfg = expeditionByKey(expeditionKey);
   if (!cfg) throw new Error('Экспедиция не найдена');
   return sql.begin(async (tx) => {
+    await requireColonyFeature(tx, userId, 'expeditions');
     await reconcileExpeditions(tx, userId);
     const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
     if (!state) throw new Error('Игровой профиль не найден');

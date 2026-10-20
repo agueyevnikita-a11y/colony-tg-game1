@@ -3,10 +3,14 @@ import '@/app/city-art.css';
 
 type Props = { type: string; className?: string; decorative?: boolean; label?: string };
 
-const SPRITES = [
-  'hq', 'mine', 'solar', 'warehouse', 'foundry', 'habitat', 'trade_hub', 'research_lab',
-  'logistics', 'expedition_center', 'alliance_hub', 'observatory', 'deep_mine', 'solar_array', 'park', 'statue',
-];
+// The source sheet is hand arranged, not a uniform 4×4 atlas. Each viewport
+// isolates a complete building, including antennas, from neighbouring sprites.
+const SPRITES: Record<string, [number, number, number, number]> = {
+  hq: [14, 3, 308, 304], mine: [331, 49, 301, 258], solar: [638, 17, 306, 289], warehouse: [949, 56, 301, 250],
+  foundry: [10, 305, 314, 293], habitat: [329, 317, 304, 277], trade_hub: [636, 313, 311, 283], research_lab: [954, 314, 299, 282],
+  logistics: [8, 642, 326, 253], expedition_center: [339, 593, 302, 305], alliance_hub: [644, 600, 310, 307], observatory: [959, 597, 289, 301],
+  deep_mine: [9, 892, 319, 324], solar_array: [337, 911, 307, 299], park: [643, 942, 317, 261], statue: [956, 893, 307, 317],
+};
 
 const LABELS: Record<string, string> = {
   hq: 'Штаб колонии', mine: 'Шахта', solar: 'Электростанция', warehouse: 'Склад', foundry: 'Литейный цех',
@@ -16,12 +20,18 @@ const LABELS: Record<string, string> = {
 };
 
 export function BuildingArt({ type, className = '', decorative = true, label }: Props) {
-  const index = SPRITES.indexOf(type);
+  const sprite = SPRITES[type];
+  const scale = sprite ? 300 / Math.max(sprite[2], sprite[3]) : 1;
+  const width = sprite ? sprite[2] * scale : 300;
+  const height = sprite ? sprite[3] * scale : 300;
   const imageLabel = label ?? LABELS[type] ?? 'Здание колонии';
-  return <span className={`buildingArt ${index < 0 ? 'buildingArtFallback' : ''} ${className}`.trim()}
+  return <span className={`buildingArt ${!sprite ? 'buildingArtFallback' : ''} ${className}`.trim()}
     data-building-art={type} aria-hidden={decorative ? true : undefined} role={decorative ? undefined : 'img'}
-    aria-label={decorative ? undefined : imageLabel}
-    style={index < 0 ? undefined : { backgroundPosition: `${index % 4 * 100 / 3}% ${Math.floor(index / 4) * 100 / 3}%` }}>
-    {index < 0 && <GameIcon name="building" size={32} />}
+    aria-label={decorative ? undefined : imageLabel}>
+    {sprite ? <svg viewBox="0 0 320 320" width="100%" height="100%" aria-hidden="true" focusable="false">
+      <svg x={(320 - width) / 2} y={310 - height} width={width} height={height} viewBox={sprite.join(' ')} preserveAspectRatio="none" overflow="hidden">
+        <image href="/art/buildings-atlas.webp" width="1263" height="1245" />
+      </svg>
+    </svg> : <GameIcon name="building" size={32} />}
   </span>;
 }

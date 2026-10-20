@@ -3,7 +3,8 @@
 import { availableFoundryLinks } from '@/lib/game/foundry';
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
-import { CosmeticAtmosphere, CosmeticBadge, FounderMonument, cosmeticFrameClass } from '@/components/CosmeticAppearance';
+import { DecorArt } from '@/components/DecorArt';
+import { CosmeticAtmosphere, CosmeticBadge, CosmeticMonument, cosmeticFrameClass } from '@/components/CosmeticAppearance';
 import '@/app/production.css';
 import '@/app/city-art.css';
 
@@ -58,6 +59,7 @@ export function CityGrid(props: {
       const occupied = !!b || !!d;
       const selected = Boolean((b && b.id === props.selectedId) || (d && d.id === props.selectedDecorId));
       const constructing = b && b.status !== 'active';
+      const connectsRoad = (dx: number, dy: number) => ['road', 'plaza'].includes(decorByCell.get(`${x + dx}:${y + dy}`)?.type ?? '');
       const links = planningFoundry && !occupied ? availableFoundryLinks({
         id: props.movingBuildingId ?? 'placement-preview', type: 'foundry', status: 'active',
         level: 1, x, y,
@@ -67,20 +69,18 @@ export function CityGrid(props: {
         <button
           type="button"
           key={`${x}:${y}`}
-          className={`cityCell ${b ? 'occupied' : d ? 'decorCell' : 'empty'} ${selected ? 'selected' : ''} ${constructing ? 'busyCell' : ''} ${links.length ? 'linkPreview' : ''}`}
+          className={`cityCell ${b ? 'occupied' : d ? `decorCell decor-${d.type}` : `empty terrain-${(x * 11 + y * 7) % 9}`} ${selected ? 'selected' : ''} ${constructing ? 'busyCell' : ''} ${links.length ? 'linkPreview' : ''}`}
           onClick={() => props.onCell?.(x, y, b, d)}
           disabled={!props.onCell}
           aria-pressed={occupied && props.onCell ? selected : undefined}
-          aria-label={b ? `${cfg?.name ?? b.type}, уровень ${b.level}` : d ? `${decorCfg?.name ?? d.type}` : `Пустая клетка ${x + 1}, ${y + 1}${linkDescription ? `; ${linkDescription}` : ''}`}
+          aria-label={b ? `${cfg?.name ?? b.type}, уровень ${b.level}${constructing ? ', строительство' : ''}` : d ? `${decorCfg?.name ?? d.type}` : `Пустая клетка ${x + 1}, ${y + 1}${linkDescription ? `; ${linkDescription}` : ''}`}
           title={linkDescription || undefined}
         >
           {b ? <>
             <BuildingArt type={b.type} className="cityBuildingArt" />
             {constructing ? <span className="cityConstruction" aria-hidden="true" /> : <span className={`cityActivityLight ${b.type === 'foundry' ? 'isFoundry' : ''}`} aria-hidden="true" />}
             <span className="cityLevel" aria-hidden="true">{b.status === 'active' ? `L${b.level}` : <GameIcon name="clock" size={9} />}</span>
-          </> : d ? d.type === 'park' || d.type === 'statue'
-            ? <BuildingArt type={d.type} className="cityBuildingArt" />
-            : <span className="cityDecorIcon"><GameIcon name={d.type} size={28} /></span>
+          </> : d ? <DecorArt type={d.type} className="cityDecorArt" connections={{ north: connectsRoad(0, -1), east: connectsRoad(1, 0), south: connectsRoad(0, 1), west: connectsRoad(-1, 0) }} />
             : (props.placementMode || props.decorPlacementMode || props.moveMode) ? <span className="cityPlus" aria-hidden="true" /> : null}
           {links.length > 0 && <span className="cellLinkMarkers" aria-hidden="true">{links.map((link) => <span key={link}><GameIcon name={link === 'ore' ? 'ore' : 'energy'} size={16} /></span>)}</span>}
         </button>,
@@ -89,6 +89,7 @@ export function CityGrid(props: {
   }
 
   return <div className={`cityMap cityArtMap cosmeticSurface ${cosmeticFrameClass(props.frame)} ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
+    <div className="cityTerrain" aria-hidden="true"><i /><i /><i /><i /></div>
     <CosmeticAtmosphere weather={props.weather} effect={props.effect} />
     <div className="cityMapGrid" style={{ gridTemplateColumns: `repeat(${props.gridSize}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${props.gridSize}, minmax(0, 1fr))` }}>
       {cells}
@@ -97,8 +98,8 @@ export function CityGrid(props: {
     {(props.badge || props.buildingSkin) && <div className="cityCosmeticFooter">
       {props.badge && <div className="cityCosmeticBadge"><CosmeticBadge id={props.badge} /><span>{props.badge === 'founder_badge' ? 'Основатель' : 'Знак колонии'}</span></div>}
       {props.buildingSkin && <div className={`cityMonumentDisplay ${props.buildingSkin}`}>
-        <span>{props.buildingSkin === 'founder_monument' ? 'Монумент основателя' : 'Монумент колонии'}</span>
-        {props.buildingSkin === 'founder_monument' ? <FounderMonument /> : <BuildingArt type="statue" />}
+        <span>{props.buildingSkin === 'founder_monument' ? 'Монумент основателя' : props.buildingSkin === 'monument_network' ? 'Монумент сети' : props.buildingSkin === 'relay_legend' ? 'Маяк легенды' : 'Монумент колонии'}</span>
+        <CosmeticMonument id={props.buildingSkin} />
       </div>}
     </div>}
   </div>;

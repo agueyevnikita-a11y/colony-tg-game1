@@ -28,7 +28,7 @@
 .researchLabNotice > .action { font-size:12px; }
 .researchFoundation > h3, .researchBranch > h3 { margin:0 0 9px; font-size:13px; }
 .researchFoundation { margin-bottom:15px; }
-.researchBranchPicker { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:17px 0 15px; }
+.researchBranchPicker { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:17px 0 15px; }
 .researchBranchPicker button { min-width:0; border:1px solid var(--line); border-radius:12px; padding:9px 5px; background:var(--panel2); color:var(--muted); cursor:pointer; }
 .researchBranchPicker button > span { display:block; font-size:17px; margin-bottom:5px; }
 .researchBranchPicker button strong { display:block; font-size:11px; overflow-wrap:anywhere; }

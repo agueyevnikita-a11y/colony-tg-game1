@@ -52,6 +52,14 @@ body:has(.colonyApp) { background:radial-gradient(ellipse at 50% 0,rgba(43,81,96
 .colonyApp .inspectorEmoji { width:72px; height:72px; flex-shrink:0; padding:0; background:rgba(136,191,197,.04); border:1px solid var(--line); border-radius:15px; }
 .buildingPurpose { padding:10px 12px; border-left:2px solid var(--accent); border-radius:0 10px 10px 0; background:rgba(133,221,191,.04); }
 .cityMapActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.cityComfortSummary { display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; min-height:44px; margin:0 0 12px; padding:9px 11px; border:1px solid rgba(133,221,191,.2); border-radius:12px; background:rgba(133,221,191,.04); color:var(--muted); font-size:11px; cursor:pointer; }
+.cityComfortSummary > span { display:flex; align-items:center; gap:6px; }
+.cityComfortSummary strong { color:#a9e9ca; }
+.cityComfortSummary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.featureUnlock { text-align:center; padding:22px 16px; }
+.featureUnlockIcon { display:flex; align-items:center; justify-content:center; gap:8px; color:#a8bdcd; margin-bottom:14px; }
+.featureUnlock .action { display:flex; align-items:center; justify-content:center; gap:7px; margin-top:15px; }
+.placementPreview > .decorArt { width:58px; height:58px; flex-shrink:0; }
 .cityMapActions .action { display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; padding-inline:8px; }
 .inspectorShortcut { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; }
 .inspectorUpgradeTime { display:flex; align-items:center; gap:5px; margin-top:6px; color:var(--muted); font-size:11px; }

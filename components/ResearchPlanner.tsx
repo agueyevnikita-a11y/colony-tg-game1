@@ -43,6 +43,7 @@ function duration(seconds: number) {
   return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
 }
 function iconFor(item: ResearchConfig) {
+  if (item.branch === 'infrastructure') return item.key === 'trade_network' ? 'market' : 'comfort';
   if (item.branch === 'exploration') return 'rocket';
   if (item.branch === 'production') return 'parts';
   if (item.branch === 'resources') return item.key === 'solar_lattice' || item.key === 'photovoltaic_arrays' ? 'energy' : 'ore';

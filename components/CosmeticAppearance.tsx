@@ -1,13 +1,15 @@
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
+import { DecorArt } from '@/components/DecorArt';
 import '@/app/cosmetics.css';
 
 const LABELS: Record<string, string> = {
   theme_neon: 'Неоновый город', weather_aurora: 'Северное сияние', frame_orbit: 'Орбитальная рамка',
   founder_pack: 'Набор основателя', founder_badge: 'Знак основателя', founder_monument: 'Монумент основателя',
   founder_frame: 'Рамка основателя', founder_sky: 'Небо основателя',
+  monument_network: 'Монумент сети', relay_legend: 'Маяк легенды', frame_garden: 'Рамка живого города',
 };
-const FRAME_IDS = new Set(['frame_orbit', 'founder_frame', 'frame_first_signal', 'frame_exchange', 'frame_researcher', 'frame_pathfinder']);
+const FRAME_IDS = new Set(['frame_orbit', 'founder_frame', 'frame_first_signal', 'frame_exchange', 'frame_researcher', 'frame_pathfinder', 'frame_garden']);
 const SIGNAL_IDS = new Set(['effect_signal', 'effect_alliance_signal', 'effect_relay_veteran']);
 
 export function cosmeticFrameClass(frame?: string) {
@@ -29,6 +31,34 @@ export function FounderMonument({ decorative = true }: { decorative?: boolean })
     alt={decorative ? '' : 'Монумент основателя'} aria-hidden={decorative ? true : undefined} />;
 }
 
+export function CosmeticMonument({ id, decorative = true }: { id: string; decorative?: boolean }) {
+  if (id === 'founder_monument') return <FounderMonument decorative={decorative} />;
+  if (id !== 'monument_network' && id !== 'relay_legend') return <DecorArt type="statue" decorative={decorative} />;
+  const legendary = id === 'relay_legend';
+  return <svg className={`cosmeticMonumentArt ${legendary ? 'isRelayMonument' : 'isNetworkMonument'}`} viewBox="0 0 160 160" width="100%" height="100%" focusable="false"
+    aria-hidden={decorative ? true : undefined} role={decorative ? undefined : 'img'} aria-label={decorative ? undefined : LABELS[id]}>
+    <ellipse cx="80" cy="140" rx="64" ry="12" fill="#050d16" opacity=".45" />
+    <path d="m17 112 63-32 63 32v12l-63 31-63-31Z" fill="#445c67" stroke="#809b9e" strokeWidth="1.5" />
+    <path d="m17 112 63 31 63-31-63-32Z" fill="#9cafa8" /><path d="m80 143 63-31v12l-63 31Z" fill="#304955" />
+    <path d="m35 114 45-23 45 23-45 22Z" fill={legendary ? '#655a79' : '#3b6d6a'} />
+    {legendary ? <>
+      <path d="m57 117 23-12 23 12v8l-23 12-23-12Z" fill="#d3bc8d" />
+      <path d="m69 111 5-65 6-11 6 11 5 65-11 9Z" fill="#d0c6b0" /><path d="m80 35 6 11 5 65-11 9Z" fill="#74818e" />
+      <path d="m80 13 14 22-14 22-14-22Z" fill="#bda2fa" /><path d="m80 13 14 22-14 22V13Z" fill="#846bc4" />
+      <path d="m76 31 4-9 7 13-7 14" fill="none" stroke="#e5dcff" strokeWidth="2" />
+      <path d="M58 40c-12 10-12 26 0 36m44-36c12 10 12 26 0 36M49 30c-19 17-19 38 0 55m62-55c19 17 19 38 0 55" fill="none" stroke="#b6a3e0" strokeWidth="2.5" opacity=".8" />
+      <path d="m43 117 37 18 37-18" fill="none" stroke="#d8bf85" strokeWidth="2" />
+    </> : <>
+      <path d="M80 101V57m-31 58V88m62 27V88M49 88l31 16 31-16" fill="none" stroke="#8edccc" strokeWidth="5" />
+      <path d="m65 57 15-8 15 8v45l-15 8-15-8Z" fill="#c8d6c9" /><path d="m80 65 15-8v45l-15 8Z" fill="#547f85" />
+      <path d="m65 57 15 8 15-8-15-8Z" fill="#e0e8d9" />
+      <path d="m80 29 13 13-13 17-13-17Z" fill="#8be6d0" /><path d="m80 29 13 13-13 17V29Z" fill="#42a99f" />
+      {[49, 111].map(x => <g key={x} transform={`translate(${x} 79)`}><path d="m-11 6 11-6 11 6v24L0 36l-11-6Z" fill="#c1d0c2" /><path d="M0 12 11 6v24L0 36Z" fill="#4c747c" /><path d="m0-8 9 11-9 11L-9 3Z" fill="#95dbc6" /></g>)}
+      <path d="m43 119 37 18 37-18" fill="none" stroke="#8bddc0" strokeWidth="2" />
+    </>}
+  </svg>;
+}
+
 export function CosmeticBadge({ id, label, decorative = false }: { id: string; label?: string; decorative?: boolean }) {
   const founder = id === 'founder_badge';
   return <span className={`cosmeticBadge ${founder ? 'isFounderBadge' : 'isEarnedBadge'}`}
@@ -45,7 +75,7 @@ export function CosmeticPreview({ cosmeticId, category, label, className = '' }:
   const theme = cosmeticId === 'theme_neon' || cosmeticId === 'theme_first_signal' ? cosmeticId : '';
   const weather = founderPack ? 'founder_sky' : cosmeticId === 'weather_aurora' || cosmeticId === 'founder_sky' || cosmeticId === 'weather_signal_storm' ? cosmeticId : '';
   const frame = founderPack ? 'founder_frame' : category === 'frame' || FRAME_IDS.has(cosmeticId) ? cosmeticId : '';
-  const monument = founderPack || cosmeticId === 'founder_monument';
+  const monument = founderPack || ['founder_monument', 'monument_network', 'relay_legend'].includes(cosmeticId) || category === 'building_skin';
   const badge = founderPack || cosmeticId === 'founder_badge' ? 'founder_badge' : category === 'badge' ? cosmeticId : '';
   const title = label ?? LABELS[cosmeticId] ?? (cosmeticId ? 'Оформление колонии' : 'Базовое оформление');
   return <figure className={`cosmeticPreview ${className}`.trim()} aria-label={title}>
@@ -53,7 +83,7 @@ export function CosmeticPreview({ cosmeticId, category, label, className = '' }:
       <CosmeticAtmosphere weather={weather} effect={category === 'effect' ? cosmeticId : ''} />
       <div className="cosmeticPreviewName"><div><span>COLONY</span>{category === 'title' && cosmeticId && <small className="cosmeticPreviewTitle">{label?.replace(/^Титул:\s*/i, '') ?? 'Титул колонии'}</small>}</div>{badge && <CosmeticBadge id={badge} decorative />}</div>
       <div className="cosmeticPreviewBuildings" aria-hidden="true">
-        <BuildingArt type="mine" /><BuildingArt type="hq" />{monument ? <FounderMonument /> : <BuildingArt type="foundry" />}
+        <BuildingArt type="mine" /><BuildingArt type="hq" />{monument ? <CosmeticMonument id={founderPack ? 'founder_monument' : cosmeticId} /> : <BuildingArt type="foundry" />}
       </div>
     </div>
     <figcaption>{title}</figcaption>

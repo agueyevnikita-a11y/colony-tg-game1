@@ -2,7 +2,7 @@ import { sql } from './db';
 import { BUILDINGS, HQ_UPGRADES, cityGridSize, type BuildingType } from '@/lib/game/config';
 import { ACHIEVEMENTS, DAILY_QUESTS, WEEKLY_QUESTS } from '@/lib/game/progression';
 import { buildTimeSec, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
-import { ensureProgressionRows, recordProgressEvent } from '@/lib/server/progression';
+import { ensureProgressionRows, recordProgressEvent, unlockAchievements } from '@/lib/server/progression';
 import { getMarketState, reconcileExpiredMarketOrders } from '@/lib/server/market';
 import { getSeasonState } from '@/lib/server/season';
 import { getAllianceState } from '@/lib/server/alliance';
@@ -23,6 +23,10 @@ import { accrueIncome } from '@/lib/server/passive-income';
 import { availableFoundryRecipes, collectableFoundryJobs } from '@/lib/game/foundry';
 import { recipeSchemaReady } from '@/lib/server/production-schema';
 import { getColonyEventState } from '@/lib/server/colony-events';
+import { calculateComfort } from '@/lib/game/comfort';
+import { getColonyUnlocks } from '@/lib/server/feature-access';
+import { referralTelegramId, REFERRAL_QUALIFICATION_HQ } from '@/lib/game/referrals';
+import { getReferralProgram } from '@/lib/server/referrals';
 
 export async function ensurePlayer(tg: {
   id: number;
@@ -82,19 +86,18 @@ export async function ensurePlayer(tg: {
       `;
     }
 
-    if (startParam?.startsWith('ref_')) {
-      const refTelegramId = Number(startParam.slice(4));
-      if (Number.isFinite(refTelegramId) && refTelegramId !== tg.id) {
-        await tx`
-          UPDATE users target
-          SET referred_by = ref.id
-          FROM users ref
-          WHERE target.id = ${user.id}
-            AND target.referred_by IS NULL
-            AND ref.telegram_id = ${refTelegramId}
-            AND target.created_at > now() - interval '15 minutes'
-        `;
-      }
+    const refTelegramId = referralTelegramId(startParam, tg.id);
+    if (refTelegramId !== null) {
+      await tx`
+        UPDATE users target
+        SET referred_by = ref.id
+        FROM users ref
+        WHERE target.id = ${user.id}
+          AND target.referred_by IS NULL
+          AND ref.telegram_id = ${refTelegramId}
+          AND target.created_at > now() - interval '15 minutes'
+          AND ref.created_at < target.created_at
+      `;
     }
     return user.id;
   });
@@ -138,22 +141,33 @@ async function ensureNpcContracts(tx: any, userId: string, hqLevel: number, buil
   return { contracts, info: { enabled: true, nextAt: recentBatch[0]?.next_at ? new Date(recentBatch[0].next_at).toISOString() : null } };
 }
 
-async function qualifyReferralIfNeeded(tx: any, userId: string, hqLevel: number) {
-  if (hqLevel < 3) return;
-  const rows = await tx<any[]>`
-    UPDATE users
-    SET referral_qualified_at=now()
-    WHERE id=${userId} AND referred_by IS NOT NULL AND referral_qualified_at IS NULL
-    RETURNING referred_by
-  `;
-  const inviterId = rows[0]?.referred_by as string | undefined;
-  if (inviterId) {
-    await recordProgressEvent(tx, inviterId, 'qualified_referral', 1, { referral_user_id: userId });
-  }
+async function qualifyReferralIfNeeded(userId: string, hqLevel: number): Promise<boolean> {
+  if (hqLevel < REFERRAL_QUALIFICATION_HQ) return false;
+  return sql.begin(async (tx) => {
+    const [candidate] = await tx<{ referred_by: string }[]>`
+      SELECT referred_by FROM users WHERE id=${userId} AND referred_by IS NOT NULL
+        AND referred_by<>id AND referral_qualified_at IS NULL
+    `;
+    if (!candidate) return false;
+    // Qualification may award an inviter milestone. Match the market's canonical
+    // two-player balance order, after the invitee reconciliation has committed.
+    const states = await tx`SELECT user_id FROM game_states WHERE user_id IN (${userId},${candidate.referred_by}) ORDER BY user_id FOR UPDATE`;
+    if (states.length !== 2) return false;
+    const [hq] = await tx<{ level: number }[]>`SELECT level FROM buildings WHERE user_id=${userId} AND type='hq' LIMIT 1`;
+    if (Number(hq?.level ?? 0) < REFERRAL_QUALIFICATION_HQ) return false;
+    const rows = await tx<{ referred_by: string }[]>`
+      UPDATE users SET referral_qualified_at=now()
+      WHERE id=${userId} AND referred_by=${candidate.referred_by} AND referral_qualified_at IS NULL
+      RETURNING referred_by
+    `;
+    if (!rows.length) return false;
+    await recordProgressEvent(tx, candidate.referred_by, 'qualified_referral', 1, { referral_user_id: userId });
+    return true;
+  });
 }
 
 export async function reconcilePlayer(userId: string) {
-  return sql.begin(async (tx) => {
+  const game = await sql.begin(async (tx) => {
     await ensureProgressionRows(tx, userId);
     await ensureDailyLogin(tx, userId);
     await ensureWelcomeInbox(tx, userId);
@@ -272,8 +286,6 @@ export async function reconcilePlayer(userId: string) {
       WHERE user_id=${userId}
     `;
 
-    await qualifyReferralIfNeeded(tx, userId, hqLevel);
-
     // Keep the result shape stable while a running server sees recipe_key added.
     const activeJobs = await tx<any[]>`
       SELECT id,user_id,building_id,ore_spent,energy_spent,parts_reward,started_at,completes_at,claimed_at,
@@ -289,6 +301,10 @@ export async function reconcilePlayer(userId: string) {
       WHERE user_id=${userId} AND week_start=date_trunc('week', CURRENT_DATE)::date
       ORDER BY quest_key
     `;
+    const decor = await tx<any[]>`SELECT * FROM city_decor WHERE user_id=${userId} ORDER BY created_at ASC`;
+    const comfort = calculateComfort(decor);
+    await tx`UPDATE player_stats SET max_comfort=GREATEST(max_comfort,${comfort.score}) WHERE user_id=${userId}`;
+    await unlockAchievements(tx, userId);
     const achievements = await tx<any[]>`
       SELECT * FROM user_achievements WHERE user_id=${userId} ORDER BY unlocked_at DESC
     `;
@@ -305,18 +321,16 @@ export async function reconcilePlayer(userId: string) {
       SELECT id, name, category, star_price, achievement_key, temporary_days, metadata
       FROM cosmetics ORDER BY category, name
     `;
-    const referrals = await tx<any[]>`
-      SELECT u.telegram_id, u.first_name, u.username, u.colony_name, u.referral_qualified_at,
-             COALESCE(gs.hq_level,1) AS hq_level, u.created_at
-      FROM users u LEFT JOIN game_states gs ON gs.user_id=u.id
-      WHERE u.referred_by=${userId}
-      ORDER BY u.created_at DESC LIMIT 100
-    `;
-    const decor = await tx<any[]>`SELECT * FROM city_decor WHERE user_id=${userId} ORDER BY created_at ASC`;
+    const referralProgram = await getReferralProgram(tx, userId);
+    const referrals = referralProgram.friends.map((friend) => ({
+      telegram_id: friend.telegramId, colony_name: friend.name, hq_level: friend.hqLevel,
+      referral_qualified_at: friend.qualifiedAt,
+    }));
     const market = await getMarketState(tx, userId);
     const season = await getSeasonState(tx, userId);
     const alliance = await getAllianceState(tx, userId);
     const research = await getResearchState(tx, userId, hqLevel, buildings);
+    const unlocks = await getColonyUnlocks(tx, userId, new Set(research.completed));
     const expeditions = await getExpeditionState(tx, userId, hqLevel, buildings);
 
     const enrichedBuildings = buildings.map((b) => {
@@ -355,7 +369,9 @@ export async function reconcilePlayer(userId: string) {
       gridSize: cityGridSize(hqLevel),
       buildings: enrichedBuildings,
       decor,
-      decorCatalog: Object.entries(DECOR_CATALOG).map(([type, cfg]) => ({ type, ...cfg })),
+      comfort,
+      unlocks,
+      decorCatalog: Object.entries(DECOR_CATALOG).map(([type, cfg]) => ({ type, ...cfg, researchRequirementName: cfg.unlockResearch ? researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch : null })),
       activeJobs,
       production: {
         partsMultiplier: researchEffects.foundryParts,
@@ -376,6 +392,7 @@ export async function reconcilePlayer(userId: string) {
       cosmetics,
       shopCosmetics,
       referrals,
+      referralProgram,
       market,
       season,
       alliance,
@@ -393,9 +410,13 @@ export async function reconcilePlayer(userId: string) {
       catalog: Object.entries(BUILDINGS).map(([type, cfg]) => ({
         type,
         ...cfg,
-        unlockedByResearch: !cfg.unlockResearch || researchKeys.has(cfg.unlockResearch),
+        unlockedByResearch: !cfg.unlockResearch || researchKeys.has(cfg.unlockResearch) || (type === 'expedition_center' && unlocks.expeditions.legacy),
         researchRequirementName: cfg.unlockResearch ? researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch : null,
       })),
     };
   });
+  if (await qualifyReferralIfNeeded(userId, Number(game.state.hq_level))) {
+    game.referralProgram = await sql.begin((tx) => getReferralProgram(tx, userId));
+  }
+  return game;
 }

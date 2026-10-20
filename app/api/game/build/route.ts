@@ -8,6 +8,7 @@ import { recordProgressEvent } from '@/lib/server/progression';
 import { enqueueNotification } from '@/lib/server/notifications';
 import { completedResearchKeys } from '@/lib/server/research';
 import { researchByKey } from '@/lib/game/research';
+import { getColonyUnlocks } from '@/lib/server/feature-access';
 
 export const runtime = 'nodejs';
 
@@ -71,7 +72,8 @@ export async function POST(request: Request) {
       }
 
       if (state.hq_level < cfg.unlockHq) throw new Error(`Requires HQ level ${cfg.unlockHq}`);
-      if (cfg.unlockResearch && !(await completedResearchKeys(tx, userId)).has(cfg.unlockResearch)) {
+      const retainedExpeditions = body.type === 'expedition_center' && (await getColonyUnlocks(tx, userId)).expeditions.legacy;
+      if (cfg.unlockResearch && !retainedExpeditions && !(await completedResearchKeys(tx, userId)).has(cfg.unlockResearch)) {
         throw new Error(`Сначала изучи «${researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch}»`);
       }
       if (!canPay(state, cfg.baseBuildCost)) throw new Error('Не хватает ресурсов');

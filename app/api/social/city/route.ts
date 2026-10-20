@@ -3,6 +3,7 @@ import { getInitDataFromRequest } from '@/lib/server/telegram-auth';
 import { ensurePlayer } from '@/lib/server/game';
 import { sql } from '@/lib/server/db';
 import { cityGridSize } from '@/lib/game/config';
+import { calculateComfort } from '@/lib/game/comfort';
 
 export const runtime = 'nodejs';
 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
         gridSize: cityGridSize(Number(target.hq_level)),
         buildings,
         decor,
+        comfort: calculateComfort(decor),
         cosmetics,
       },
     });

@@ -79,7 +79,7 @@ async function progressQuests(tx: any, userId: string, event: ProgressEvent, amo
   }
 }
 
-async function unlockAchievements(tx: any, userId: string) {
+export async function unlockAchievements(tx: any, userId: string) {
   const stats = (await tx<any[]>`SELECT * FROM player_stats WHERE user_id=${userId}`)[0];
   if (!stats) return;
   for (const a of ACHIEVEMENTS) {

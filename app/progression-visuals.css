@@ -1,0 +1,17 @@
+.rowCard.achievementCard { display:grid; grid-template-columns:48px minmax(0,1fr); gap:11px; align-items:start; }
+.achievementEmblem { position:relative; display:block; flex:0 0 auto; width:48px; height:56px; color:var(--emblem-color,#b3c8c9); }
+.achievementEmblemFrame { display:block; width:100%; height:100%; overflow:visible; }
+.achievementEmblemSymbol { position:absolute; display:flex; justify-content:center; align-items:center; inset:13px 8px 18px; }
+.achievementEmblemSymbol .gameIcon { width:25px; height:25px; color:inherit!important; }
+.achievementEmblemState { position:absolute; display:flex; justify-content:center; align-items:center; width:18px; height:18px; right:-2px; bottom:1px; border:1px solid currentColor; border-radius:7px; background:#17272f; }
+.achievementEmblem.isLocked { color:#71898d; opacity:.7; }.achievementEmblem.isClaimed { --emblem-fill:#203b36; }.achievementEmblem.isUnlocked:not(.isClaimed) { filter:drop-shadow(0 0 5px rgba(157,211,183,.14)); }
+.achievementCardBody { min-width:0; }.achievementCardBody > strong { line-height:1.45; overflow-wrap:anywhere; }.achievementCardBody > small { line-height:1.55; }
+.achievementRewards { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-top:8px; color:#c9d6d1; font-size:11px; line-height:1.6; }.achievementRewardAppearance { display:inline-flex; align-items:center; gap:4px; }
+.achievementCardFoot { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; margin-top:9px; }.achievementCardFoot > small { font-size:10px; color:var(--muted); }.achievementCardFoot .miniButton { min-height:36px; }
+.achievementCard .progress { height:4px; margin-top:8px; }.achievementCard.isUnlocked { border-color:rgba(128,198,163,.3); }.achievementCard.isClaimed { border-color:rgba(128,198,163,.13); }
+.missionRewards { display:inline-flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }.mission .missionHead > .missionRewards { flex-shrink:0; }.missionFoot > span > .gameAmount { display:inline-flex; }
+.seasonRewardBody small .gameAmount { display:inline-flex; }.seasonReward .miniButton { display:flex; align-items:center; justify-content:center; min-width:37px; min-height:37px; }
+.artifact .artifactVisual { display:flex; align-items:center; justify-content:center; width:48px; height:48px; margin:2px 0 5px; border:1px solid rgba(146,184,191,.2); border-radius:14px; background:radial-gradient(ellipse at 50% 30%,rgba(150,177,211,.12),rgba(12,26,35,.2)); }
+.artifactVisual .gameIcon { width:29px; height:29px; }.artifact.unknown .artifactVisual { border-style:dashed; }
+.interfaceIconLabel { display:inline-flex; align-items:center; gap:5px; }.interfaceActionIcon { margin-right:5px; vertical-align:-.18em; }.allianceResourceAmount { display:inline-flex; align-items:center; gap:5px; }
+@media (max-width:360px) { .rowCard.achievementCard { grid-template-columns:42px minmax(0,1fr); gap:8px; }.achievementEmblem { width:42px; height:50px; }.achievementEmblemSymbol { inset:12px 7px 16px; }.achievementEmblemSymbol .gameIcon { width:22px; height:22px; }.achievementEmblemState { width:16px; height:16px; } }

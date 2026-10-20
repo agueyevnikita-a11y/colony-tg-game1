@@ -1,4 +1,4 @@
-# COLONY v1.9.3 Beta
+# COLONY v1.10 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -25,6 +25,8 @@ v1.9.1 applies beta visual feedback: smaller research goal graphics with safe sp
 v1.9.2 makes city actions immediately accessible: tapping a building opens a panel over the map, with links to its function, upgrade costs and duration. Construction is available beside the map. Closing the panel restores the map position; placement and existing production settings are retained. No database migration is required.
 
 v1.9.3 replaces the long construction catalog with compact categories and building details on demand. Future buildings show their base and technology requirements, with direct links to upgrades and research plans. Selecting a location still spends no resources until a free city cell is chosen. No database migration is required.
+
+v1.10 introduces two-sided referral bonuses, a separate comfort score with nine decor objects and free relocation, research-based feature openings, a revised city surface, accurate building crops and consistent SVG icons. Previously opened market/expedition access is retained once during migration. New bonus claims are recorded per recipient and invited player; historic qualifying friends remain eligible. Apply migration `014_v1_10_colony_identity.sql` before starting this version, or use `npm run db:init`. See [v1.10 rules and checks](docs/COLONY_v1.10.md).
 
 ## Stack
 

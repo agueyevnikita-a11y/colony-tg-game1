@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.0-beta.1 — A Living Colony
+- Added a visible referral reward path and a manual 500-credit/10-crystal bonus for each side of a qualified HQ3 invitation, with unique receipts and historical eligibility.
+- Added comfort, nine decor objects, free relocation, diminishing duplicate contributions and permanent achievement progress; new landscaping is unlocked through research.
+- Added market and expedition technologies with server enforcement and one-time legacy access preservation; existing orders and paid expeditions remain recoverable.
+- Reworked the city ground and connected roads, corrected all sixteen building atlas crops, added bespoke decor and achievement art, and unified resource icons.
+- Rendered referral monuments as distinct rewards, including in shop previews and public cities.
+- Requires migration `014_v1_10_colony_identity.sql` (included in `npm run db:init`) before starting the new server.
+
 ## 1.9.3-beta.1 — A Focused Building Catalog
 - Grouped construction into resource, workshop, development and appearance categories with compact building tiles.
 - Moved descriptions, costs, timing, ownership and requirements into on-demand building details.
