@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0-beta.1 — Focused Screens and Reliable Rewards
+- Split long primary tabs into compact task-focused subsections and paginated market orders.
+- Collapsed detailed resource cards and completed-tutorial guidance; kept direct navigation, placement and Telegram Back aware of subsections.
+- Preserved foundry selections when inspecting the city map and separated offers from owned cosmetics.
+- Added local costs, shortages, deadlines, errors and outcomes for contracts, daily login, market orders and expeditions.
+- Kept returned expedition cargo intact until it fits; saved exact receipts for collection retries without duplicate rewards.
+- Corrected exhausted-contract waiting states and calculated quest reward totals from actual data.
+- Preserved microsecond cosmetic acquisition keys when extending temporary rewards and aligned quest/season claim lock ordering with production.
+- Retained economy prices, random expedition outcomes, paid work and ownership; no new migration is required from v1.8.
+
 ## 1.8.0-beta.1 — Colony Events
 - Added four building-specific colony situations with explicit costs, rewards and a free resolution.
 - Connected a foundry resolution to thermal recovery research and linked event cards to buildings and technologies.

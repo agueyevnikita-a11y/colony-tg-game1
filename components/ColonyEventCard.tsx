@@ -124,7 +124,7 @@ export function ColonyEventCard(props: Props) {
           {amounts(shortages).length > 0 && <div className="colonyEventShortage"><span>Не хватает:</span><Amounts value={shortages} /></div>}
           {amounts(storageShortages).length > 0 && <div className="colonyEventShortage"><span>На складе не хватает места для:</span><Amounts value={storageShortages} /></div>}
           <button type="button" className="action secondary colonyEventResolve" data-event-action={choice.id} disabled={locked || !evaluation.canResolve} aria-label={`Выбрать решение: ${choice.title}`} onClick={() => void resolve(choice.id)}>{pendingChoice === choice.id ? 'Применяем решение…' : 'Выбрать решение'}<GameIcon name="arrow" size={15} /></button>
-          {error && <div className="notice error colonyEventError" role="alert">{error}</div>}
+          {error && <div className="notice error colonyEventError" role="alert"><div>{error}</div><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить колонию</button></div>}
         </article>;
       })}
     </div>

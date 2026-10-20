@@ -12,6 +12,11 @@ import { ConstructionStatus } from '@/components/ConstructionStatus';
 import { ColonyWelcome } from '@/components/ColonyWelcome';
 import { ColonyGuide } from '@/components/ColonyGuide';
 import { ColonyEventCard } from '@/components/ColonyEventCard';
+import { ContractsPanel } from '@/components/ContractsPanel';
+import { DailyLoginPanel } from '@/components/DailyLoginPanel';
+import { ExpeditionsPanel } from '@/components/ExpeditionsPanel';
+import { MarketPanel } from '@/components/MarketPanel';
+import { SectionTabs } from '@/components/SectionTabs';
 import { MechanicsHelp } from '@/components/MechanicsHelp';
 import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
@@ -30,10 +35,19 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
   city: { title: 'COLONY', hint: 'Твой город и производство' },
   build: { title: 'Развитие', hint: 'Технологии и новые постройки' },
   market: { title: 'Рынок', hint: 'Обмен ресурсами между колониями' },
-  missions: { title: 'Сезон', hint: 'Задания, достижения и награды' },
+  missions: { title: 'Задания', hint: 'Цели и награды колонии' },
   shop: { title: 'Магазин', hint: 'Оформление твоей колонии' },
   social: { title: 'Связи', hint: 'Профиль, альянс и другие колонии' },
 };
+const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> = {
+  city: [{ key: 'map', label: 'Карта', icon: 'city' }, { key: 'production', label: 'Цеха', icon: 'parts' }, { key: 'contracts', label: 'Контракты', icon: 'market' }, { key: 'events', label: 'События', icon: 'info' }, { key: 'decor', label: 'Декор', icon: 'tree' }],
+  build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'star' }],
+  market: [{ key: 'buy', label: 'Купить' }, { key: 'sell', label: 'Продать' }, { key: 'mine', label: 'Мои ордера' }, { key: 'prices', label: 'Цены' }],
+  missions: [{ key: 'daily', label: 'Сегодня' }, { key: 'weekly', label: 'Неделя' }, { key: 'achievements', label: 'Достижения' }, { key: 'season', label: 'Сезон' }],
+  shop: [{ key: 'offers', label: 'Предложения' }, { key: 'collection', label: 'Моё оформление' }],
+  social: [{ key: 'profile', label: 'Профиль' }, { key: 'alliance', label: 'Альянс' }, { key: 'rating', label: 'Рейтинг' }, { key: 'friends', label: 'Друзья' }, { key: 'inbox', label: 'Почта' }, { key: 'settings', label: 'Настройки' }, { key: 'admin', label: 'Управление' }],
+};
+const DEFAULT_SUBSECTIONS: Record<Tab, string> = { city: 'map', build: 'research', market: 'buy', missions: 'daily', shop: 'offers', social: 'profile' };
 function readAwaitingProducts(key: string): string[] {
   try {
     const stored: unknown = JSON.parse(sessionStorage.getItem(key) ?? '[]');
@@ -67,13 +81,12 @@ function productionText(p?: { resource: string; perHour: number } | null, type?:
   return <GameAmount resource={p.resource}>{n(p.perHour)}/ч</GameAmount>;
 }
 function timeLeft(value?: string | null) { if(!value) return ''; const ms=Math.max(0,new Date(value).getTime()-Date.now()); const d=Math.floor(ms/86400000); const h=Math.floor((ms%86400000)/3600000); return d>0?`${d} дн. ${h} ч.`:`${h} ч.`; }
-function countdown(value?: string | null) { if(!value) return ''; const ms=Math.max(0,new Date(value).getTime()-Date.now()); const h=Math.floor(ms/3600000); const m=Math.ceil((ms%3600000)/60000); return h>0?`${h} ч. ${m} мин.`:`${Math.max(1,m)} мин.`; }
 function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(1,Math.ceil(Number(seconds)))} сек.`; const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
-function marketResourceLabel(resource:string){return ({ore:'⛏ Руда',energy:'⚡ Энергия',parts:'⚙️ Детали'} as Record<string,string>)[resource]??resource;}
 
 export default function Home() {
   const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
   const [tab, setTab] = useState<Tab>('city');
+  const [subsections, setSubsections] = useState(DEFAULT_SUBSECTIONS);
   const [shareFallbackLink, setShareFallbackLink] = useState('');
   const handledStart = useRef(false);
   const requestingAccess = useRef(false);
@@ -100,16 +113,13 @@ export default function Home() {
   const invoiceOpening = useRef(false);
   const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
-  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | 'events' | null>(null);
+  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | 'events' | 'publicCity' | null>(null);
+  const publicCityRef = useRef<HTMLElement>(null);
   const colonyEventsRef = useRef<HTMLDivElement>(null);
-  const contractsRef = useRef<HTMLElement>(null);
+  const contractsRef = useRef<HTMLDivElement>(null);
   const hqUpgradeRef = useRef<HTMLElement>(null);
   const researchPanelRef = useRef<HTMLDivElement>(null);
   const buildingCatalogRef = useRef<HTMLElement>(null);
-  const [marketResource,setMarketResource]=useState<'ore'|'energy'|'parts'>('ore');
-  const [marketAmount,setMarketAmount]=useState('100');
-  const [marketPrice,setMarketPrice]=useState('3');
-  const [buyAmounts,setBuyAmounts]=useState<Record<string,string>>({});
   const [allianceName,setAllianceName]=useState('');
   const [allianceCode,setAllianceCode]=useState('');
   const [allianceResource,setAllianceResource]=useState<'ore'|'energy'|'parts'>('ore');
@@ -141,6 +151,7 @@ export default function Home() {
 
   function chooseResearchTarget(key: string | null) {
     if (!planOwner || (key && !game?.research?.catalog?.some((item: any) => item.key === key))) return;
+    showSection('build', 'research');
     setResearchTarget({ owner: planOwner, key });
     try {
       const storageKey = `colony:research-target:${planOwner}`;
@@ -169,7 +180,24 @@ export default function Home() {
     if (!navigationToTop.current) return;
     navigationToTop.current = false;
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [tab]);
+  }, [tab, subsections]);
+
+  function showSection(nextTab: Tab, section: string) {
+    setTab(nextTab);
+    setSubsections(previous => previous[nextTab] === section ? previous : { ...previous, [nextTab]: section });
+  }
+
+  function openSubsection(section: string) {
+    if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
+    navigationToTop.current = true;
+    guideNavigationPending.current = null;
+    productionNavigationPending.current = false;
+    setFocusedResearch(null);
+    setPlacementType(null); setMoveBuildingId(null); setDecorPlacementType(null);
+    setConstructionFeedback(null); setMessage('');
+    showSection(tab, section);
+    if (subsections[tab] === section) { navigationToTop.current = false; window.scrollTo({ top: 0, behavior: 'auto' }); }
+  }
 
   function openSection(nextTab: Tab) {
     navigationToTop.current = true;
@@ -181,14 +209,14 @@ export default function Home() {
     setDecorPlacementType(null);
     setConstructionFeedback(null);
     setTab(nextTab);
-    if (nextTab === tab) { navigationToTop.current = false; window.scrollTo({ top: 0, behavior: 'auto' }); }
+    if (nextTab === tab) { showSection(nextTab, DEFAULT_SUBSECTIONS[nextTab]); navigationToTop.current = false; window.scrollTo({ top: 0, behavior: 'auto' }); }
   }
 
   useEffect(() => {
     if (tab === 'city' && (placementType || decorPlacementType || moveBuildingId)) {
       cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
-  }, [tab, placementType, decorPlacementType, moveBuildingId]);
+  }, [tab, subsections.city, placementType, decorPlacementType, moveBuildingId]);
 
   useEffect(() => {
     if (constructionFeedback?.error) {
@@ -202,11 +230,11 @@ export default function Home() {
       productionNavigationPending.current = false;
       productionPanelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
-  }, [tab, requestedProductionRecipe]);
+  }, [tab, subsections.city, requestedProductionRecipe]);
 
   useEffect(() => {
     const target = guideNavigationPending.current;
-    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef };
+    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef, publicCity: publicCityRef };
     const element = target ? refs[target].current : null;
     if (element) {
       guideNavigationPending.current = null;
@@ -214,7 +242,7 @@ export default function Home() {
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
-  }, [tab, guideNavigationVersion]);
+  }, [tab, subsections, guideNavigationVersion]);
 
   function navigateGuide(action: string) {
     setHelpOpen(false);
@@ -233,46 +261,46 @@ export default function Home() {
       const foundry = (game?.buildings ?? []).find((building: any) => building.type === 'foundry' && building.status === 'active');
       if (foundry) setSelectedBuildingId(foundry.id);
       if (game?.tutorial?.current?.key === 'first_smelt') setRequestedProductionRecipe('standard_alloy');
-      setTab('city'); guideNavigationPending.current = 'production';
+      showSection('city', 'production'); guideNavigationPending.current = 'production';
     } else if (action === 'events') {
-      setTab('city'); guideNavigationPending.current = 'events';
+      showSection('city', 'events'); guideNavigationPending.current = 'events';
     } else if (action.startsWith('building:')) {
       const type = action.slice('building:'.length);
       const building = (game?.buildings ?? []).find((item: any) => item.type === type && item.status === 'active')
         ?? (game?.buildings ?? []).find((item: any) => item.type === type);
       if (building) setSelectedBuildingId(building.id);
-      setTab('city'); guideNavigationPending.current = 'map';
+      showSection('city', 'map'); guideNavigationPending.current = 'map';
     } else if (action === 'contracts') {
-      setTab('city'); guideNavigationPending.current = 'contracts';
+      showSection('city', 'contracts'); guideNavigationPending.current = 'contracts';
     } else if (action === 'upgrade_hq') {
       const center = (game?.buildings ?? []).find((building: any) => building.type === 'hq');
       if (center) setSelectedBuildingId(center.id);
-      setTab('city'); guideNavigationPending.current = 'map';
+      showSection('city', 'map'); guideNavigationPending.current = 'map';
     } else if (action === 'upgrade_lab') {
       const labs = (game?.buildings ?? []).filter((building: any) => building.type === 'research_lab');
       const lab = labs.filter((building: any) => building.status === 'active').sort((a: any, b: any) => Number(b.level) - Number(a.level))[0]
         ?? labs.sort((a: any, b: any) => Number(b.level) - Number(a.level))[0];
       if (lab) setSelectedBuildingId(lab.id);
-      setTab('city'); guideNavigationPending.current = 'map';
+      showSection('city', 'map'); guideNavigationPending.current = 'map';
     } else if (action.startsWith('research:')) {
       const key = action.slice('research:'.length);
       if (game?.research?.catalog?.some((item: any) => item.key === key)) {
         setFocusedResearch(key);
         setResearchFocusVersion(version => version + 1);
       }
-      setTab('build');
+      showSection('build', 'research');
     } else if (action === 'research') {
       setFocusedResearch(null);
-      setTab('build'); guideNavigationPending.current = 'research';
+      showSection('build', 'research'); guideNavigationPending.current = 'research';
     } else if (action === 'build') {
-      setTab('build'); guideNavigationPending.current = 'build';
+      showSection('build', 'buildings'); guideNavigationPending.current = 'build';
     } else if (action === 'market') {
-      setTab('market'); window.scrollTo({ top: 0, behavior: 'smooth' });
+      showSection('market', 'buy'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       const target = game?.tutorial?.current?.targetBuilding;
       const building = (game?.buildings ?? []).find((item: any) => item.type === target && item.status !== 'active');
       if (building) setSelectedBuildingId(building.id);
-      setTab('city'); guideNavigationPending.current = 'map';
+      showSection('city', 'map'); guideNavigationPending.current = 'map';
     }
     setGuideNavigationVersion((version) => version + 1);
   }
@@ -301,7 +329,9 @@ export default function Home() {
     try {
       const data = await api('/api/social/city', { telegramId });
       setViewedCity(data.city);
-      setTab('social');
+      showSection('social', 'friends');
+      guideNavigationPending.current = 'publicCity';
+      setGuideNavigationVersion(version => version + 1);
     } catch {}
   }
 
@@ -334,7 +364,7 @@ export default function Home() {
       }
       if (start && /^ally_[a-zA-Z0-9_-]{1,64}$/.test(start)) {
         setAllianceCode(start.slice(5).toUpperCase());
-        setTab('social');
+        showSection('social', 'alliance');
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -348,16 +378,17 @@ export default function Home() {
       if (dialog) { dialog.dispatchEvent(new Event('cancel', { cancelable: true })); return; }
       if (helpOpen) { setHelpOpen(false); return; }
       if (placementType || decorPlacementType || moveBuildingId) { cancelMapAction(); return; }
-      if (selectedBuildingId || selectedDecorId) { setSelectedBuildingId(null); setSelectedDecorId(null); return; }
-      if (viewedCity) { setViewedCity(null); return; }
-      setTab('city');
+      if (tab === 'city' && subsections.city === 'map' && (selectedBuildingId || selectedDecorId)) { setSelectedBuildingId(null); setSelectedDecorId(null); return; }
+      if (tab === 'social' && subsections.social === 'friends' && viewedCity) { setViewedCity(null); return; }
+      if (subsections[tab] !== DEFAULT_SUBSECTIONS[tab]) { openSubsection(DEFAULT_SUBSECTIONS[tab]); return; }
+      openSection('city'); showSection('city', 'map');
     };
-    const visible = !!game && !game.limited && !!game.profile?.profile_completed_at && (helpOpen || tab !== 'city' || !!viewedCity || !!placementType || !!decorPlacementType || !!moveBuildingId || !!selectedBuildingId || !!selectedDecorId);
+    const visible = !!game && !game.limited && !!game.profile?.profile_completed_at && (helpOpen || tab !== 'city' || subsections.city !== 'map' || !!placementType || !!decorPlacementType || !!moveBuildingId || (subsections.city === 'map' && (!!selectedBuildingId || !!selectedDecorId)));
     app.BackButton.onClick(back);
     if (visible) app.BackButton.show(); else app.BackButton.hide();
     return () => { app.BackButton?.offClick(back); app.BackButton?.hide(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, tab, helpOpen, viewedCity, placementType, decorPlacementType, moveBuildingId, selectedBuildingId, selectedDecorId, game?.limited, game?.profile?.profile_completed_at]);
+  }, [phase, tab, subsections, helpOpen, viewedCity, placementType, decorPlacementType, moveBuildingId, selectedBuildingId, selectedDecorId, game?.limited, game?.profile?.profile_completed_at]);
 
   useEffect(() => {
     if (phase !== 'ready') return;
@@ -564,7 +595,7 @@ export default function Home() {
     setDecorPlacementType(null);
     setSelectedBuildingId(null);
     setSelectedDecorId(null);
-    setTab('city');
+    showSection('city', 'map');
     setMessage('');
     setConstructionFeedback({ target: 'map', text: `Выбери свободную клетку для «${name}»`, error: false });
   }
@@ -584,7 +615,7 @@ export default function Home() {
     setMoveBuildingId(null);
     setSelectedBuildingId(null);
     setSelectedDecorId(null);
-    setTab('city');
+    showSection('city', 'map');
     setMessage('');
     setConstructionFeedback({ target: 'map', text: `Выбери свободную клетку для «${name}»`, error: false });
   }
@@ -644,7 +675,7 @@ export default function Home() {
         <button type="button" className="headerHelp" aria-label="Открыть справочник игры" onClick={() => setHelpOpen(true)}><GameIcon name="help" size={23} /></button>
       </div>
 
-      {tab === 'city' && <ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} />}
+      {tab === 'city' && <details className="resourceOverview"><summary><span>Ресурсы</span><span>{['ore', 'energy', 'parts', 'credits', 'science', 'crystals'].map(resource => <GameAmount key={resource} resource={resource}>{n(s[resource])}</GameAmount>)}</span></summary><ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} /></details>}
       {(tab === 'build' || tab === 'market') && <div className="sectionResources" aria-label="Ресурсы для этого раздела"><span>В наличии</span>{(tab === 'build' ? ['ore', 'energy', 'parts', 'credits', 'science'] : ['ore', 'energy', 'parts', 'credits']).map(resource => <GameAmount key={resource} resource={resource}>{n(s[resource])}</GameAmount>)}</div>}
 
       {tab === 'city' && game.flags?.closed_beta_banner && <details className="betaBanner compactBeta"><summary><GameIcon name="research" size={14} />Тестовая версия · {APP_VERSION}</summary><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></details>}
@@ -654,12 +685,17 @@ export default function Home() {
 
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
-      {tab === 'city' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
+      <SectionTabs key={tab} label={`Подразделы: ${SECTION_TITLES[tab].title}`}
+        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : undefined }))}
+        value={subsections[tab]} onChange={openSubsection} />
+
+      {tab === 'city' && subsections.city === 'map' && <details className="cityGuideDetails" open={!game.tutorial?.completed}><summary>{game.tutorial?.completed ? 'Совет по развитию' : 'Первые шаги'}</summary><ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
         onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
-        onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
+        onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} /></details>}
 
       {tab === 'city' && <>
-        <section className="card cityCard" ref={cityMapRef}>
+        {subsections.city === 'map' && <div data-section-panel="city-map">
+<section className="card cityCard" ref={cityMapRef}>
           <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание, чтобы узнать его пользу и улучшить.</p></div><button className="miniButton" onClick={shareCity}><GameIcon name="share" size={15} /> Поделиться</button></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : 'Перемещение здания'}</span>
@@ -722,8 +758,47 @@ export default function Home() {
             <button className="action secondary" disabled={busy} onClick={()=>api('/api/game/decor/remove',{decorId:selectedDecor.id}).then((d:any)=>{setSelectedDecorId(null);setMessage(`Декор демонтирован · возврат 💰${n(d.result?.refund)}`)}).catch(()=>{})}>Убрать декор</button>
           </>})()}
         </section>}
-
-        <div ref={colonyEventsRef}><ColonyEventCard
+        </div>}
+        <div data-section-panel="city-production" hidden={subsections.city !== 'production'}>
+<div ref={productionPanelRef}><ProductionPanel
+          buildings={game.buildings ?? []}
+          jobs={game.activeJobs ?? []}
+          resources={s}
+          partsCapacity={Math.max(0, Number(game.caps?.parts ?? 800) - Number(game.escrow?.parts ?? 0))}
+          partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
+          unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
+          recipesEnabled={game.production?.recipesEnabled}
+          selectedRecipe={requestedProductionRecipe}
+          busy={busy}
+          selectedBuildingId={selectedBuildingId}
+          onFoundryChange={setSelectedBuildingId}
+          onChangeSelection={() => setConstructionFeedback(null)}
+          onStart={startProduction}
+          onResearch={(key) => navigateGuide(`research:${key}`)}
+          onRefresh={() => { void refresh(); }}
+          onBuild={() => beginPlacement('foundry', 'Литейный цех')}
+          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); showSection('city', 'map'); guideNavigationPending.current = 'map'; setGuideNavigationVersion(version => version + 1); }}
+          feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
+        /></div>
+        </div>
+        {subsections.city === 'contracts' && <div data-section-panel="city-contracts">
+<div ref={contractsRef}><ContractsPanel key={planOwner}
+          contracts={game.contracts ?? []} info={game.contractsInfo}
+          buildings={game.buildings ?? []} resources={s} busy={busy}
+          onComplete={async (contractId) => {
+            try { return await api('/api/game/contracts/complete', { contractId }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onBuild={() => beginPlacement('trade_hub', 'Торговый узел')}
+          onProduction={() => navigateGuide('production')}
+          onRefresh={() => { void refresh(); }}
+        /></div>
+        </div>}
+        {subsections.city === 'events' && <div data-section-panel="city-events">
+{!game.colonyEvents?.enabled ? <section className="card"><h2>События колонии</h2><p>События пока недоступны. Остальные возможности колонии продолжают работать.</p><button className="action secondary" disabled={busy} onClick={() => { void refresh(); }}>Проверить снова</button></section>
+  : !game.colonyEvents.unlocked ? <section className="card"><h2>События колонии</h2><p>Заверши первые шаги и улучши базу до уровня 2. После этого здесь появятся ситуации с выбором решения.</p><button className="action secondary" onClick={() => openSubsection('map')}>К первым шагам</button></section>
+  : !game.colonyEvents.active && !game.colonyEvents.lastResolved && !game.colonyEvents.nextAt ? <section className="card"><h2>В колонии спокойно</h2><p>Новые ситуации появляются у действующих шахт, электростанций, литейных цехов и лабораторий.</p><button className="action secondary" disabled={busy} onClick={() => { void refresh(); }}>Проверить события</button></section> : null}
+<div ref={colonyEventsRef}><ColonyEventCard
           key={planOwner}
           eventState={game.colonyEvents}
           resources={s}
@@ -742,55 +817,15 @@ export default function Home() {
           onResearch={(key) => navigateGuide(`research:${key}`)}
           onRefresh={() => { void refresh(); }}
         /></div>
-
-        <div ref={productionPanelRef}><ProductionPanel
-          buildings={game.buildings ?? []}
-          jobs={game.activeJobs ?? []}
-          resources={s}
-          partsCapacity={Math.max(0, Number(game.caps?.parts ?? 800) - Number(game.escrow?.parts ?? 0))}
-          partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
-          unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
-          recipesEnabled={game.production?.recipesEnabled}
-          selectedRecipe={requestedProductionRecipe}
-          busy={busy}
-          selectedBuildingId={selectedBuildingId}
-          onFoundryChange={setSelectedBuildingId}
-          onChangeSelection={() => setConstructionFeedback(null)}
-          onStart={startProduction}
-          onResearch={(key) => navigateGuide(`research:${key}`)}
-          onRefresh={() => { void refresh(); }}
-          onBuild={() => beginPlacement('foundry', 'Литейный цех')}
-          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }}
-          feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
-        /></div>
-
-        <section className="card"><h2><GameIcon name="tree" />Дороги и декор</h2><p>Оформляй город за игровые кредиты. Декор не меняет производство и рейтинг.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span><GameIcon name={d.type} size={28} /></span><b>{d.name}</b><small><GameAmount resource="credits">{n(d.credits)}</GameAmount></small></button>)}</div></section>
-
-        <section className="card" ref={contractsRef}>
-          <h2><GameIcon name="market" />Контракты колонии</h2><p>Передай ресурсы заказчику и получи кредиты на новые постройки. Выполнение расходует указанные ресурсы.</p>
-          {(game.contracts?.length ?? 0) === 0 ? <p>Построй торговый узел — здесь появятся первые контракты. Они создают кредиты, но сжигают реальные ресурсы.</p> : <div className="stack">
-            {game.contracts.map((c: any) => <div className="rowCard" key={c.id}>
-              <div><strong><GameIcon name={c.resource} size={17} /> {c.resource === 'ore' ? 'Поставка руды' : 'Поставка деталей'}</strong><small>{n(c.amount)} → <GameAmount resource="credits">{n(c.credit_reward)}</GameAmount></small></div>
-              <button className="miniButton" disabled={busy} onClick={() => api('/api/game/contracts/complete', { contractId: c.id }).then(() => setMessage('Контракт выполнен')).catch(()=>{})}>Выполнить</button>
-            </div>)}
-          </div>}
-        </section>
-        <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2><GameIcon name="star" />Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
-          {game.dailyLogin?.today && <div className="dailyReward"><span>День {game.dailyLogin.today.cycle_day}/7</span><b>💰 {n(game.dailyLogin.today.credit_reward)}{Number(game.dailyLogin.today.crystal_reward)>0?` · 💎 ${n(game.dailyLogin.today.crystal_reward)}`:''}</b><button className="miniButton" disabled={busy||!!game.dailyLogin.today.claimed_at} onClick={()=>api('/api/game/daily-login/claim').then(()=>setMessage('Ежедневная награда получена')).catch(()=>{})}>{game.dailyLogin.today.claimed_at?'Получено':'Забрать'}</button></div>}
-        </section>
-        <section className="card notificationCard">
-          <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
-          <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
-        </section>
-        <section className="card inboxCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
-          <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
-          {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
-        </section>
+        </div>}
+        {subsections.city === 'decor' && <div data-section-panel="city-decor">
+<section className="card"><h2><GameIcon name="tree" />Дороги и декор</h2><p>Оформляй город за игровые кредиты. Декор не меняет производство и рейтинг.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span><GameIcon name={d.type} size={28} /></span><b>{d.name}</b><small><GameAmount resource="credits">{n(d.credits)}</GameAmount></small></button>)}</div></section>
+        </div>}
       </>}
 
       {tab === 'build' && <>
-        <nav className="developmentNavigation" aria-label="Разделы развития"><a href="#colony-research"><GameIcon name="research" size={17} /> Исследования и чертежи</a><a href="#colony-buildings"><GameIcon name="build" size={17} /> Постройки</a></nav>
-        {game.research && <div id="colony-research" ref={researchPanelRef}><ResearchPanel
+        {subsections.build === 'research' && <div data-section-panel="build-research">
+{game.research && <div id="colony-research" ref={researchPanelRef}><ResearchPanel
           research={game.research}
           resources={s}
           hqLevel={Number(s.hq_level)}
@@ -805,7 +840,7 @@ export default function Home() {
           onUpgradeHq={() => navigateGuide('upgrade_hq')}
           onUpgradeLab={() => navigateGuide('upgrade_lab')}
           onShowProduction={() => navigateGuide('production')}
-          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); setTab('city'); }}
+          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); showSection('city', 'production'); }}
           onStart={async (researchKey) => {
             try { await api('/api/game/research/start', { researchKey }); }
             catch (error) { setMessage(''); throw error; }
@@ -814,7 +849,9 @@ export default function Home() {
           onBuild={beginPlacement}
           onRefresh={() => { void refresh(); }}
         /></div>}
-        <section className="card" id="colony-buildings" ref={buildingCatalogRef}>
+        </div>}
+        {subsections.build === 'buildings' && <div data-section-panel="build-buildings">
+<section className="card" id="colony-buildings" ref={buildingCatalogRef}>
           <h2><GameIcon name="build" />Строительство</h2><p>Выбери здание и место на карте. У каждой постройки есть своя роль: добыча, производство или новые возможности. Можно вести 2 стройки одновременно, с Premium — 3.</p>
           <div className="catalog">
             {available.map((item: any) => <div className="catalogItem" key={item.type}>
@@ -836,28 +873,55 @@ export default function Home() {
           {hq?.status === 'active' && <ResourceShortage cost={hq.nextUpgrade?.cost} resources={s} />}
           {constructionNotice('hq')}
         </section>
-
-        <section className="card expeditionCard">{game.flags?.expeditions===false&&<div className="notice">🚧 Экспедиции временно отключены feature flag.</div>}
-          <div className="cardTitleRow"><div><h2><GameIcon name="rocket" />Экспедиции</h2><p>Отправляй аппараты за ресурсами, научными данными и редкими артефактами.</p></div><span className="pill">{game.expeditions?.activeCount ?? 0}/{game.expeditions?.slots ?? 1}</span></div>
-          {!game.expeditions?.enabled ? <><p>Центр экспедиций открывается с HQ3. Stars не покупают слоты и не повышают шанс находок.</p><button className="action secondary" disabled={Number(s.hq_level)<3} onClick={()=>beginPlacement('expedition_center','Центр экспедиций')}>Построить центр</button></> : <>
-            {(game.expeditions?.runs??[]).length>0&&<div className="stack expeditionRuns">{game.expeditions.runs.map((run:any)=><div className={`expeditionRun ${run.status}`} key={run.id}><div className="expeditionRunHead"><div><strong>{run.config?.emoji} {run.config?.name ?? run.expedition_key}</strong><small>{run.status==='active'?`Вернётся через ${countdown(run.completes_at)}`:run.status==='event'?`${run.event?.emoji??'⚠️'} Требуется решение`:'Экспедиция вернулась'}</small></div><span className="statusBadge">{run.status==='active'?'В пути':run.status==='event'?'Событие':'Готово'}</span></div>{run.status==='ready'&&<button className="action" disabled={busy} onClick={()=>api('/api/game/expedition/resolve',{expeditionId:run.id}).then((d:any)=>setMessage(`Экспедиция завершена: 💰${n(d.result?.credits)} · 🧠${n(d.result?.science)}`)).catch(()=>{})}>Забрать результат</button>}{run.status==='event'&&run.event&&<div className="eventCard"><b>{run.event.emoji} {run.event.title}</b><p>{run.event.description}</p><div className="eventChoices">{run.event.choices.map((choice:any)=><button className="eventChoice" key={choice.id} disabled={busy} onClick={()=>api('/api/game/expedition/resolve',{expeditionId:run.id,choiceId:choice.id}).then(()=>setMessage(`Решение принято: ${choice.title}`)).catch(()=>{})}><strong>{choice.title}</strong><small>{choice.description}</small></button>)}</div></div>}</div>)}</div>}
-            <div className="expeditionCatalog">{(game.expeditions?.catalog??[]).map((e:any)=><div className={`expeditionOption ${e.unlocked?'':'locked'}`} key={e.key}><div className="researchTop"><span>{e.emoji}</span><div><b>{e.name}</b><small>{durationText(e.durationSec)}</small></div></div><p>{e.description}</p><div className="researchMeta"><span>{costDisplay(e.cost)}</span><span>🎲 события {Math.round(Number(e.eventChance)*100)}%</span></div><button className="action secondary" disabled={busy||game.flags?.expeditions===false||!e.unlocked||Number(game.expeditions.activeCount)>=Number(game.expeditions.slots)} onClick={()=>api('/api/game/expedition/start',{expeditionKey:e.key}).then(()=>setMessage(`Экспедиция «${e.name}» отправлена`)).catch(()=>{})}>{e.unlocked?'Отправить':e.lockReason}</button></div>)}</div>
-          </>}
-        </section>
-
-        <section className="card"><h2><GameIcon name="star" />Коллекция артефактов</h2><p>Артефакты находятся только в экспедициях. Собери все четыре вида — постоянная рамка первопроходца.</p><div className="artifactGrid">{(game.expeditions?.artifacts??[]).map((a:any)=><div className={`artifact ${Number(a.count)>0?'found':'unknown'}`} key={a.id}><span>{Number(a.count)>0?a.emoji:'❔'}</span><b>{Number(a.count)>0?a.name:'Неизвестный объект'}</b><small>{Number(a.count)>0?`${a.rarity} · ×${a.count}`:'ещё не найден'}</small></div>)}</div></section>
+        </div>}
+        {subsections.build === 'expeditions' && <div data-section-panel="build-expeditions">
+<ExpeditionsPanel key={planOwner}
+          expeditions={game.expeditions} resources={s} hqLevel={Number(s.hq_level)}
+          featureEnabled={game.flags?.expeditions !== false} busy={busy}
+          capacities={{
+            ore: Math.max(0, Number(game.caps?.ore ?? 0) - Number(game.escrow?.ore ?? 0)),
+            energy: Math.max(0, Number(game.caps?.energy ?? 0) - Number(game.escrow?.energy ?? 0)),
+            parts: Math.max(0, Number(game.caps?.parts ?? 0) - Number(game.escrow?.parts ?? 0)),
+          }}
+          onStart={async (expeditionKey) => {
+            try { return await api('/api/game/expedition/start', { expeditionKey }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onResolve={async (expeditionId, choiceId) => {
+            try { return await api('/api/game/expedition/resolve', { expeditionId, choiceId }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onBuild={() => (game.buildings ?? []).some((building: any) => building.type === 'expedition_center') ? navigateGuide('building:expedition_center') : beginPlacement('expedition_center', 'Центр экспедиций')}
+          onUpgradeHq={() => navigateGuide('upgrade_hq')}
+          onResearch={(key) => navigateGuide(`research:${key}`)}
+          onRefresh={() => { void refresh(); }}
+        />
+        </div>}
+        {subsections.build === 'artifacts' && <div data-section-panel="build-artifacts">
+<section className="card"><h2><GameIcon name="star" />Коллекция артефактов</h2><p>Артефакты находятся только в экспедициях. Собери все четыре вида — постоянная рамка первопроходца.</p><div className="artifactGrid">{(game.expeditions?.artifacts??[]).map((a:any)=><div className={`artifact ${Number(a.count)>0?'found':'unknown'}`} key={a.id}><span>{Number(a.count)>0?a.emoji:'❔'}</span><b>{Number(a.count)>0?a.name:'Неизвестный объект'}</b><small>{Number(a.count)>0?`${a.rarity} · ×${a.count}`:'ещё не найден'}</small></div>)}</div></section>
+        </div>}
       </>}
 
-      {tab === 'market' && <>
-        <section className="card"><div className="cardTitleRow"><div><h2><GameIcon name="market" />Рынок игроков</h2><p>Игроки продают реальные игровые ресурсы за кредиты. Комиссия 5% с продавца сгорает.</p></div><span className="pill">{game.flags?.market===false?'Пауза':game.market?.enabled?'Открыто':'Нужен торговый узел'}</span></div>{game.flags?.market===false?<div className="notice">Функция временно отключена feature flag во время теста.</div>:!game.market?.enabled&&<button className="action secondary" onClick={()=>setTab('build')}>🏗️ Построить торговый узел</button>}</section>
-        {game.market?.enabled&&<section className="card"><h2>Выставить ресурс</h2><p>Ресурс резервируется сразу; непроданный остаток возвращается при отмене или через 24 часа.</p><div className="marketForm"><label><span>Ресурс</span><select value={marketResource} onChange={e=>setMarketResource(e.target.value as any)}><option value="ore">⛏ Руда</option><option value="energy">⚡ Энергия</option><option value="parts">⚙️ Детали</option></select></label><label><span>Количество</span><input inputMode="numeric" value={marketAmount} onChange={e=>setMarketAmount(e.target.value.replace(/\D/g,''))}/></label><label><span>Цена / ед.</span><input inputMode="numeric" value={marketPrice} onChange={e=>setMarketPrice(e.target.value.replace(/\D/g,''))}/></label></div><div className="marketPreview"><span>Сумма</span><b>💰 {n(Number(marketAmount||0)*Number(marketPrice||0))}</b></div><button className="action" disabled={busy} onClick={()=>api('/api/market/order/create',{resource:marketResource,amount:Number(marketAmount),unitPrice:Number(marketPrice)}).then(()=>setMessage('Ордер выставлен')).catch(()=>{})}>Выставить ордер</button><p className="finePrint">Цена: {game.market?.rules?.[marketResource]?.minUnitPrice}–{game.market?.rules?.[marketResource]?.maxUnitPrice}; минимум {game.market?.rules?.[marketResource]?.minAmount} ед.</p></section>}
-        <section className="card"><h2>Стакан продаж</h2>{!game.market?.enabled?<p>Рынок откроется после торгового узла.</p>:(game.market?.orders?.length??0)===0?<p>Пока ордеров нет.</p>:<div className="stack">{game.market.orders.map((o:any)=>{const mine=o.user_id===game.userId;const av=buyAmounts[o.id]??String(Math.min(Number(o.amount_remaining),o.resource==='parts'?10:50));const amount=Math.max(0,Math.min(Number(o.amount_remaining),Number(av||0)));return <div className="marketOrder" key={o.id}><div className="marketOrderTop"><div><strong>{marketResourceLabel(o.resource)}</strong><small>{o.first_name||o.username||'Колонист'} · {n(o.amount_remaining)} · 💰{n(o.unit_price)}/ед.</small></div></div>{mine?<button className="miniButton" disabled={busy} onClick={()=>api('/api/market/order/cancel',{orderId:o.id}).then(()=>setMessage('Ордер отменён')).catch(()=>{})}>Отменить</button>:<div className="marketBuy"><input inputMode="numeric" value={av} onChange={e=>setBuyAmounts(v=>({...v,[o.id]:e.target.value.replace(/\D/g,'')}))}/><span>= 💰 {n(amount*Number(o.unit_price))}</span><button className="miniButton" disabled={busy||amount<=0} onClick={()=>api('/api/market/order/buy',{orderId:o.id,amount}).then(()=>setMessage('Покупка выполнена')).catch(()=>{})}>Купить</button></div>}</div>})}</div>}</section>
-        {(game.market?.stats?.length??0)>0&&<section className="card"><h2>Рынок за 24 часа</h2><div className="marketStats">{game.market.stats.map((x:any)=><div key={x.resource}><span>{marketResourceLabel(x.resource)}</span><b>≈ 💰{n(x.median_price??x.avg_price)}</b><small>{n(x.volume)} ед. · {x.trades} сделок</small></div>)}</div></section>}
-      </>}
+      {tab === 'market' && <div data-section-panel={`market-${subsections.market}`}><MarketPanel
+        key={planOwner} market={game.market} view={subsections.market as 'buy' | 'sell' | 'mine' | 'prices'}
+        resources={s} userId={String(game.userId ?? '')} featureEnabled={game.flags?.market !== false} busy={busy}
+        capacities={{ ore: Math.max(0, Number(game.caps?.ore ?? 0) - Number(game.escrow?.ore ?? 0)), energy: Math.max(0, Number(game.caps?.energy ?? 0) - Number(game.escrow?.energy ?? 0)), parts: Math.max(0, Number(game.caps?.parts ?? 0) - Number(game.escrow?.parts ?? 0)) }}
+        onCreate={async (body) => { try { return await api('/api/market/order/create', body); } catch (error) { setMessage(''); throw error; } }}
+        onBuy={async (body) => { try { return await api('/api/market/order/buy', body); } catch (error) { setMessage(''); throw error; } }}
+        onCancel={async (orderId) => { try { return await api('/api/market/order/cancel', { orderId }); } catch (error) { setMessage(''); throw error; } }}
+        onBuild={() => (game.buildings ?? []).some((building: any) => building.type === 'trade_hub') ? navigateGuide('building:trade_hub') : beginPlacement('trade_hub', 'Торговый узел')} onRefresh={() => { void refresh(); }}
+      /></div>}
 
       {tab === 'missions' && <>
-        {game.season&&<section className="card seasonCard"><div className="cardTitleRow"><div><h2><GameIcon name="missions" />Сезон I · {game.season.title}</h2><p>{game.season.subtitle} · осталось {timeLeft(game.season.ends_at)}</p></div><div className="seasonPoints">{n(game.season.points)}<span>SP</span></div></div><div className="seasonTrack">{game.season.rewards.map((r:any)=>{const claimed=(game.season.claims??[]).some((c:any)=>Number(c.level)===Number(r.level));const reached=Number(game.season.points)>=Number(r.points);const rewardText=r.cosmeticId?`🎨 ${r.cosmeticDays?`${r.cosmeticDays} дн.`:'навсегда'}`:r.crystals?`💎 ${r.crystals}`:`💰 ${n(r.credits)}`;return <div className={`seasonReward ${reached?'reached':''}`} key={r.level}><div className="seasonLevel">{r.level}</div><div className="seasonRewardBody"><strong>{r.title}</strong><small>{r.points} SP · {rewardText}</small><div className="progress"><i style={{width:`${Math.min(100,Math.round(Number(game.season.points)/Number(r.points)*100))}%`}}/></div></div><button className="miniButton" disabled={busy||!reached||claimed} onClick={()=>api('/api/season/claim',{level:r.level}).then(()=>setMessage('Сезонная награда получена')).catch(()=>{})}>{claimed?'✓':reached?'Забрать':'🔒'}</button></div>})}</div><p className="finePrint">Платной дорожки в первом сезоне нет.</p></section>}
-        <section className="card"><h2>Ежедневные задания</h2><p>За день можно получить до 💎15. Награды нужно забрать вручную.</p><div className="stack">
+        {subsections.missions === 'daily' && <div data-section-panel="missions-daily">
+<DailyLoginPanel key={planOwner} dailyLogin={game.dailyLogin} busy={busy}
+          onClaim={async () => {
+            try { return await api('/api/game/daily-login/claim'); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onRefresh={() => { void refresh(); }}
+        />
+        <section className="card"><h2>Ежедневные задания</h2><p>За полный набор заданий: <GameAmount resource="crystals">{n((game.dailyQuests ?? []).reduce((sum: number, quest: any) => sum + Number(quest.crystal_reward ?? 0), 0))}</GameAmount>. Награды нужно забрать вручную.</p><div className="stack">
           {(game.dailyQuests ?? []).map((q: any) => {
             const cfg = game.dailyQuestCatalog.find((x: any) => x.key === q.quest_key);
             const done = Number(q.progress) >= Number(q.target);
@@ -868,7 +932,9 @@ export default function Home() {
             </div>;
           })}
         </div></section>
-        <section className="card"><h2>Недельные задания</h2><p>Полный недельный набор даёт 💎75 плюс кредиты.</p><div className="stack">
+        </div>}
+        {subsections.missions === 'weekly' && <div data-section-panel="missions-weekly">
+<section className="card"><h2>Недельные задания</h2><p>Полный недельный набор даёт <GameAmount resource="crystals">{n((game.weeklyQuests ?? []).reduce((sum: number, quest: any) => sum + Number(quest.crystal_reward ?? 0), 0))}</GameAmount> плюс кредиты.</p><div className="stack">
           {(game.weeklyQuests ?? []).map((q: any) => {
             const cfg = game.weeklyQuestCatalog.find((x: any) => x.key === q.quest_key);
             const done = Number(q.progress) >= Number(q.target);
@@ -879,7 +945,9 @@ export default function Home() {
             </div>;
           })}
         </div></section>
-        <section className="card"><h2>Достижения</h2><p>Обычные достижения дают временный визуал, мастер-достижения — тот же предмет навсегда.</p><div className="stack">
+        </div>}
+        {subsections.missions === 'achievements' && <div data-section-panel="missions-achievements">
+<section className="card"><h2>Достижения</h2><p>Обычные достижения дают временный визуал, мастер-достижения — тот же предмет навсегда.</p><div className="stack">
           {achievementRows.map((a: any) => {
             const unlocked = !!a.status;
             const claimed = !!a.status?.claimed_at;
@@ -890,9 +958,14 @@ export default function Home() {
             </div>;
           })}
         </div></section>
+        </div>}
+        {subsections.missions === 'season' && <div data-section-panel="missions-season">
+{!game.season && <section className="card"><h2>Новый сезон готовится</h2><p>Пока можно выполнять ежедневные и недельные задания. Следующий сезон появится здесь.</p></section>}
+{game.season&&<section className="card seasonCard"><div className="cardTitleRow"><div><h2><GameIcon name="missions" />Сезон I · {game.season.title}</h2><p>{game.season.subtitle} · осталось {timeLeft(game.season.ends_at)}</p></div><div className="seasonPoints">{n(game.season.points)}<span>SP</span></div></div><div className="seasonTrack">{game.season.rewards.map((r:any)=>{const claimed=(game.season.claims??[]).some((c:any)=>Number(c.level)===Number(r.level));const reached=Number(game.season.points)>=Number(r.points);const rewardText=r.cosmeticId?`🎨 ${r.cosmeticDays?`${r.cosmeticDays} дн.`:'навсегда'}`:r.crystals?`💎 ${r.crystals}`:`💰 ${n(r.credits)}`;return <div className={`seasonReward ${reached?'reached':''}`} key={r.level}><div className="seasonLevel">{r.level}</div><div className="seasonRewardBody"><strong>{r.title}</strong><small>{r.points} SP · {rewardText}</small><div className="progress"><i style={{width:`${Math.min(100,Math.round(Number(game.season.points)/Number(r.points)*100))}%`}}/></div></div><button className="miniButton" disabled={busy||!reached||claimed} onClick={()=>api('/api/season/claim',{level:r.level}).then(()=>setMessage('Сезонная награда получена')).catch(()=>{})}>{claimed?'✓':reached?'Забрать':'🔒'}</button></div>})}</div><p className="finePrint">Платной дорожки в первом сезоне нет.</p></section>}
+        </div>}
       </>}
 
-      {tab === 'shop' && <CosmeticsShop
+      {tab === 'shop' && <div data-section-panel={`shop-${subsections.shop}`}><CosmeticsShop view={subsections.shop as 'offers' | 'collection'}
         cosmetics={game.cosmetics ?? []} shopCosmetics={game.shopCosmetics ?? []}
         busy={busy || invoiceOpen} starsEnabled={game.flags?.stars_shop !== false}
         awaitingProducts={awaitingProducts}
@@ -910,16 +983,18 @@ export default function Home() {
           try { await api('/api/payments/recover'); await api('/api/session'); }
           catch (error) { setMessage(''); throw error; }
         }}
-      />}
+      /></div>}
       {tab === 'social' && <>
-        <section className="card profileCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
+        {subsections.social === 'profile' && <div data-section-panel="social-profile">
+<section className="card profileCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
           <ColonyIdentity name={game.profile?.colony_name || 'Твоя колония'} cosmetics={game.cosmetics ?? []} />
           <p className="profileCityStats">Центр ур. {s.hq_level} · Рейтинг города {n(s.city_score)}{s.premium ? ' · Premium' : ''}</p>
           <label className="profileField">Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)}/></label><label className="profileField">Описание<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
           <button className="action secondary" disabled={busy||profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Профиль сохранён')).catch(()=>{})}>Сохранить профиль</button>
         </section>
-        <section className="card feedbackCard"><div className="cardTitleRow"><div><h2><GameIcon name="info" />Обратная связь</h2><p>Баг, баланс или идея — сообщение попадёт в закрытую beta-панель вместе с вашим игровым ID.</p></div><span className="pill">до 2000 знаков</span></div><div className="feedbackForm"><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value)}><option value="general">Общее</option><option value="bug">Баг</option><option value="balance">Баланс</option><option value="idea">Идея</option><option value="payment">Платёж</option></select><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder="Что произошло или что стоит улучшить?"/><button className="action secondary" disabled={busy||feedbackMessage.trim().length<5} onClick={sendFeedback}>Отправить</button></div></section>
-        {game.flags?.alliances===false&&<section className="card"><h2>🏳️ Альянсы временно на паузе</h2><p>Feature flag отключён для текущего этапа закрытого теста. Уже созданные данные сохраняются.</p></section>}
+        </div>}
+        {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
+{game.flags?.alliances===false&&<section className="card"><h2>🏳️ Альянсы временно на паузе</h2><p>Feature flag отключён для текущего этапа закрытого теста. Уже созданные данные сохраняются.</p></section>}
         {game.flags?.alliances!==false && (game.alliance?.membership ? <>
           <section className="card allianceHero">
             <div className="cardTitleRow"><div><h2>🏳️ {game.alliance.alliance.name}</h2><p>Код: <b>{game.alliance.alliance.code}</b> · {game.alliance.alliance.members?.length ?? 0}/{game.alliance.alliance.memberLimit} участников · престиж {n(game.alliance.alliance.prestige)}</p></div><div className="seasonPoints">{n(game.alliance.alliance.seasonPoints)}<span>AP</span></div></div>
@@ -946,16 +1021,18 @@ export default function Home() {
           </section>
           {(game.alliance?.recommended?.length??0)>0&&<section className="card"><h2>Открытые альянсы</h2><div className="stack">{game.alliance.recommended.map((a:any)=><div className="rowCard" key={a.id}><div><strong>{a.name}</strong><small>{a.code} · {a.members}/{a.member_limit} · {n(a.season_points)} AP</small></div><button className="miniButton" disabled={busy||Number(s.hq_level)<Number(game.alliance?.rules?.joinHq??2)} onClick={()=>api('/api/alliance/join',{code:a.code}).then(()=>setMessage(`Вы вступили в «${a.name}»`)).catch(()=>{})}>Вступить</button></div>)}</div></section>}
         </>)}
-
-        <section className="card"><h2><GameIcon name="star" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · 🏙 {n(p.city_score)}</em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · ✦ {n(a.prestige)}</em></div>)}</div></div><p className="finePrint">AP начисляются за реальные вклады ресурсов в мегапроект. Покупки за Stars не дают рейтинговых очков.</p></section>
-
-        <section className="card">
+        </div>}
+        {subsections.social === 'rating' && <div data-section-panel="social-rating">
+<section className="card"><h2><GameIcon name="star" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · 🏙 {n(p.city_score)}</em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · ✦ {n(a.prestige)}</em></div>)}</div></div><p className="finePrint">AP начисляются за реальные вклады ресурсов в мегапроект. Покупки за Stars не дают рейтинговых очков.</p></section>
+        </div>}
+        {subsections.social === 'friends' && <div data-section-panel="social-friends">
+<section className="card">
           <h2>Сеть колоний</h2><p>Приглашение считается квалифицированным только после HQ3 приглашённого. Денежная affiliate-программа Telegram живёт отдельно от этих игровых наград.</p>
           <div className="socialStats"><div><b>{game.referrals?.length ?? 0}</b><span>приглашено</span></div><div><b>{qualified}</b><span>HQ3+</span></div><div><b>{game.stats?.qualified_referrals ?? 0}</b><span>зачтено</span></div></div>
           <button className="action" onClick={shareReferral}>👥 Пригласить друга</button>
         </section>
         {(game.referrals?.length ?? 0) > 0 && <section className="card"><h2>Мои приглашённые</h2><div className="stack">{game.referrals.map((r:any)=><div className="rowCard" key={r.telegram_id}><div><strong>{r.colony_name || r.first_name || r.username || r.telegram_id}</strong><small>HQ {r.hq_level} · {r.referral_qualified_at ? '✅ квалифицирован' : 'до HQ3 ещё не дошёл'}</small></div><button className="miniButton" onClick={()=>viewCity(Number(r.telegram_id))}>Город</button></div>)}</div></section>}
-        {viewedCity && <section className="card publicCity"><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)}{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
+        {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)}{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
             buildings={viewedCity.buildings ?? []}
@@ -972,9 +1049,24 @@ export default function Home() {
             compact
           />
         </section>}
+        </div>}
+        {subsections.social === 'inbox' && <div data-section-panel="social-inbox">
+{(game.inbox?.items?.length ?? 0) === 0 && <div className="notice">Сообщений пока нет. Здесь появятся важные результаты и новости твоей колонии.</div>}
+<section className="card inboxCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
+          <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
+          {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
+        </section>
+        </div>}
+        {subsections.social === 'settings' && <div data-section-panel="social-settings">
+<section className="card notificationCard">
+          <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
+          <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
+        </section>
+        <section className="card feedbackCard"><div className="cardTitleRow"><div><h2><GameIcon name="info" />Обратная связь</h2><p>Баг, баланс или идея — сообщение попадёт в закрытую beta-панель вместе с вашим игровым ID.</p></div><span className="pill">до 2000 знаков</span></div><div className="feedbackForm"><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value)}><option value="general">Общее</option><option value="bug">Баг</option><option value="balance">Баланс</option><option value="idea">Идея</option><option value="payment">Платёж</option></select><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder="Что произошло или что стоит улучшить?"/><button className="action secondary" disabled={busy||feedbackMessage.trim().length<5} onClick={sendFeedback}>Отправить</button></div></section>
+        </div>}
       </>}
 
-      {tab==='social' && game.admin && <section className="card adminCard">
+      {tab==='social' && subsections.social === 'admin' && game.admin && <section className="card adminCard" data-section-panel="social-admin">
         <div className="cardTitleRow"><div><h2>🛠 Закрытый тест · Admin</h2><p>Только агрегированные метрики и сигналы подозрительной активности. Автобанов нет.</p></div><button className="miniButton" disabled={busy} onClick={loadAdminDashboard}>Обновить</button></div>
         {!adminDashboard ? <button className="action secondary" disabled={busy} onClick={loadAdminDashboard}>Загрузить метрики</button> : <>
           <div className="socialStats"><div><b>{n(adminDashboard.users?.total)}</b><span>игроков</span></div><div><b>{n(adminDashboard.users?.active_24h)}</b><span>активны 24ч</span></div><div><b>{n(adminDashboard.users?.new_24h)}</b><span>новых 24ч</span></div></div>
@@ -990,7 +1082,7 @@ export default function Home() {
       </section>}
 
       <nav className="tabs">
-        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Сезон', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>openSection(item.key)}><GameIcon name={item.icon} size={22} /><span>{item.label}</span></button>)}
+        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Задания', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>openSection(item.key)}><GameIcon name={item.icon} size={22} /><span>{item.label}</span></button>)}
       </nav>
     </main>
   );

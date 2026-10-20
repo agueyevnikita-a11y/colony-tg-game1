@@ -102,15 +102,10 @@ export async function ensurePlayer(tg: {
 
 async function ensureNpcContracts(tx: any, userId: string, hqLevel: number, buildings: any[]) {
   const hasTradeHub = buildings.some((b) => b.type === 'trade_hub' && b.status === 'active');
-  if (!hasTradeHub) return [];
+  if (!hasTradeHub) return { contracts: [], info: { enabled: false, nextAt: null } };
 
-  const active = await tx<any[]>`
-    SELECT * FROM npc_contracts
-    WHERE user_id=${userId} AND completed_at IS NULL AND expires_at > now()
-    ORDER BY expires_at ASC
-  `;
-  const recentBatch = await tx<{ count: string }[]>`
-    SELECT count(*)::text AS count FROM npc_contracts
+  const recentBatch = await tx<{ count: string; next_at: Date | null }[]>`
+    SELECT count(*)::text AS count,min(created_at)+interval '6 hours' AS next_at FROM npc_contracts
     WHERE user_id=${userId} AND created_at > now()-interval '6 hours'
   `;
 
@@ -135,11 +130,12 @@ async function ensureNpcContracts(tx: any, userId: string, hqLevel: number, buil
     }
   }
 
-  return tx<any[]>`
+  const contracts = await tx<any[]>`
     SELECT * FROM npc_contracts
     WHERE user_id=${userId} AND completed_at IS NULL AND expires_at > now()
     ORDER BY expires_at ASC
   `;
+  return { contracts, info: { enabled: true, nextAt: recentBatch[0]?.next_at ? new Date(recentBatch[0].next_at).toISOString() : null } };
 }
 
 async function qualifyReferralIfNeeded(tx: any, userId: string, hqLevel: number) {
@@ -284,7 +280,7 @@ export async function reconcilePlayer(userId: string) {
              COALESCE(to_jsonb(foundry_jobs)->>'recipe_key', 'standard_alloy') AS recipe_key
       FROM foundry_jobs WHERE user_id=${userId} AND claimed_at IS NULL ORDER BY completes_at ASC
     `;
-    const contracts = await ensureNpcContracts(tx, userId, hqLevel, buildings);
+    const contractState = await ensureNpcContracts(tx, userId, hqLevel, buildings);
     const dailyQuests = await tx<any[]>`
       SELECT * FROM daily_quests WHERE user_id=${userId} AND quest_date=CURRENT_DATE ORDER BY quest_key
     `;
@@ -368,7 +364,8 @@ export async function reconcilePlayer(userId: string) {
       },
       caps,
       escrow,
-      contracts,
+      contracts: contractState.contracts,
+      contractsInfo: contractState.info,
       dailyQuests,
       weeklyQuests,
       achievements,

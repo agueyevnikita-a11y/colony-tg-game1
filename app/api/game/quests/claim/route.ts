@@ -16,6 +16,9 @@ export async function POST(request: Request) {
     const { period, questKey } = (await request.json()) as Body;
 
     await sql.begin(async (tx) => {
+      // Production updates quest progress while holding game_states first.
+      const state = (await tx<any[]>`SELECT user_id FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
+      if (!state) throw new Error('Игровой профиль не найден');
       const table = period === 'weekly' ? 'weekly_quests' : 'daily_quests';
       const rows = period === 'weekly'
         ? await tx<any[]>`SELECT * FROM weekly_quests WHERE user_id=${userId} AND quest_key=${questKey} AND week_start=date_trunc('week', CURRENT_DATE)::date FOR UPDATE`

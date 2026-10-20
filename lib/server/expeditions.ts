@@ -1,11 +1,23 @@
 import crypto from 'node:crypto';
-import { sql, type Transaction } from './db';
+import { sql, type Transaction, type JsonValue } from './db';
 import { ARTIFACTS, EXPEDITION_EVENTS, EXPEDITIONS, expeditionByKey, expeditionSlots } from '@/lib/game/expeditions';
 import { productionMultipliers } from '@/lib/game/research';
 import { storageCaps } from '@/lib/game/economy';
 import { analyticsEvent, recordProgressEvent } from './progression';
 import { completedResearchKeys } from './research';
 import { enqueueNotification } from './notifications';
+import { quoteExpeditionSettlement, type ExpeditionReward } from '@/lib/game/expedition-quote';
+
+type ExpeditionResult = ExpeditionReward & {
+  artifactId: string | null;
+  extraArtifactId: string | null;
+  cost: { energy?: number; parts?: number; credits?: number };
+  choiceId: string | null;
+};
+
+function rewardOf(value: any): Record<string, any> {
+  return typeof value === 'string' ? JSON.parse(value) : value ?? {};
+}
 
 function chance(probability: number) {
   return crypto.randomInt(0, 1_000_000) < Math.floor(probability * 1_000_000);
@@ -83,30 +95,6 @@ async function grantArtifact(tx: Transaction, userId: string, artifactId: string
   if (inserted.length) await recordProgressEvent(tx, userId, 'unique_artifact_found', 1, { artifact_id: artifactId });
 }
 
-async function applyReward(tx: Transaction, userId: string, reward: any, artifactId?: string | null) {
-  const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
-  if (!state) throw new Error('Игровой профиль не найден');
-  const completed = await completedResearchKeys(tx, userId);
-  const cap = await inventoryCapacity(tx, userId, completed);
-  const oreWanted = Math.max(0, Number(reward.ore ?? 0));
-  const partsWanted = Math.max(0, Number(reward.parts ?? 0));
-  const oreAdded = Math.max(0, Math.min(oreWanted, cap.ore - Number(state.ore)));
-  const partsAdded = Math.max(0, Math.min(partsWanted, cap.parts - Number(state.parts)));
-  const credits = Math.max(0, Number(reward.credits ?? 0));
-  const science = Math.max(0, Number(reward.science ?? 0));
-  const crystals = Math.max(0, Number(reward.crystals ?? 0));
-  await tx`
-    UPDATE game_states SET ore=ore+${oreAdded},parts=parts+${partsAdded},credits=credits+${credits},
-      science=science+${science},crystals=crystals+${crystals},updated_at=now()
-    WHERE user_id=${userId}
-  `;
-  if (artifactId) await grantArtifact(tx, userId, artifactId);
-  return {
-    ore: oreAdded, parts: partsAdded, credits, science, crystals,
-    overflowOre: Math.max(0, oreWanted - oreAdded), overflowParts: Math.max(0, partsWanted - partsAdded), artifactId: artifactId ?? null,
-  };
-}
-
 export async function getExpeditionState(tx: Transaction, userId: string, hqLevel: number, buildings: any[]) {
   await reconcileExpeditions(tx, userId);
   const completed = await completedResearchKeys(tx, userId);
@@ -117,7 +105,7 @@ export async function getExpeditionState(tx: Transaction, userId: string, hqLeve
     ORDER BY started_at DESC LIMIT 12
   `;
   const recent = await tx<any[]>`
-    SELECT id,expedition_key,status,started_at,completed_at,reward_claimed,event_key,event_choice
+    SELECT id,expedition_key,status,started_at,completed_at,reward_claimed,event_key,event_choice,reward_json
     FROM expeditions WHERE user_id=${userId} AND status='claimed'
     ORDER BY completed_at DESC NULLS LAST LIMIT 8
   `;
@@ -141,10 +129,15 @@ export async function getExpeditionState(tx: Transaction, userId: string, hqLeve
       return {
         ...safe,
         config: expeditionByKey(run.expedition_key),
+        baseReward: run.status === 'ready' || run.status === 'event' ? rewardOf(_reward) : null,
+        baseArtifactId: run.status === 'ready' || run.status === 'event' ? _artifact ?? null : null,
         event: run.status === 'event' && eventKey ? (EXPEDITION_EVENTS as any)[eventKey] ?? null : null,
       };
     }),
-    recent,
+    recent: recent.map((run) => {
+      const { reward_json, ...safe } = run;
+      return { ...safe, result: rewardOf(reward_json).settledResult ?? null, config: expeditionByKey(run.expedition_key) };
+    }),
     catalog,
     artifacts,
     artifactCatalog: ARTIFACTS,
@@ -152,6 +145,7 @@ export async function getExpeditionState(tx: Transaction, userId: string, hqLeve
 }
 
 export async function startExpedition(userId: string, expeditionKey: string) {
+  if (typeof expeditionKey !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/.test(expeditionKey)) throw new Error('Выбери экспедицию');
   const cfg = expeditionByKey(expeditionKey);
   if (!cfg) throw new Error('Экспедиция не найдена');
   return sql.begin(async (tx) => {
@@ -202,12 +196,22 @@ export async function startExpedition(userId: string, expeditionKey: string) {
 }
 
 export async function resolveExpedition(userId: string, expeditionId: string, choiceId?: string) {
+  if (typeof expeditionId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(expeditionId)
+    || (choiceId !== undefined && (typeof choiceId !== 'string' || !/^[a-z][a-z0-9_]{0,63}$/.test(choiceId)))) throw new Error('Некорректное решение экспедиции');
   return sql.begin(async (tx) => {
     await reconcileExpeditions(tx, userId);
+    const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
+    if (!state) throw new Error('Игровой профиль не найден');
     const run = (await tx<any[]>`SELECT * FROM expeditions WHERE id=${expeditionId} AND user_id=${userId} FOR UPDATE`)[0];
     if (!run) throw new Error('Экспедиция не найдена');
     if (run.status === 'active') throw new Error('Экспедиция ещё не вернулась');
-    if (run.status === 'claimed') throw new Error('Награда уже получена');
+    const base = rewardOf(run.reward_json);
+    if (run.status === 'claimed') {
+      const saved = base.settledResult as ExpeditionResult | undefined;
+      if (!saved) throw new Error('Награда уже получена');
+      if (saved.choiceId !== (choiceId ?? null)) throw new Error('Для этой экспедиции уже выбрано другое решение');
+      return saved;
+    }
 
     let extraReward: any = {};
     let choice: any = null;
@@ -216,31 +220,36 @@ export async function resolveExpedition(userId: string, expeditionId: string, ch
       if (!event) throw new Error('Событие экспедиции повреждено');
       choice = event.choices.find((x: any) => x.id === choiceId);
       if (!choice) throw new Error('Выбери решение для события');
-      const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
-      const energy = Number(choice.cost?.energy ?? 0), parts = Number(choice.cost?.parts ?? 0), credits = Number(choice.cost?.credits ?? 0);
-      if (Number(state.energy) < energy || Number(state.parts) < parts || Number(state.credits) < credits) throw new Error('Не хватает ресурсов для этого решения');
-      await tx`UPDATE game_states SET energy=energy-${energy},parts=parts-${parts},credits=credits-${credits},updated_at=now() WHERE user_id=${userId}`;
       extraReward = choice.reward ?? {};
-    }
+    } else if (choiceId !== undefined) throw new Error('Для этой экспедиции не требуется выбор решения');
 
-    const base = typeof run.reward_json === 'string' ? JSON.parse(run.reward_json) : (run.reward_json ?? {});
-    const merged: any = {
-      ore: Number(base.ore ?? 0) + Number(extraReward.ore ?? 0),
-      parts: Number(base.parts ?? 0) + Number(extraReward.parts ?? 0),
-      credits: Number(base.credits ?? 0) + Number(extraReward.credits ?? 0),
-      science: Number(base.science ?? 0) + Number(extraReward.science ?? 0),
-      crystals: Number(base.crystals ?? 0) + Number(extraReward.crystals ?? 0),
-    };
+    const cost: ExpeditionResult['cost'] = choice?.cost ?? {};
+    const completed = await completedResearchKeys(tx, userId);
+    const capacities = await inventoryCapacity(tx, userId, completed);
+    const quote = quoteExpeditionSettlement(base, extraReward, cost, state, capacities);
+    const names: Record<string, string> = { ore: 'руды', energy: 'энергии', parts: 'деталей', credits: 'кредитов', science: 'науки', crystals: 'кристаллов' };
+    const amounts = (values: Record<string, number>) => Object.entries(values).map(([key, amount]) => `${amount} ${names[key] ?? key}`).join(', ');
+    if (Object.keys(quote.shortages).length) throw new Error(`Не хватает ${amounts(quote.shortages)}`);
+    if (Object.keys(quote.storageShortages).length) throw new Error(`На складе не хватает места для ${amounts(quote.storageShortages)}. Освободи место и забери результат позже.`);
+    if (!quote.canClaim) throw new Error('Не удалось проверить награду экспедиции');
+
     const artifacts = [run.artifact_id, extraReward.artifactId].filter(Boolean) as string[];
-    const applied = await applyReward(tx, userId, merged, artifacts[0] ?? null);
-    if (artifacts.length > 1) await grantArtifact(tx, userId, artifacts[1]);
+    const result: ExpeditionResult = { ...quote.reward, artifactId: artifacts[0] ?? null, extraArtifactId: artifacts[1] ?? null, cost, choiceId: choice?.id ?? null };
+    await tx`
+      UPDATE game_states SET ore=ore+${result.ore},parts=parts-${cost.parts ?? 0}+${result.parts},
+        energy=energy-${cost.energy ?? 0},credits=credits-${cost.credits ?? 0}+${result.credits},
+        science=science+${result.science},crystals=crystals+${result.crystals},updated_at=now()
+      WHERE user_id=${userId}
+    `;
+    for (const artifactId of artifacts) await grantArtifact(tx, userId, artifactId);
 
     await tx`
-      UPDATE expeditions SET status='claimed',completed_at=now(),reward_claimed=true,event_choice=${choice?.id ?? null},updated_at=now()
+      UPDATE expeditions SET status='claimed',completed_at=now(),reward_claimed=true,event_choice=${choice?.id ?? null},
+        reward_json=${tx.json({ ...base, settledResult: result } as JsonValue)},updated_at=now()
       WHERE id=${run.id}
     `;
     await recordProgressEvent(tx, userId, 'expedition_completed', 1, { expedition_key: run.expedition_key, event_key: run.event_key, event_choice: choice?.id ?? null });
-    await analyticsEvent(tx, userId, 'expedition_reward', { expedition_key: run.expedition_key, ...applied });
-    return { ...applied, extraArtifactId: artifacts.length > 1 ? artifacts[1] : null };
+    await analyticsEvent(tx, userId, 'expedition_reward', { expedition_key: run.expedition_key, ...result });
+    return result;
   });
 }

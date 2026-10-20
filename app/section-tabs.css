@@ -1,0 +1,27 @@
+.sectionTabs { position:sticky; top:0; z-index:10; min-width:0; max-width:100%; margin:0 0 12px; background:rgba(11,19,27,.96); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); }
+.sectionTabsStrip { display:flex; gap:6px; max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; padding:5px 3px 7px; scrollbar-width:thin; scrollbar-color:rgba(135,177,184,.35) transparent; scroll-padding-inline:3px; }
+.sectionTabsStrip::-webkit-scrollbar { height:3px; }
+.sectionTabsStrip::-webkit-scrollbar-track { background:transparent; }
+.sectionTabsStrip::-webkit-scrollbar-thumb { border-radius:3px; background:rgba(135,177,184,.35); }
+.sectionTab { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; min-height:40px; padding:8px 11px; border:1px solid var(--line); border-radius:12px; color:var(--muted); background:rgba(24,41,51,.45); font-size:12px; line-height:1.4; font-weight:600; white-space:nowrap; cursor:pointer; }
+.sectionTab > .gameIcon { flex-shrink:0; }
+.sectionTab.isActive { color:#b9efdb; border-color:rgba(133,221,191,.38); background:rgba(133,221,191,.11); }
+.sectionTab:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.sectionTabBadge { display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 5px; border-radius:999px; background:rgba(158,190,202,.13); color:#c5dce4; font-size:10px; font-variant-numeric:tabular-nums; }
+.sectionTab.isActive .sectionTabBadge { color:#b9efdb; background:rgba(133,221,191,.15); }
+@media(max-width:340px) { .sectionTab { padding-inline:9px; gap:5px; font-size:11px; } }
+@media(prefers-reduced-motion:reduce) { .sectionTabsStrip { scroll-behavior:auto; } }
+.resourceOverview { margin-bottom:10px; border:1px solid var(--line); border-radius:12px; background:rgba(23,40,49,.45); }
+.resourceOverview > summary { display:flex; align-items:center; gap:10px; padding:9px 11px; cursor:pointer; list-style:none; }
+.resourceOverview > summary::-webkit-details-marker { display:none; }
+.resourceOverview > summary > span:first-child { flex-shrink:0; color:var(--muted); font-size:11px; }
+.resourceOverview > summary > span:last-child { display:flex; flex:1; flex-wrap:wrap; gap:5px 10px; font-size:12px; font-weight:600; }
+.resourceOverview > summary::after { content:''; width:6px; height:6px; flex-shrink:0; border:solid var(--muted); border-width:0 1.5px 1.5px 0; transform:rotate(45deg); margin:0 2px 4px; }
+.resourceOverview[open] > summary::after { transform:rotate(225deg); margin-top:5px; }
+.colonyApp .resourceOverview .colonyResources { padding:0 8px 8px; margin:0; }
+.cityGuideDetails { margin-bottom:12px; }
+.cityGuideDetails > summary { padding:9px 11px; border:1px solid var(--line); border-radius:11px; color:var(--muted); cursor:pointer; font-size:12px; }
+.cityGuideDetails[open] > summary { margin-bottom:8px; }
+.colonyApp .card,.colonyApp #colony-research,.colonyApp [data-section-panel] { scroll-margin-top:68px; }
+.colonyApp [data-section-panel] > div { scroll-margin-top:68px; }
+.sectionTabs + [data-section-panel]:focus { outline:none; }

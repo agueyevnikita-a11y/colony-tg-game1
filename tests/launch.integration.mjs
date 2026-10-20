@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 import postgres from 'postgres';
+import { runContractsIntegration } from './contracts.integration.mjs';
 
 test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 120_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
@@ -1254,6 +1255,167 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(restored.colonyEvents.active.id, event.id);
     assert.equal((await request('/api/ready')).status, 200);
   });
+
+  async function expeditionFixture() {
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    await sql`DELETE FROM expeditions WHERE user_id=${userId}`;
+    await sql`DELETE FROM user_artifacts WHERE user_id=${userId}`;
+    await sql`DELETE FROM market_orders WHERE user_id=${userId}`;
+    await sql`DELETE FROM user_research WHERE user_id=${userId}`;
+    await sql`DELETE FROM buildings WHERE user_id=${userId}`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${userId}`}`;
+    await sql`UPDATE player_stats SET expeditions_started=0,expeditions_completed=0,artifacts_found=0,unique_artifacts_found=0 WHERE user_id=${userId}`;
+    await sql`
+      INSERT INTO buildings (user_id,type,level,x,y,status)
+      VALUES (${userId},'hq',3,2,2,'active'),(${userId},'expedition_center',1,0,0,'active')
+    `;
+    await sql`
+      UPDATE game_states SET hq_level=3,ore=500,energy=500,parts=100,credits=1000,science=0,crystals=0,
+        premium_until=NULL,passive_carry='{}'::jsonb,last_tick_at=now()+interval '1 day' WHERE user_id=${userId}
+    `;
+    return userId;
+  }
+  const expeditionReward = { ore: 120, parts: 30, credits: 400, science: 25, crystals: 2 };
+  async function seededExpedition(userId, { status = 'ready', eventKey = null, artifactId = 'alloy_core', reward = expeditionReward } = {}) {
+    return (await sql`
+      INSERT INTO expeditions (user_id,expedition_key,status,started_at,completes_at,completed_at,reward_json,event_key,artifact_id,reward_claimed)
+      VALUES (${userId},'local_survey',${status},now()-interval '2 hours',
+        ${status === 'active' ? new Date(Date.now()+3_600_000) : new Date(Date.now()-3_600_000)},
+        ${status === 'claimed' ? new Date(Date.now()-60_000) : null},${sql.json(reward)},${eventKey},${artifactId},${status === 'claimed'})
+      RETURNING id
+    `)[0].id;
+  }
+  const resolveExpedition = (expeditionId, choiceId) => request('/api/game/expedition/resolve', {
+    method: 'POST', auth: initData(playerId), body: { expeditionId, ...(choiceId === undefined ? {} : { choiceId }) },
+  });
+  const expeditionBalances = async (userId) => Object.fromEntries(Object.entries((await sql`
+    SELECT ore,energy,parts,credits,science,crystals FROM game_states WHERE user_id=${userId}
+  `)[0]).map(([key,value]) => [key,Number(value)]));
+
+  await t.test('expeditions hide cargo while travelling and reveal exact saved cargo when ready', async () => {
+    const userId = await expeditionFixture();
+    const id = await seededExpedition(userId, { status: 'active' });
+    const travelling = (await colonyEventSession()).expeditions.runs.find((run) => run.id === id);
+    assert.equal(travelling.baseReward, null);
+    assert.equal(travelling.baseArtifactId, null);
+    assert.equal(travelling.event, null);
+    assert.ok(!Object.hasOwn(travelling, 'reward_json') && !Object.hasOwn(travelling, 'artifact_id'));
+    const before = await expeditionBalances(userId);
+    assert.equal((await resolveExpedition(id)).status, 400, 'Cargo cannot be claimed while the expedition is travelling');
+    const busy = await request('/api/game/expedition/start', { method: 'POST', auth: initData(playerId), body: { expeditionKey: 'local_survey' } });
+    assert.equal(busy.status, 400, JSON.stringify(busy.data));
+    assert.deepEqual(await expeditionBalances(userId), before);
+    await sql`UPDATE expeditions SET completes_at=now()-interval '1 second' WHERE id=${id}`;
+    const ready = (await colonyEventSession()).expeditions.runs.find((run) => run.id === id);
+    assert.equal(ready.status, 'ready');
+    assert.deepEqual(ready.baseReward, expeditionReward);
+    assert.equal(ready.baseArtifactId, 'alloy_core');
+    const claimed = await resolveExpedition(id);
+    assert.equal(claimed.status, 200, JSON.stringify(claimed.data));
+    assert.deepEqual(claimed.data.result, { ...expeditionReward, artifactId: 'alloy_core', extraArtifactId: null, cost: {}, choiceId: null });
+    const retry = await resolveExpedition(id);
+    assert.equal(retry.status, 200, JSON.stringify(retry.data));
+    assert.deepEqual(retry.data.result, claimed.data.result);
+    assert.deepEqual(claimed.data.expeditions.recent.find((run) => run.id === id).result, claimed.data.result);
+    assert.equal(claimed.data.expeditions.recent.find((run) => run.id === id).config.key, 'local_survey');
+    assert.deepEqual(await expeditionBalances(userId), { ore: 620, energy: 500, parts: 130, credits: 1400, science: 25, crystals: 2 });
+  });
+
+  await t.test('event cargo and both artifacts wait intact on shortage or full escrow-reserved storage, then settle once', async () => {
+    const userId = await expeditionFixture();
+    const id = await seededExpedition(userId, { status: 'event', eventKey: 'ancient_probe', artifactId: 'quantum_lens' });
+    const preview = (await colonyEventSession()).expeditions.runs.find((run) => run.id === id);
+    assert.deepEqual(preview.baseReward, expeditionReward);
+    assert.equal(preview.baseArtifactId, 'quantum_lens');
+    assert.equal(preview.event.title, 'Неизвестный зонд');
+    await sql`UPDATE game_states SET parts=29 WHERE user_id=${userId}`;
+    let before = await expeditionBalances(userId);
+    assert.equal((await resolveExpedition(id, 'recover')).status, 400);
+    assert.deepEqual(await expeditionBalances(userId), before, 'Incoming parts cannot pay the upfront decision cost');
+    await sql`UPDATE game_states SET parts=800,ore=1990 WHERE user_id=${userId}`;
+    before = await expeditionBalances(userId);
+    const full = await resolveExpedition(id, 'recover');
+    assert.equal(full.status, 400, JSON.stringify(full.data));
+    assert.match(full.data.error, /складе/);
+    assert.deepEqual(await expeditionBalances(userId), before);
+    assert.deepEqual((await sql`SELECT status,event_choice,reward_claimed FROM expeditions WHERE id=${id}`)[0], { status: 'event', event_choice: null, reward_claimed: false });
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM user_artifacts WHERE user_id=${userId}`)[0].count), 0);
+    assert.equal(Number((await sql`SELECT expeditions_completed FROM player_stats WHERE user_id=${userId}`)[0].expeditions_completed), 0);
+    await sql`UPDATE game_states SET ore=1880 WHERE user_id=${userId}`;
+    await sql`
+      INSERT INTO market_orders (user_id,resource,amount_total,amount_remaining,unit_price,expires_at)
+      VALUES (${userId},'ore',100,100,2,now()+interval '1 day')
+    `;
+    before = await expeditionBalances(userId);
+    const reserved = await resolveExpedition(id, 'recover');
+    assert.equal(reserved.status, 400, JSON.stringify(reserved.data));
+    assert.deepEqual(await expeditionBalances(userId), before);
+    await sql`UPDATE game_states SET ore=1780 WHERE user_id=${userId}`;
+    const results = await Promise.all([resolveExpedition(id, 'recover'), resolveExpedition(id, 'recover')]);
+    assert.ok(results.every((result) => result.status === 200), JSON.stringify(results));
+    assert.deepEqual(results[0].data.result, results[1].data.result);
+    assert.deepEqual(results[0].data.result, { ore: 120, parts: 30, credits: 900, science: 25, crystals: 2,
+      artifactId: 'quantum_lens', extraArtifactId: 'signal_fragment', cost: { parts: 30 }, choiceId: 'recover' });
+    assert.deepEqual(await expeditionBalances(userId), { ore: 1900, energy: 500, parts: 800, credits: 1900, science: 25, crystals: 2 });
+    const stats = (await sql`SELECT expeditions_completed,artifacts_found,unique_artifacts_found FROM player_stats WHERE user_id=${userId}`)[0];
+    assert.equal(Number(stats.expeditions_completed), 1);
+    assert.equal(Number(stats.artifacts_found), 2);
+    assert.equal(Number(stats.unique_artifacts_found), 2);
+    assert.deepEqual((await sql`SELECT artifact_id,count::int FROM user_artifacts WHERE user_id=${userId} ORDER BY artifact_id`).map((row) => ({ ...row })),
+      [{ artifact_id: 'quantum_lens', count: 1 }, { artifact_id: 'signal_fragment', count: 1 }]);
+    const after = await expeditionBalances(userId);
+    const retried = await resolveExpedition(id, 'recover');
+    assert.equal(retried.status, 200, JSON.stringify(retried.data));
+    assert.deepEqual(retried.data.result, results[0].data.result);
+    assert.equal((await resolveExpedition(id, 'decode')).status, 400);
+    assert.deepEqual(await expeditionBalances(userId), after);
+  });
+
+  await t.test('expedition ownership and request validation reject malformed actions, preserving legacy claims', async () => {
+    const userId = await expeditionFixture();
+    const id = await seededExpedition(userId);
+    const before = await expeditionBalances(userId);
+    const foreign = await request('/api/game/expedition/resolve', { method: 'POST', auth: initData(adminId), body: { expeditionId: id } });
+    assert.equal(foreign.status, 400, JSON.stringify(foreign.data));
+    for (const body of [null, [], { expeditionId: null }, { expeditionId: 'bad' }, { expeditionId: crypto.randomUUID() }, { expeditionId: id, choiceId: {} }, { expeditionId: id, choiceId: 'unknown' }]) {
+      const rejected = await request('/api/game/expedition/resolve', { method: 'POST', auth: initData(playerId), body });
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+    }
+    for (const body of [null, [], { expeditionKey: {} }, { expeditionKey: 'constructor' }, { expeditionKey: 'unknown' }]) {
+      const rejected = await request('/api/game/expedition/start', { method: 'POST', auth: initData(playerId), body });
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+    }
+    assert.deepEqual(await expeditionBalances(userId), before);
+    const legacyId = await seededExpedition(userId, { status: 'claimed' });
+    const legacy = await resolveExpedition(legacyId);
+    assert.equal(legacy.status, 400, JSON.stringify(legacy.data));
+    assert.match(legacy.data.error, /уже получена/);
+    const session = await colonyEventSession();
+    assert.equal(session.expeditions.recent.find((run) => run.id === legacyId).result, null);
+    assert.deepEqual(await expeditionBalances(userId), before);
+  });
+
+  await t.test('temporary cosmetic rewards extend exact microsecond keys and permanent ownership is unchanged', async () => {
+    const { grantCosmetic } = await import('../lib/server/cosmetics.ts');
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    await sql`DELETE FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id IN ('frame_orbit','theme_neon')`;
+    await sql`
+      INSERT INTO user_cosmetics (user_id,cosmetic_id,source,expires_at,acquired_at)
+      VALUES (${userId},'frame_orbit','integration',now()+interval '3 days',TIMESTAMPTZ '2026-10-01 12:00:00.123456+00'),
+             (${userId},'theme_neon','integration',NULL,TIMESTAMPTZ '2026-10-01 12:00:00.654321+00')
+    `;
+    const before = (await sql`SELECT acquired_at::text,expires_at FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='frame_orbit'`)[0];
+    await sql.begin((tx) => grantCosmetic(tx,userId,'frame_orbit','integration_again',7));
+    const after = await sql`SELECT acquired_at::text,expires_at FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='frame_orbit'`;
+    assert.equal(after.length, 1);
+    assert.equal(after[0].acquired_at, before.acquired_at);
+    assert.equal(new Date(after[0].expires_at).getTime() - new Date(before.expires_at).getTime(), 7 * 86_400_000);
+    const permanent = await sql`SELECT acquired_at::text,expires_at FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='theme_neon'`;
+    await sql.begin((tx) => grantCosmetic(tx,userId,'theme_neon','integration_again',7));
+    assert.deepEqual(await sql`SELECT acquired_at::text,expires_at FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='theme_neon'`, permanent);
+  });
+
+  await runContractsIntegration({ t, sql, request, initData, playerId, adminId });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;

@@ -90,7 +90,7 @@ export function CityGrid(props: {
 
   return <div className={`cityMap cityArtMap cosmeticSurface ${cosmeticFrameClass(props.frame)} ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
     <CosmeticAtmosphere weather={props.weather} effect={props.effect} />
-    <div className="cityMapGrid" style={{ gridTemplateColumns: `repeat(${props.gridSize}, minmax(0, 1fr))` }}>
+    <div className="cityMapGrid" style={{ gridTemplateColumns: `repeat(${props.gridSize}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${props.gridSize}, minmax(0, 1fr))` }}>
       {cells}
     </div>
     {planningFoundry && <div className="cityLinkLegend"><strong>Выгодные клетки: <GameIcon name="ore" size={14} /> −15% руды · <GameIcon name="energy" size={14} /> −20% энергии.</strong> Работают соседи по стороне. После постройки выбери одну связь в производстве.</div>}

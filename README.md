@@ -1,4 +1,4 @@
-# COLONY v1.8 Beta
+# COLONY v1.9 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -18,7 +18,10 @@ v1.7 adds a player-selected research goal with an ordered prerequisite path, rem
 
 v1.8 introduces gentle colony events after the initial tutorial. Each situation offers explicit resource trades and a free resolution; one foundry option is unlocked by research. Pending events persist, production continues normally, and the next event becomes available 12 hours after resolution. Choices and rewards are saved on the server and retries cannot grant rewards twice. **Apply `npm run db:init` (or migration `013_v1_8_colony_events.sql` on v1.7) before enabling the feature.** Sessions remain usable without the table, but events stay hidden and readiness reports the missing schema. See [event rules and upgrade steps](docs/EVENTS_v1.8.md).
 
+v1.9 reorganizes long screens into task-focused subsections: city map, production, contracts, events and decor; research, construction and expeditions; separate buying/selling; daily and weekly goals; offers and owned cosmetics; social tools and settings. Resources and post-tutorial guidance expand on demand. Direct actions open the relevant subsection, and prepared foundry settings survive a visit to the map. Contracts and expeditions now show local errors and complete outcomes; expedition cargo waits instead of overflowing, and repeated collection cannot grant rewards twice. No new database migration is required from v1.8. See [navigation and reliability changes](docs/INTERFACE_v1.9.md).
+
 ## Stack
+
 - Next.js 16 / React 19 / TypeScript
 - PostgreSQL via `postgres`
 - Telegram Mini Apps + Bot API + Telegram Stars

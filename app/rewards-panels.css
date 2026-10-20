@@ -1,0 +1,39 @@
+.rewardsPanel { min-width:0; scroll-margin-top:14px; }
+.contractsList { display:flex; flex-direction:column; gap:10px; }
+.contractEntry { min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(10,24,33,.22); }
+.contractEntry.isExpired { border-color:rgba(221,178,117,.23); }
+.rewardEntryHeading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 10px; }
+.rewardEntryHeading h3 { margin:0; font-size:13px; line-height:1.5; }
+.contractDeadline { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; line-height:1.5; }
+.isExpired .contractDeadline { color:#e4c28c; }
+.rewardExchange { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:8px; margin:12px 0; }
+.rewardExchange > div { min-width:0; }
+.rewardExchange > div > span { display:block; margin-bottom:4px; font-size:10px; color:var(--muted); }
+.rewardExchange strong { display:flex; flex-wrap:wrap; align-items:center; gap:5px; font-size:14px; line-height:1.6; }
+.rewardExchange > .gameIcon { color:#89aab4; }
+.rewardExchange > div:last-child strong { color:#b8e4cc; }
+.rewardShortage { display:flex; align-items:center; flex-wrap:wrap; gap:5px 8px; margin:9px 0; color:#e7c58d; font-size:12px; line-height:1.6; }
+.rewardShortage .miniButton { margin-left:auto; font-size:10px; }
+.rewardsPanel .contractComplete { font-size:12px; }
+.rewardEmptyState { padding:11px; border:1px solid var(--line); border-radius:12px; background:rgba(16,30,38,.3); }
+.rewardEmptyState > strong { display:flex; align-items:center; gap:6px; font-size:13px; line-height:1.5; }
+.colonyApp .rewardEmptyState > p,.colonyApp .contractExpired > p { font-size:12px; line-height:1.55; }
+.rewardEmptyState .miniButton,.contractExpired .miniButton { font-size:11px; }
+.rewardFeedback { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:10px 0 0; overflow-wrap:anywhere; }
+.rewardFeedback > span { flex:1; min-width:140px; }
+.rewardFeedback .miniButton { font-size:10px; }
+.rewardSuccess { align-items:flex-start; }
+.rewardSuccess > div { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.rewardSuccess strong { font-size:12px; }
+.rewardSuccess > div > span { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12px; }
+.dailyLoginPanel .cardTitleRow { align-items:flex-start; }
+.dailyLoginPanel .pill { flex-shrink:0; font-size:10px; padding:6px 8px; }
+.dailyRewardContent { padding:11px; border:1px solid var(--line); border-radius:12px; background:rgba(16,30,38,.3); }
+.dailyRewardSummary { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.dailyRewardSummary > span { color:var(--muted); font-size:12px; }
+.dailyRewardSummary > strong { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; }
+.dailyRewardContent > .action { font-size:12px; }
+.rewardClaimed { display:flex; align-items:flex-start; gap:7px; color:#b7dcc5; font-size:12px; line-height:1.6; }
+.rewardClaimed > .gameIcon { flex-shrink:0; margin-top:2px; }
+.rewardsPanel .miniButton:focus-visible,.rewardsPanel .action:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:340px) { .contractEntry,.dailyRewardContent { padding:10px; } .rewardExchange { gap:6px; } .dailyLoginPanel .cardTitleRow { flex-wrap:wrap; } .rewardFeedback .miniButton { width:100%; } }

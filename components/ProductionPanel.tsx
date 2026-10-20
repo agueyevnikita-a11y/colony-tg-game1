@@ -72,7 +72,10 @@ export function ProductionPanel(props: Props) {
   const requestedRecipeUnlocked = props.selectedRecipe === 'standard_alloy' || (props.recipesEnabled !== false && Boolean(props.unlockedRecipes?.includes(props.selectedRecipe ?? '')));
 
   useEffect(() => {
-    if (requestedFoundryId) { setSelectedId(requestedFoundryId); setCycles(1); }
+    if (requestedFoundryId) {
+      setSelectedId(requestedFoundryId);
+      if (requestedFoundryId !== selected?.id) setCycles(1);
+    }
   }, [requestedFoundryId]);
   useEffect(() => {
     if (props.selectedRecipe && requestedRecipeUnlocked) setRecipe(props.selectedRecipe);
