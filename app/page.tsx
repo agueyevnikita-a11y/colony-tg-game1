@@ -11,6 +11,7 @@ import { ResourceBar } from '@/components/ResourceBar';
 import { ConstructionStatus } from '@/components/ConstructionStatus';
 import { ColonyWelcome } from '@/components/ColonyWelcome';
 import { ColonyGuide } from '@/components/ColonyGuide';
+import { ColonyEventCard } from '@/components/ColonyEventCard';
 import { MechanicsHelp } from '@/components/MechanicsHelp';
 import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
@@ -99,7 +100,8 @@ export default function Home() {
   const invoiceOpening = useRef(false);
   const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
-  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | null>(null);
+  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | 'events' | null>(null);
+  const colonyEventsRef = useRef<HTMLDivElement>(null);
   const contractsRef = useRef<HTMLElement>(null);
   const hqUpgradeRef = useRef<HTMLElement>(null);
   const researchPanelRef = useRef<HTMLDivElement>(null);
@@ -204,7 +206,7 @@ export default function Home() {
 
   useEffect(() => {
     const target = guideNavigationPending.current;
-    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef };
+    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef };
     const element = target ? refs[target].current : null;
     if (element) {
       guideNavigationPending.current = null;
@@ -232,6 +234,14 @@ export default function Home() {
       if (foundry) setSelectedBuildingId(foundry.id);
       if (game?.tutorial?.current?.key === 'first_smelt') setRequestedProductionRecipe('standard_alloy');
       setTab('city'); guideNavigationPending.current = 'production';
+    } else if (action === 'events') {
+      setTab('city'); guideNavigationPending.current = 'events';
+    } else if (action.startsWith('building:')) {
+      const type = action.slice('building:'.length);
+      const building = (game?.buildings ?? []).find((item: any) => item.type === type && item.status === 'active')
+        ?? (game?.buildings ?? []).find((item: any) => item.type === type);
+      if (building) setSelectedBuildingId(building.id);
+      setTab('city'); guideNavigationPending.current = 'map';
     } else if (action === 'contracts') {
       setTab('city'); guideNavigationPending.current = 'contracts';
     } else if (action === 'upgrade_hq') {
@@ -712,6 +722,26 @@ export default function Home() {
             <button className="action secondary" disabled={busy} onClick={()=>api('/api/game/decor/remove',{decorId:selectedDecor.id}).then((d:any)=>{setSelectedDecorId(null);setMessage(`Декор демонтирован · возврат 💰${n(d.result?.refund)}`)}).catch(()=>{})}>Убрать декор</button>
           </>})()}
         </section>}
+
+        <div ref={colonyEventsRef}><ColonyEventCard
+          key={planOwner}
+          eventState={game.colonyEvents}
+          resources={s}
+          capacities={{
+            ore: Math.max(0, Number(game.caps?.ore ?? 0) - Number(game.escrow?.ore ?? 0)),
+            energy: Math.max(0, Number(game.caps?.energy ?? 0) - Number(game.escrow?.energy ?? 0)),
+            parts: Math.max(0, Number(game.caps?.parts ?? 0) - Number(game.escrow?.parts ?? 0)),
+          }}
+          completedResearch={game.research?.completed ?? []}
+          busy={busy}
+          onResolve={async (eventId, choiceId) => {
+            try { return await api('/api/game/event/resolve', { eventId, choiceId }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onShowBuilding={(type) => navigateGuide(`building:${type}`)}
+          onResearch={(key) => navigateGuide(`research:${key}`)}
+          onRefresh={() => { void refresh(); }}
+        /></div>
 
         <div ref={productionPanelRef}><ProductionPanel
           buildings={game.buildings ?? []}

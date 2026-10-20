@@ -1,4 +1,4 @@
-# COLONY v1.7 Beta
+# COLONY v1.8 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -15,6 +15,8 @@ v1.5 refreshes the mobile interface with illustrated city buildings, consistent 
 v1.6 gives each tab a compact contextual header and keeps the full resource overview and guide on the city screen. Paid cosmetics now have visual previews, shared effects on the real city, profile frames and founder art. Owned cosmetics can be equipped or removed; server-side ownership, expiry and category exclusivity are preserved. No new database migration is required from v1.4/v1.5. See [cosmetics and interface rules](docs/COSMETICS_v1.6.md).
 
 v1.7 adds a player-selected research goal with an ordered prerequisite path, remaining research costs and actionable HQ/laboratory/resource requirements. The home guide follows actual research and building status, while completed technologies link to their buildings or recipes. Goals are stored per player on the current device; choosing a plan never launches or pays for research. No migration or economy change is required. See [research planning and verification](docs/RESEARCH_PLAN_v1.7.md).
+
+v1.8 introduces gentle colony events after the initial tutorial. Each situation offers explicit resource trades and a free resolution; one foundry option is unlocked by research. Pending events persist, production continues normally, and the next event becomes available 12 hours after resolution. Choices and rewards are saved on the server and retries cannot grant rewards twice. **Apply `npm run db:init` (or migration `013_v1_8_colony_events.sql` on v1.7) before enabling the feature.** Sessions remain usable without the table, but events stay hidden and readiness reports the missing schema. See [event rules and upgrade steps](docs/EVENTS_v1.8.md).
 
 ## Stack
 - Next.js 16 / React 19 / TypeScript

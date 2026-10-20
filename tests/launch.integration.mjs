@@ -133,6 +133,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(first.data.version, version);
     assert.equal(first.data.buildings.length, 4);
     assert.equal(first.data.state.hq_level, 1);
+    assert.equal(first.data.colonyEvents.unlocked, false);
     const second = await request('/api/session', { method: 'POST', auth: initData(playerId) });
     assert.equal(second.status, 200, JSON.stringify(second.data));
     assert.equal(second.data.userId, first.data.userId);
@@ -1033,6 +1034,225 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
       assert.equal(rejected.data.error, 'Товар не найден');
       assert.deepEqual(await sql`SELECT id,product_id,status,invoice_payload FROM purchases WHERE user_id=${userId} ORDER BY id`, before);
     }
+  });
+
+  async function colonyEventFixture({ hqLevel = 2, tutorialStep = 6, buildingTypes = ['mine'], resources = {} } = {}) {
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    await sql`DELETE FROM colony_events WHERE user_id=${userId}`;
+    await sql`DELETE FROM market_orders WHERE user_id=${userId}`;
+    await sql`DELETE FROM user_research WHERE user_id=${userId}`;
+    await sql`DELETE FROM buildings WHERE user_id=${userId}`;
+    await sql`DELETE FROM city_decor WHERE user_id=${userId}`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${userId}`}`;
+    await sql`
+      INSERT INTO buildings (user_id,type,level,x,y,status) VALUES (${userId},'hq',${hqLevel},2,2,'active')
+    `;
+    for (let index = 0; index < buildingTypes.length; index++) {
+      await sql`INSERT INTO buildings (user_id,type,level,x,y,status) VALUES (${userId},${buildingTypes[index]},1,${index},0,'active')`;
+    }
+    await sql`
+      UPDATE game_states SET hq_level=${hqLevel},tutorial_step=${tutorialStep},
+        ore=${resources.ore ?? 500},energy=${resources.energy ?? 500},parts=${resources.parts ?? 200},
+        credits=${resources.credits ?? 1000},science=${resources.science ?? 10},premium_until=NULL,
+        passive_carry='{}'::jsonb,last_tick_at=now()+interval '1 day' WHERE user_id=${userId}
+    `;
+    return userId;
+  }
+  async function colonyEventSession() {
+    const session = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(session.status, 200, JSON.stringify(session.data));
+    return session.data;
+  }
+  const resolveColonyEvent = (eventId, choiceId, extra = {}) => request('/api/game/event/resolve', {
+    method: 'POST', auth: initData(playerId), body: { eventId, choiceId, ...extra },
+  });
+  async function colonyEventBalances(userId) {
+    const row = (await sql`SELECT ore,energy,parts,credits,science FROM game_states WHERE user_id=${userId}`)[0];
+    return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, Number(value)]));
+  }
+
+  await t.test('colony event migration can run twice without changing saved events', async () => {
+    const migration = await readFile(new URL('../db/migrations/013_v1_8_colony_events.sql', import.meta.url), 'utf8');
+    const before = await sql`SELECT * FROM colony_events ORDER BY id`;
+    await sql.unsafe(migration);
+    await sql.unsafe(migration);
+    assert.deepEqual(await sql`SELECT * FROM colony_events ORDER BY id`, before);
+    const index = (await sql`
+      SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() AND indexname='colony_events_one_pending_idx'
+    `)[0];
+    assert.match(index.indexdef, /UNIQUE/);
+    assert.match(index.indexdef, /pending/);
+  });
+
+  await t.test('colony events stay locked until both centre level two and the six tutorial steps', async () => {
+    for (const options of [{ hqLevel: 2, tutorialStep: 5 }, { hqLevel: 1, tutorialStep: 6 }]) {
+      const userId = await colonyEventFixture(options);
+      const session = await colonyEventSession();
+      assert.equal(session.colonyEvents.enabled, true);
+      assert.equal(session.colonyEvents.unlocked, false);
+      assert.equal(session.colonyEvents.active, null);
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM colony_events WHERE user_id=${userId}`)[0].count), 0);
+    }
+  });
+
+  await t.test('one saved colony event survives reloads and long absence, with decisions using its snapshot', async () => {
+    const userId = await colonyEventFixture();
+    const first = (await colonyEventSession()).colonyEvents.active;
+    assert.equal(first.key, 'rich_vein');
+    assert.ok(first.id && first.createdAt);
+    assert.deepEqual((await colonyEventSession()).colonyEvents.active, first);
+    await sql`UPDATE colony_events SET created_at=now()-interval '30 days' WHERE id=${first.id}`;
+    const afterAbsence = (await colonyEventSession()).colonyEvents.active;
+    assert.equal(afterAbsence.id, first.id);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM colony_events WHERE user_id=${userId}`)[0].count), 1);
+    const { id, createdAt, ...definition } = first;
+    definition.title = 'Сохранённое предложение';
+    definition.choices = definition.choices.map((choice) => choice.id === 'extract'
+      ? { ...choice, cost: { energy: 17 }, reward: { credits: 123 }, resultText: 'Применены сохранённые условия.' } : choice);
+    await sql`UPDATE colony_events SET event_json=${sql.json(definition)} WHERE id=${id}`;
+    const before = await colonyEventBalances(userId);
+    const resolved = await resolveColonyEvent(id, 'extract', { cost: {}, reward: { science: 99999 } });
+    assert.equal(resolved.status, 200, JSON.stringify(resolved.data));
+    assert.equal(resolved.data.result.title, definition.title);
+    assert.deepEqual(resolved.data.result.cost, { energy: 17 });
+    assert.deepEqual(resolved.data.result.reward, { credits: 123 });
+    assert.deepEqual(await colonyEventBalances(userId), { ...before, energy: before.energy - 17, credits: before.credits + 123 });
+  });
+
+  await t.test('foreign, unknown and malformed colony event decisions leave the pending event intact', async () => {
+    const userId = await colonyEventFixture();
+    const event = (await colonyEventSession()).colonyEvents.active;
+    const before = await colonyEventBalances(userId);
+    const foreign = await request('/api/game/event/resolve', { method: 'POST', auth: initData(adminId), body: { eventId: event.id, choiceId: 'delegate' } });
+    assert.equal(foreign.status, 400, JSON.stringify(foreign.data));
+    for (const [eventId, choiceId] of [[event.id, 'unknown'], [crypto.randomUUID(), 'delegate'], ['invalid', 'delegate'], [event.id, ''], [event.id, null], [null, 'delegate']]) {
+      const rejected = await resolveColonyEvent(eventId, choiceId);
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+    }
+    assert.deepEqual(await colonyEventBalances(userId), before);
+    assert.equal((await sql`SELECT status FROM colony_events WHERE id=${event.id}`)[0].status, 'pending');
+  });
+
+  await t.test('event shortages and escrow-aware overflow reject atomically, while storage research increases capacity', async () => {
+    const userId = await colonyEventFixture({ resources: { energy: 99 } });
+    const event = (await colonyEventSession()).colonyEvents.active;
+    let before = await colonyEventBalances(userId);
+    const shortage = await resolveColonyEvent(event.id, 'extract');
+    assert.equal(shortage.status, 400, JSON.stringify(shortage.data));
+    assert.match(shortage.data.error, /Не хватает/);
+    assert.deepEqual(await colonyEventBalances(userId), before);
+    await sql`UPDATE game_states SET energy=500,ore=1900 WHERE user_id=${userId}`;
+    before = await colonyEventBalances(userId);
+    const full = await resolveColonyEvent(event.id, 'extract');
+    assert.equal(full.status, 400, JSON.stringify(full.data));
+    assert.match(full.data.error, /складе/);
+    assert.deepEqual(await colonyEventBalances(userId), before);
+    await sql`UPDATE game_states SET ore=1700 WHERE user_id=${userId}`;
+    await sql`
+      INSERT INTO market_orders (user_id,resource,amount_total,amount_remaining,unit_price,expires_at)
+      VALUES (${userId},'ore',100,100,2,now()+interval '1 day')
+    `;
+    before = await colonyEventBalances(userId);
+    const reserved = await resolveColonyEvent(event.id, 'extract');
+    assert.equal(reserved.status, 400, JSON.stringify(reserved.data));
+    assert.deepEqual(await colonyEventBalances(userId), before);
+    assert.equal((await sql`SELECT status FROM colony_events WHERE id=${event.id}`)[0].status, 'pending');
+    await sql`
+      INSERT INTO user_research (user_id,research_key,status,started_at,completes_at,completed_at)
+      VALUES (${userId},'compact_storage','completed',now()-interval '2 hours',now()-interval '1 hour',now()-interval '1 hour')
+    `;
+    const accepted = await resolveColonyEvent(event.id, 'extract');
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+    assert.deepEqual(await colonyEventBalances(userId), { ...before, ore: 2000, energy: before.energy - 100 });
+  });
+
+  await t.test('a safe event choice preserves over-capacity stock and needs no payment', async () => {
+    const userId = await colonyEventFixture({ resources: { ore: 2500, energy: 2000, parts: 1000 } });
+    const event = (await colonyEventSession()).colonyEvents.active;
+    const before = await colonyEventBalances(userId);
+    const safe = await resolveColonyEvent(event.id, 'delegate');
+    assert.equal(safe.status, 200, JSON.stringify(safe.data));
+    assert.deepEqual(await colonyEventBalances(userId), { ...before, credits: before.credits + 90 });
+  });
+
+  await t.test('a research-gated event choice remains pending until its required technology completes', async () => {
+    const userId = await colonyEventFixture({ buildingTypes: ['foundry'] });
+    const event = (await colonyEventSession()).colonyEvents.active;
+    assert.equal(event.key, 'cooling_loop');
+    const before = await colonyEventBalances(userId);
+    const rejected = await resolveColonyEvent(event.id, 'recycle');
+    assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+    assert.match(rejected.data.error, /исследование/);
+    assert.deepEqual(await colonyEventBalances(userId), before);
+    await sql`
+      INSERT INTO user_research (user_id,research_key,status,started_at,completes_at,completed_at)
+      VALUES (${userId},'thermal_recovery','completed',now()-interval '2 hours',now()-interval '1 hour',now()-interval '1 hour')
+    `;
+    const accepted = await resolveColonyEvent(event.id, 'recycle');
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+    assert.deepEqual(await colonyEventBalances(userId), { ...before, ore: before.ore - 60, energy: before.energy - 100, parts: before.parts + 40 });
+  });
+
+  await t.test('parallel event decisions and retries grant one result and reject changing a saved decision', async () => {
+    const userId = await colonyEventFixture({ buildingTypes: ['research_lab'] });
+    const event = (await colonyEventSession()).colonyEvents.active;
+    const before = await colonyEventBalances(userId);
+    const results = await Promise.all([resolveColonyEvent(event.id, 'simulate'), resolveColonyEvent(event.id, 'simulate')]);
+    assert.ok(results.every((result) => result.status === 200), JSON.stringify(results));
+    assert.deepEqual(results[0].data.result, results[1].data.result);
+    assert.deepEqual(await colonyEventBalances(userId), { ...before, credits: before.credits - 160, science: before.science + 30 });
+    const retried = await resolveColonyEvent(event.id, 'simulate');
+    assert.equal(retried.status, 200, JSON.stringify(retried.data));
+    assert.deepEqual(retried.data.result, results[0].data.result);
+    const after = await colonyEventBalances(userId);
+    const changed = await resolveColonyEvent(event.id, 'calibrate');
+    assert.equal(changed.status, 400, JSON.stringify(changed.data));
+    assert.deepEqual(await colonyEventBalances(userId), after);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM colony_events WHERE user_id=${userId} AND status='resolved'`)[0].count), 1);
+  });
+
+  await t.test('event cooldown is twelve hours after resolution and a long absence creates only one different event', async () => {
+    const userId = await colonyEventFixture({ buildingTypes: ['mine', 'solar'] });
+    const event = (await colonyEventSession()).colonyEvents.active;
+    const resolved = await resolveColonyEvent(event.id, 'delegate');
+    assert.equal(resolved.status, 200, JSON.stringify(resolved.data));
+    const events = resolved.data.colonyEvents;
+    assert.equal(events.active, null);
+    assert.equal(events.lastResolved.id, event.id);
+    assert.equal(new Date(events.nextAt).getTime() - new Date(events.lastResolved.resolvedAt).getTime(), 43_200_000);
+    assert.equal((await colonyEventSession()).colonyEvents.active, null);
+    await sql`UPDATE colony_events SET resolved_at=now()-interval '30 days' WHERE id=${event.id}`;
+    const next = (await colonyEventSession()).colonyEvents.active;
+    assert.ok(next && next.id !== event.id);
+    assert.notEqual(next.key, event.key, 'Choose another eligible situation when possible');
+    assert.equal((await colonyEventSession()).colonyEvents.active.id, next.id);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM colony_events WHERE user_id=${userId}`)[0].count), 2);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM colony_events WHERE user_id=${userId} AND status='pending'`)[0].count), 1);
+  });
+
+  await t.test('missing event schema gracefully disables only events and restores the saved pending situation', async () => {
+    const userId = await colonyEventFixture();
+    const event = (await colonyEventSession()).colonyEvents.active;
+    const before = await colonyEventBalances(userId);
+    let renamed = false;
+    try {
+      await sql`ALTER TABLE public.colony_events RENAME TO colony_events_pending`;
+      renamed = true;
+      const session = await colonyEventSession();
+      assert.equal(session.colonyEvents.enabled, false);
+      assert.equal(session.colonyEvents.active, null);
+      const rejected = await resolveColonyEvent(event.id, 'delegate');
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+      assert.match(rejected.data.error, /временно недоступны/);
+      assert.deepEqual(await colonyEventBalances(userId), before);
+      assert.equal((await request('/api/ready')).status, 503);
+    } finally {
+      if (renamed) await sql`ALTER TABLE public.colony_events_pending RENAME TO colony_events`;
+    }
+    const restored = await colonyEventSession();
+    assert.equal(restored.colonyEvents.enabled, true);
+    assert.equal(restored.colonyEvents.active.id, event.id);
+    assert.equal((await request('/api/ready')).status, 200);
   });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {

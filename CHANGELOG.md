@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.0-beta.1 — Colony Events
+- Added four building-specific colony situations with explicit costs, rewards and a free resolution.
+- Connected a foundry resolution to thermal recovery research and linked event cards to buildings and technologies.
+- Unlocked events after the initial tutorial; pending events do not expire, accumulate offline or reduce production.
+- Added a 12-hour cooldown after resolution, persistent outcomes and atomic, idempotent server settlement.
+- Showed resource shortages, storage limits and request errors beside the relevant choice.
+- Added the colony event schema and migration `013_v1_8_colony_events.sql`; existing progress, paid jobs and entitlements are retained.
+
 ## 1.7.0-beta.1 — Research Goals
 - Added a player-selected research goal with an ordered, deduplicated prerequisite path and remaining research cost/time.
 - Excluded completed and already paid active research from future charges while retaining their visible progress.

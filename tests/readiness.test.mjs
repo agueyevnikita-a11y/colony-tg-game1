@@ -21,5 +21,6 @@ test('readiness distinguishes current, empty and partially migrated database sch
   assert.equal(schemaIsReady(columns.filter((column) => column.column_name !== 'passive_carry')), false);
   assert.equal(schemaIsReady(columns.filter((column) => column.column_name !== 'recipe_key')), false);
   assert.equal(schemaIsReady(columns.filter((column) => column.table_name !== 'notification_jobs')), false);
+  assert.equal(schemaIsReady(columns.filter((column) => column.table_name !== 'colony_events')), false);
   assert.equal(schemaIsReady([...columns, { table_name: 'custom', column_name: 'extra' }]), true);
 });

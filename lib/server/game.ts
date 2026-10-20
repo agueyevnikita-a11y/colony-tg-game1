@@ -22,6 +22,7 @@ import { getAccessState } from '@/lib/server/access';
 import { accrueIncome } from '@/lib/server/passive-income';
 import { availableFoundryRecipes, collectableFoundryJobs } from '@/lib/game/foundry';
 import { recipeSchemaReady } from '@/lib/server/production-schema';
+import { getColonyEventState } from '@/lib/server/colony-events';
 
 export async function ensurePlayer(tg: {
   id: number;
@@ -341,6 +342,7 @@ export async function reconcilePlayer(userId: string) {
     const refreshedState = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId}`)[0];
     const freshState = { ...refreshedState, premium };
     const tutorial = getTutorialStateFromRows(freshState, buildings, stats);
+    const colonyEvents = await getColonyEventState(tx, userId, freshState, buildings);
     const notifications = await getNotificationPreferences(tx, userId);
     const dailyLogin = await getDailyLoginState(tx, userId);
     const inbox = await getInbox(tx, userId);
@@ -384,6 +386,7 @@ export async function reconcilePlayer(userId: string) {
       expeditions,
       scienceRate,
       tutorial,
+      colonyEvents,
       notifications,
       dailyLogin,
       inbox,
