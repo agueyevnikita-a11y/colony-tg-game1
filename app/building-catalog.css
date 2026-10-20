@@ -1,0 +1,46 @@
+.buildingCatalogHeading {display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.buildingCatalogHeading > h2 {margin:0;}
+.buildingCatalogHq {display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:44px;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--text);font:inherit;font-size:12px;line-height:1.4;cursor:pointer;}
+.card .buildingCatalogIntro {margin:8px 0 13px;font-size:12px;line-height:1.5;color:var(--muted);}
+.buildingCatalogCategories {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;min-width:0;}
+.buildingCatalogCategory {min-width:0;min-height:44px;padding:7px 3px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--muted);font:inherit;font-size:11px;line-height:1.4;overflow-wrap:anywhere;cursor:pointer;}
+.buildingCatalogCategory.isSelected {color:#c8f2dd;border-color:rgba(114,228,173,.45);background:rgba(114,228,173,.09);}
+.card .buildingCatalogHint {margin:10px 0 12px;color:var(--muted);font-size:12px;line-height:1.5;}
+.buildingCatalogGrid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0;}
+.buildingCatalogTile {display:flex;flex-direction:column;align-items:flex-start;min-width:0;gap:5px;padding:10px;border:1px solid var(--line);border-radius:13px;background:var(--panel2);color:var(--text);font:inherit;text-align:left;cursor:pointer;}
+.buildingCatalogTileArt {display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:0 0 44px;}
+.buildingCatalogTileArt > .buildingArt {width:100%;margin:0;}
+.buildingCatalogTile > strong {max-width:100%;font-size:13px;line-height:1.4;overflow-wrap:anywhere;}
+.buildingCatalogRole {max-width:100%;font-size:11px;line-height:1.45;color:#b6c9d1;overflow-wrap:anywhere;}
+.buildingCatalogOwned {margin-top:auto;padding-top:3px;max-width:100%;font-size:10px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere;}
+.buildingCatalogStatus {max-width:100%;font-size:10px;line-height:1.4;color:#e0c797;overflow-wrap:anywhere;}
+.buildingCatalogStatus.isReady {color:#a2dfbc;}
+.buildingCatalogHq:disabled {opacity:.55;cursor:default;}
+.buildingCatalogHq:focus-visible,.buildingCatalogCategory:focus-visible,.buildingCatalogTile:focus-visible,.buildingCatalogFuture > summary:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
+.buildingCatalogTile:hover {border-color:rgba(114,228,173,.4);}
+.card .buildingCatalogEmpty {padding:13px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:12px;line-height:1.6;}
+.buildingCatalogFuture {margin-top:12px;}
+.buildingCatalogFuture > summary {min-height:44px;padding:12px 2px;color:var(--muted);font-size:12px;line-height:1.5;cursor:pointer;overflow-wrap:anywhere;}
+.buildingCatalogFuture > .buildingCatalogGrid {margin-top:5px;}
+.card .buildingCatalogQueueHint {margin:13px 0 0;color:var(--muted);font-size:11px;line-height:1.5;}
+.buildingCatalogDetail {min-width:0;padding:2px 2px 0;}
+.buildingCatalogDetailHeading {display:flex;align-items:center;gap:12px;min-width:0;}
+.buildingCatalogDetailHeading > .buildingArt {width:64px;flex:0 0 64px;margin:0;}
+.buildingCatalogDetailHeading > div {min-width:0;}
+.buildingCatalogDetailHeading h3 {margin:0 0 6px;font-size:18px;line-height:1.4;overflow-wrap:anywhere;}
+.buildingCatalogDetailHeading span {font-size:12px;line-height:1.5;color:var(--muted);}
+.buildingCatalogDetail .buildingCatalogPurpose {margin:13px 0;color:#c8d9df;font-size:13px;line-height:1.65;overflow-wrap:anywhere;}
+.buildingCatalogFacts {display:flex;flex-direction:column;gap:12px;margin:0;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);}
+.buildingCatalogFacts > div {min-width:0;}
+.buildingCatalogFacts dt {display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px;line-height:1.5;}
+.buildingCatalogFacts dd {margin:5px 0 0;color:var(--text);font-size:13px;line-height:1.6;}
+.buildingCatalogFacts .buildingCatalogCost {display:flex;align-items:center;flex-wrap:wrap;gap:5px 14px;}
+.buildingCatalogRequirements {margin:13px 0;padding:12px;border:1px solid rgba(224,199,151,.24);border-radius:12px;background:rgba(224,199,151,.035);}
+.buildingCatalogRequirements > strong {font-size:12px;line-height:1.5;color:#e0c797;}
+.buildingCatalogRequirements > p {display:flex;align-items:flex-start;gap:6px;margin:8px 0 0;color:#c8d9df;font-size:12px;line-height:1.5;overflow-wrap:anywhere;}
+.buildingCatalogRequirements .gameIcon {margin-top:2px;}
+.buildingCatalogActions {display:flex;flex-direction:column;align-items:stretch;gap:9px;margin-top:14px;}
+.buildingCatalogActions .action,.buildingCatalogActions .miniButton {display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:44px;white-space:normal;overflow-wrap:anywhere;}
+.buildingCatalogActions .resourceShortage {margin:0;font-size:12px;line-height:1.6;}
+.buildingCatalogActions .buildingCatalogPaymentHint {margin:0;color:var(--muted);font-size:11px;line-height:1.6;}
+@media (min-width:640px) {.buildingCatalogGrid {grid-template-columns:repeat(3,minmax(0,1fr));}.buildingCatalogCategory {font-size:12px;}}

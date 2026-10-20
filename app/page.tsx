@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
 import { CityActionSheet } from '@/components/CityActionSheet';
+import { BuildingCatalog, type BuildingCategory } from '@/components/BuildingCatalog';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
 import { ResearchPanel } from '@/components/ResearchPanel';
@@ -95,6 +96,7 @@ export default function Home() {
   const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
   const [tab, setTab] = useState<Tab>('city');
   const [subsections, setSubsections] = useState(DEFAULT_SUBSECTIONS);
+  const [catalogCategory, setCatalogCategory] = useState<BuildingCategory>('resources');
   const [shareFallbackLink, setShareFallbackLink] = useState('');
   const handledStart = useRef(false);
   const requestingAccess = useRef(false);
@@ -122,11 +124,10 @@ export default function Home() {
   const invoiceOpening = useRef(false);
   const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
-  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | 'events' | 'publicCity' | null>(null);
+  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'research' | 'build' | 'events' | 'publicCity' | null>(null);
   const publicCityRef = useRef<HTMLElement>(null);
   const colonyEventsRef = useRef<HTMLDivElement>(null);
   const contractsRef = useRef<HTMLDivElement>(null);
-  const hqUpgradeRef = useRef<HTMLElement>(null);
   const researchPanelRef = useRef<HTMLDivElement>(null);
   const buildingCatalogRef = useRef<HTMLElement>(null);
   const [allianceName,setAllianceName]=useState('');
@@ -246,7 +247,7 @@ export default function Home() {
   useEffect(() => {
     const target = guideNavigationPending.current;
     if (inspectorOpen && target === 'map') { guideNavigationPending.current = null; return; }
-    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef, publicCity: publicCityRef };
+    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef, publicCity: publicCityRef };
     const element = target ? refs[target].current : null;
     if (element) {
       guideNavigationPending.current = null;
@@ -429,11 +430,6 @@ export default function Home() {
     window.addEventListener('unhandledrejection', onRejection);
     return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection); };
   }, [phase]);
-
-  const available = useMemo(
-    () => (game?.catalog ?? []).filter((x: any) => x.type !== 'hq' && x.unlockHq <= Number(game?.state?.hq_level ?? 1)),
-    [game],
-  );
 
   const achievementRows = useMemo(() => {
     const unlocked = new Map((game?.achievements ?? []).map((x: any) => [x.achievement_key, x]));
@@ -688,7 +684,6 @@ export default function Home() {
 
   const s = game.state;
   const qualified = (game.referrals ?? []).filter((r: any) => !!r.referral_qualified_at).length;
-  const hq = (game.buildings ?? []).find((b: any) => b.type === 'hq');
   const usedCells = (game.buildings ?? []).length + (game.decor ?? []).length;
   const totalCells = Number(game.gridSize ?? 6) ** 2;
 
@@ -769,6 +764,7 @@ export default function Home() {
             return <>
               <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedBuilding.type} /></div><div><h2>{cfg?.name ?? selectedBuilding.type}</h2><p>Уровень {selectedBuilding.level} · клетка {Number(selectedBuilding.x) + 1}:{Number(selectedBuilding.y) + 1}</p></div></div>
               {cfg?.description && <p className="buildingPurpose">{cfg.description}</p>}
+              {selectedBuilding.type === 'hq' && <details className="inspectorUnlocks"><summary>Что открывают уровни базы</summary><p>Уровень 2 открывает исследовательский центр. Уровень 3 даёт новые здания и карту 7×7, уровень 5 расширяет её до 8×8.</p></details>}
               <div className="inspectorStats">
                 <div><span>Статус</span><b>{selectedBuilding.status === 'active' ? 'Работает' : `${selectedBuilding.status === 'upgrading' ? 'Улучшается' : 'Строится'} → ур. ${selectedBuilding.target_level}`}</b></div>
                 <div><span>Производство</span><b>{productionText(selectedBuilding.production, selectedBuilding.type)}</b></div>
@@ -902,26 +898,11 @@ export default function Home() {
         </div>}
         {subsections.build === 'buildings' && <div data-section-panel="build-buildings">
 <section className="card" id="colony-buildings" ref={buildingCatalogRef}>
-          <h2><GameIcon name="build" />Строительство</h2><p>Выбери здание и место на карте. У каждой постройки есть своя роль: добыча, производство или новые возможности. Можно вести 2 стройки одновременно, с Premium — 3.</p>
-          <div className="catalog">
-            {available.map((item: any) => <div className="catalogItem" key={item.type}>
-              <BuildingArt type={item.type} className="catalogArt" /><b>{item.name}</b>
-              {item.description && <p>{item.description}</p>}
-              <small>{costDisplay(item.baseBuildCost)}</small><small><GameIcon name="clock" size={13} /> {durationText(item.baseBuildTimeSec)}</small>
-              <button className="action secondary" disabled={busy || item.unlockedByResearch === false} onClick={() => beginPlacement(item.type, item.name)}>{item.unlockedByResearch === false ? 'Нужна технология' : 'Выбрать место'}</button>
-              {item.unlockedByResearch === false && <small className="buildingResearchRequirement">Изучи «{item.researchRequirementName ?? item.unlockResearch}» в исследованиях.</small>}
-              {item.unlockedByResearch === false && item.unlockResearch && <button type="button" className="miniButton buildingResearchPlan" disabled={busy} onClick={() => chooseResearchTarget(item.unlockResearch)}><GameIcon name="research" size={14} />План открытия</button>}
-              <ResourceShortage cost={item.baseBuildCost} resources={s} />
-            </div>)}
-          </div>
-        </section>
-        <section className="card" ref={hqUpgradeRef}>
-          <h2><GameIcon name="upgrade" />Центр управления · уровень {hq?.level ?? s.hq_level}</h2><p>Уровень 2 открывает исследовательский центр. Уровень 3 даёт новые здания и карту 7×7, уровень 5 расширяет её до 8×8.</p>
-          <div className="upgradeBox"><span>Следующее улучшение</span><b>{hq?.nextUpgrade ? costDisplay(hq.nextUpgrade.cost) : 'пока максимум'}</b></div>
-          {hq && hq.status !== 'active' && <ConstructionStatus building={hq} busy={busy} onRefresh={() => { void refresh(); }} />}
-          <button className="action" disabled={busy || !hq?.nextUpgrade || hq?.status !== 'active'} onClick={() => constructionAction('hq', '/api/game/building/upgrade', { buildingId: hq.id }, 'Улучшение центра управления запущено')}><GameIcon name="upgrade" size={18} /> Улучшить центр управления</button>
-          {hq?.status === 'active' && <ResourceShortage cost={hq.nextUpgrade?.cost} resources={s} />}
-          {constructionNotice('hq')}
+          <BuildingCatalog catalog={game.catalog ?? []} buildings={game.buildings ?? []}
+            hqLevel={Number(s.hq_level)} resources={s} busy={busy}
+            category={catalogCategory} onCategoryChange={setCatalogCategory}
+            onBuild={beginPlacement} onPlanResearch={chooseResearchTarget}
+            onUpgradeHq={() => navigateGuide('upgrade_hq')} />
         </section>
         </div>}
         {subsections.build === 'expeditions' && <div data-section-panel="build-expeditions">

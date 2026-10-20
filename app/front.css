@@ -55,6 +55,9 @@ body:has(.colonyApp) { background:radial-gradient(ellipse at 50% 0,rgba(43,81,96
 .cityMapActions .action { display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; padding-inline:8px; }
 .inspectorShortcut { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; }
 .inspectorUpgradeTime { display:flex; align-items:center; gap:5px; margin-top:6px; color:var(--muted); font-size:11px; }
+.inspectorUnlocks { margin:0 0 12px; color:var(--muted); font-size:12px; }
+.inspectorUnlocks > summary { min-height:44px; padding:12px 0; cursor:pointer; }
+.inspectorUnlocks > p { margin:0 0 8px; }
 .buildingInspector .upgradeBox .resourceCostInline { display:flex; margin:0; font-size:12px; color:var(--text); }
 .buildingInspector .upgradeBox .gameAmount { display:inline-flex; margin:0; font-size:inherit; color:inherit; }
 .placementPreview { display:flex; align-items:center; gap:10px; margin:0 0 12px; padding:10px; border:1px solid rgba(133,221,191,.3); border-radius:14px; background:rgba(133,221,191,.055); }

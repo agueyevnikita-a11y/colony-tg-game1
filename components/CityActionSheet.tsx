@@ -7,6 +7,8 @@ import '@/app/city-sheet.css';
 type Props = {
   open: boolean;
   title: string;
+  eyebrow?: string;
+  closeLabel?: string;
   onClose: () => void;
   children: ReactNode;
 };
@@ -25,7 +27,7 @@ function preserveStyles(style: CSSStyleDeclaration, properties: string[]) {
   };
 }
 
-export function CityActionSheet({ open, title, onClose, children }: Props) {
+export function CityActionSheet({ open, title, eyebrow = 'Выбрано на карте', closeLabel = 'Закрыть действия на карте', onClose, children }: Props) {
   const id = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -117,8 +119,8 @@ export function CityActionSheet({ open, title, onClose, children }: Props) {
     <div ref={panelRef} className="cityActionSheetPanel">
       <header className="cityActionSheetHeader">
         <h2 id={`${id}-title`} className="cityActionSheetTitle">{title}</h2>
-        <span className="cityActionSheetEyebrow" aria-hidden="true">Выбрано на карте</span>
-        <button ref={closeRef} type="button" autoFocus className="cityActionSheetClose" onClick={onClose} aria-label="Закрыть действия на карте">
+        <span className="cityActionSheetEyebrow" aria-hidden="true">{eyebrow}</span>
+        <button ref={closeRef} type="button" autoFocus className="cityActionSheetClose" onClick={onClose} aria-label={closeLabel}>
           <GameIcon name="close" size={20} /><span>Закрыть</span>
         </button>
       </header>

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.3-beta.1 — A Focused Building Catalog
+- Grouped construction into resource, workshop, development and appearance categories with compact building tiles.
+- Moved descriptions, costs, timing, ownership and requirements into on-demand building details.
+- Made future base-level unlocks discoverable and retained direct research-plan and base-upgrade links.
+- Preserved category selection, tutorial shortcuts, placement and existing economy; no database migration is required.
+
 ## 1.9.2-beta.1 — City Actions Within Reach
 - Opened building and decor actions in an accessible panel over the map, with local feedback and close/back controls.
 - Added direct links from buildings to the selected foundry, research, contracts, expeditions and alliance.
