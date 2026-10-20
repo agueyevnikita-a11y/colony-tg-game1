@@ -25,6 +25,7 @@ const ICONS: Record<string, ReactNode> = {
   move: <><path d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4" /></>,
   upgrade: <><path d="m6 12 6-6 6 6m-6-6v16M4 2h16" /></>,
   share: <><circle cx="5" cy="12" r="3" /><circle cx="19" cy="5" r="3" /><circle cx="19" cy="19" r="3" /><path d="m8 10 8-4M8 14l8 4" /></>,
+  copy: <><rect x="8" y="8" width="13" height="14" rx="2" /><path d="M16 8V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><path d="M11 12h7m-7 4h5" /></>,
   building: <><path d="M4 22V4l8-2 8 2v18M2 22h20M9 22v-5h6v5M8 7h1m6 0h1m-8 5h1m6 0h1" /></>,
   star: <path d="m12 2 3 6 7 1-5 5 1 8-6-4-6 4 1-8-5-5 7-1 3-6Z" />,
   rocket: <><path d="M8 16C4 9 11 3 21 3c0 10-6 17-13 13ZM8 10H4l-2 6 6-1m6 1v4l-6 2 1-6m-4 3-2 2" /><circle cx="15" cy="9" r="2" /></>,
