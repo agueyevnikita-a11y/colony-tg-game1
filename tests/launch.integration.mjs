@@ -806,6 +806,121 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.ok(Math.abs(actual - 18 * afterCompletion) < 0.1, `Expected science only after lab completion, received ${actual}`);
   });
 
+  await t.test('tutorial keeps ordered progress, waits for buildings and grants every reward only once', async () => {
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    await sql`DELETE FROM market_orders WHERE user_id=${userId}`;
+    await sql`DELETE FROM user_research WHERE user_id=${userId}`;
+    await sql`DELETE FROM buildings WHERE user_id=${userId}`;
+    await sql`DELETE FROM city_decor WHERE user_id=${userId}`;
+    await sql`DELETE FROM npc_contracts WHERE user_id=${userId}`;
+    await sql`DELETE FROM tutorial_claims WHERE user_id=${userId}`;
+    await sql`DELETE FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='title_cadet'`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${userId}`}`;
+    await sql`UPDATE player_stats SET foundry_jobs_started=0,contracts_completed=0 WHERE user_id=${userId}`;
+    await sql`
+      UPDATE game_states SET hq_level=1,ore=500,energy=200,parts=100,credits=1000,crystals=0,science=0,
+        premium_until=NULL,tutorial_step=0,tutorial_completed_at=NULL,
+        passive_carry='{}'::jsonb,last_tick_at=now()+interval '1 day' WHERE user_id=${userId}
+    `;
+    const hq = (await sql`
+      INSERT INTO buildings (user_id,type,level,x,y,status)
+      VALUES (${userId},'hq',1,2,2,'active') RETURNING id
+    `)[0];
+    const keys = ['welcome', 'build_foundry', 'first_smelt', 'build_trade_hub', 'first_contract', 'hq2'];
+    const rewards = [
+      { ore: 50, credits: 100 }, { energy: 60, credits: 100 }, { parts: 15, credits: 100 },
+      { credits: 200 }, { ore: 350, parts: 20, credits: 250, crystals: 8 }, { crystals: 20 },
+    ];
+    const claim = () => request('/api/game/tutorial/claim', { method: 'POST', auth: initData(playerId) });
+    const state = async () => (await sql`
+      SELECT ore,energy,parts,credits,crystals,tutorial_step,tutorial_completed_at FROM game_states WHERE user_id=${userId}
+    `)[0];
+    function checkReward(before, after, index) {
+      for (const resource of ['ore', 'energy', 'parts', 'credits', 'crystals']) {
+        assert.equal(Number(after[resource]) - Number(before[resource]), rewards[index][resource] ?? 0, `${keys[index]} reward: ${resource}`);
+      }
+      assert.equal(Number(after.tutorial_step), index + 1);
+    }
+    async function blockedClaim(index) {
+      const before = await state();
+      assert.equal(Number(before.tutorial_step), index);
+      const result = await claim();
+      assert.equal(result.status, 400, JSON.stringify(result.data));
+      assert.deepEqual(await state(), before, 'An unmet or completed step must not change balances or tutorial progress');
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM tutorial_claims WHERE user_id=${userId}`)[0].count), index);
+    }
+    async function claimStep(index) {
+      const before = await state();
+      const result = await claim();
+      assert.equal(result.status, 200, JSON.stringify(result.data));
+      assert.equal(result.data.result.stepIndex, index);
+      assert.equal(result.data.result.step.key, keys[index]);
+      checkReward(before, await state(), index);
+      return result;
+    }
+
+    const first = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    assert.equal(first.data.tutorial.current.action, 'claim');
+    assert.ok(first.data.tutorial.current.why && first.data.tutorial.current.hint);
+    const beforeWelcome = await state();
+    const welcome = await Promise.all([claim(), claim()]);
+    assert.deepEqual(welcome.map((result) => result.status).sort(), [200, 400], JSON.stringify(welcome));
+    checkReward(beforeWelcome, await state(), 0);
+    await blockedClaim(1);
+
+    const foundry = await request('/api/game/build', { method: 'POST', auth: initData(playerId), body: { type: 'foundry', x: 1, y: 1 } });
+    assert.equal(foundry.status, 200, JSON.stringify(foundry.data));
+    assert.equal(foundry.data.tutorial.current.key, 'build_foundry');
+    assert.equal(foundry.data.tutorial.current.conditionMet, false);
+    await blockedClaim(1);
+    await sql`UPDATE buildings SET completes_at=now()-interval '1 second' WHERE id=${foundry.data.result.buildingId}`;
+    const foundryReward = await claimStep(1);
+    assert.equal(foundryReward.data.tutorial.current.action, 'production');
+    assert.equal(foundryReward.data.tutorial.current.actionTab, 'city');
+    assert.equal(foundryReward.data.tutorial.current.conditionMet, false);
+    await blockedClaim(2);
+    const smelt = await startFoundry({ buildingId: foundry.data.result.buildingId });
+    assert.equal(smelt.status, 200, JSON.stringify(smelt.data));
+    assert.equal(Number(smelt.data.stats.foundry_jobs_started), 1);
+    assert.equal(smelt.data.tutorial.current.conditionMet, true);
+    await claimStep(2);
+    await blockedClaim(3);
+
+    const trade = await request('/api/game/build', { method: 'POST', auth: initData(playerId), body: { type: 'trade_hub', x: 3, y: 1 } });
+    assert.equal(trade.status, 200, JSON.stringify(trade.data));
+    assert.equal(trade.data.tutorial.current.conditionMet, false);
+    await blockedClaim(3);
+    await sql`UPDATE buildings SET completes_at=now()-interval '1 second' WHERE id=${trade.data.result.buildingId}`;
+    await claimStep(3);
+    await blockedClaim(4);
+    const contract = (await sql`
+      INSERT INTO npc_contracts (user_id,resource,amount,credit_reward,expires_at)
+      VALUES (${userId},'parts',1,10,now()+interval '1 hour') RETURNING id
+    `)[0];
+    const completedContract = await request('/api/game/contracts/complete', { method: 'POST', auth: initData(playerId), body: { contractId: contract.id } });
+    assert.equal(completedContract.status, 200, JSON.stringify(completedContract.data));
+    assert.equal(Number(completedContract.data.stats.contracts_completed), 1);
+    assert.equal(completedContract.data.tutorial.current.conditionMet, true);
+    await claimStep(4);
+    await blockedClaim(5);
+
+    const upgrade = await request('/api/game/building/upgrade', { method: 'POST', auth: initData(playerId), body: { buildingId: hq.id } });
+    assert.equal(upgrade.status, 200, JSON.stringify(upgrade.data));
+    assert.equal(upgrade.data.tutorial.current.conditionMet, false);
+    await blockedClaim(5);
+    await sql`UPDATE buildings SET completes_at=now()-interval '1 second' WHERE id=${hq.id}`;
+    const final = await claimStep(5);
+    assert.equal(final.data.tutorial.completed, true);
+    assert.equal(final.data.tutorial.current, null);
+    assert.ok(final.data.tutorial.completedAt);
+    assert.deepEqual((await sql`SELECT step_key FROM tutorial_claims WHERE user_id=${userId} ORDER BY step_index`).map((row) => row.step_key), keys);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='title_cadet'`)[0].count), 1);
+    await blockedClaim(6);
+    await blockedClaim(6);
+    assert.equal(Number((await sql`SELECT count(*) AS count FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='title_cadet'`)[0].count), 1);
+  });
+
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;
     await sql`UPDATE system_settings SET value='{"enabled":true,"message":"Launch test"}'::jsonb WHERE setting_key='maintenance'`;

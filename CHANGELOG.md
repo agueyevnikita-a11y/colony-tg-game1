@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0-beta.1 — Colony Interface and First Steps
+- Added illustrated city buildings from a shared image atlas, a colony arrival illustration and consistent SVG icons for resources and actions.
+- Reworked the mobile resource bar, city catalog, building inspector, production and research presentation.
+- Added a welcome screen, actionable first-step guidance, construction waiting states and an in-game mechanics reference.
+- Added subtle city activity, construction and selection animations, with reduced-motion support.
+- Preserved tutorial step order, conditions and rewards, existing player progress and all economy formulas.
+- Required no new database migration from v1.4; databases on v1.3 still need migration `012_v1_4_recipes.sql`.
+
 ## 1.4.0-beta.1 — Production Recipes
 - Added research-gated precision and industrial casting recipes, trading ore, energy, time and queue capacity.
 - Combined recipe choice with existing smelting modes, adjacency discounts, research output and batch previews.

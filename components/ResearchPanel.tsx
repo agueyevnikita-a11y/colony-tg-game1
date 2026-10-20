@@ -5,6 +5,7 @@ import { BUILDINGS } from '@/lib/game/config';
 import type { ResearchConfig } from '@/lib/game/research';
 import type { FoundryRecipeKey } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
+import { GameAmount, GameIcon } from '@/components/GameIcon';
 import '@/app/research.css';
 
 type ResearchItem = ResearchConfig & {
@@ -37,9 +38,9 @@ type Props = {
 };
 
 const BRANCHES = [
-  { key: 'resources', name: 'Ресурсы', title: 'Ресурсы', emoji: '⛏️', description: 'Больше руды и энергии. Новые технологии открывают мощные добывающие здания.' },
-  { key: 'production', name: 'Производство', title: 'Производство и хранение', emoji: '🏭', description: 'Открывай рецепты под запасы колонии, повышай выход деталей и расширяй склад.' },
-  { key: 'exploration', name: 'Экспедиции', title: 'Экспедиции', emoji: '🧭', description: 'Открывай маршруты, получай больше научных данных и отправляй аппараты параллельно.' },
+  { key: 'resources', name: 'Ресурсы', title: 'Ресурсы', icon: 'ore', description: 'Больше руды и энергии. Новые технологии открывают мощные добывающие здания.' },
+  { key: 'production', name: 'Производство', title: 'Производство и хранение', icon: 'parts', description: 'Открывай рецепты под запасы колонии, повышай выход деталей и расширяй склад.' },
+  { key: 'exploration', name: 'Экспедиции', title: 'Экспедиции', icon: 'rocket', description: 'Открывай маршруты, получай больше научных данных и отправляй аппараты параллельно.' },
 ] as const;
 type Branch = typeof BRANCHES[number]['key'];
 
@@ -50,9 +51,15 @@ function duration(seconds: number) {
   return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
 }
 function costText(cost: Record<string, number | undefined>) {
-  const icons: Record<string, string> = { science: '🧠', credits: '💰', parts: '⚙️', ore: '⛏', energy: '⚡' };
   return Object.entries(cost).filter(([, amount]) => Number(amount) > 0)
-    .map(([resource, amount]) => `${icons[resource] ?? resource} ${number(amount)}`).join(' · ');
+    .map(([resource, amount], index) => <span key={resource}>{index > 0 && ' · '}<GameAmount resource={resource}>{number(amount)}</GameAmount></span>);
+}
+
+function technologyIcon(item: ResearchConfig) {
+  if (item.branch === 'production') return item.key === 'compact_storage' ? 'building' : 'parts';
+  if (item.branch === 'exploration') return 'rocket';
+  if (item.branch === 'resources') return item.key === 'solar_lattice' || item.key === 'photovoltaic_arrays' ? 'energy' : 'ore';
+  return 'research';
 }
 
 export function ResearchPanel(props: Props) {
@@ -142,13 +149,13 @@ export function ResearchPanel(props: Props) {
       : !canAfford(item) ? 'Не хватает ресурсов' : 'Исследовать';
 
     return <article key={item.key} ref={item.key === props.focusResearchKey ? focusedCardRef : undefined} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''} ${item.key === props.focusResearchKey ? 'isFocused' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
-      <div className="technologyTitle"><span aria-hidden="true">{item.emoji}</span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : ''}`}>{done ? '✓ Изучено' : researching ? 'В работе' : available ? 'Требования выполнены' : 'Предстоит открыть'}</span></div></div>
+      <div className="technologyTitle"><span aria-hidden="true"><GameIcon name={technologyIcon(item)} size={23} /></span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : ''}`}>{done ? <><GameIcon name="check" size={12} /> Изучено</> : researching ? 'В работе' : available ? 'Требования выполнены' : 'Предстоит открыть'}</span></div></div>
       <p className="technologyEffect">{item.effectText}</p>
       {!done && <>
         <p className="technologyDescription">{item.description}</p>
-        <ul className="technologyRequirements" aria-label="Требования исследования">{requirements.map((requirement) => <li key={requirement.label} className={requirement.met ? 'isMet' : ''}><span aria-hidden="true">{requirement.met ? '✓' : '○'}</span> {requirement.label}<span className="researchSrOnly">{requirement.met ? ' — выполнено' : ' — требуется'}</span></li>)}</ul>
+        <ul className="technologyRequirements" aria-label="Требования исследования">{requirements.map((requirement) => <li key={requirement.label} className={requirement.met ? 'isMet' : ''}><span aria-hidden="true">{requirement.met ? <GameIcon name="check" size={11} /> : '○'}</span> {requirement.label}<span className="researchSrOnly">{requirement.met ? ' — выполнено' : ' — требуется'}</span></li>)}</ul>
         {!researching && <>
-          <div className="technologyCost"><span>{costText(researchCost(item))}</span><span>⏱ {duration(item.timeSec)}</span></div>
+          <div className="technologyCost"><span>{costText(researchCost(item))}</span><span><GameIcon name="clock" size={13} /> {duration(item.timeSec)}</span></div>
           <button type="button" className={`action ${canStart(item) ? 'researchStart' : 'secondary'}`} disabled={!canStart(item)} onClick={() => void start(item)}>{submittingKey === item.key ? 'Запускаем…' : reason}</button>
           <div aria-live="polite"><ResourceShortage cost={researchCost(item)} resources={props.resources} /></div>
           {Number(props.resources.science ?? 0) < item.science && props.scienceRate > 0 && <p className="technologyScienceWait">При текущей выработке нужная наука накопится за {duration((item.science - Number(props.resources.science ?? 0)) / props.scienceRate * 3600)} активного накопления.</p>}
@@ -161,13 +168,13 @@ export function ResearchPanel(props: Props) {
   }
 
   return <section className="card researchPanel" aria-labelledby={`${panelId}-heading`}>
-    <div className="researchPanelHeading"><div><h2 id={`${panelId}-heading`}>🧪 Исследования</h2><p>Усиливай базу и открывай новые возможности.</p></div><span className="researchScienceRate">+{number(props.scienceRate)} 🧠/ч</span></div>
-    <div className="researchOverview"><span>Наука: <strong>🧠 {number(props.resources.science)}</strong></span><span>Изучено: <strong>{research.catalog.filter(isCompleted).length} / {research.catalog.length}</strong></span></div>
-    {research.catalog.some(isCompleted) && <details className="researchApplied"><summary>Что уже работает в колонии</summary><ul>{research.catalog.filter(isCompleted).map((item) => <li key={item.key}><strong>{item.emoji} {item.name}</strong><span>{item.effectText}</span></li>)}</ul></details>}
+    <div className="researchPanelHeading"><div><h2 id={`${panelId}-heading`}><GameIcon name="research" size={22} /> Исследования</h2><p>Усиливай базу и открывай новые возможности.</p></div><span className="researchScienceRate"><GameAmount resource="science">+{number(props.scienceRate)}</GameAmount>/ч</span></div>
+    <div className="researchOverview"><span>Наука: <strong><GameAmount resource="science">{number(props.resources.science)}</GameAmount></strong></span><span>Изучено: <strong>{research.catalog.filter(isCompleted).length} / {research.catalog.length}</strong></span></div>
+    {research.catalog.some(isCompleted) && <details className="researchApplied"><summary>Что уже работает в колонии</summary><ul>{research.catalog.filter(isCompleted).map((item) => <li key={item.key}><strong><GameIcon name={technologyIcon(item)} size={14} /> {item.name}</strong><span>{item.effectText}</span></li>)}</ul></details>}
 
     {research.active && <div className="researchCurrent" aria-labelledby={`${panelId}-current`}>
       <span className="researchCurrentLabel">{activeReady ? 'Исследование готово' : 'Сейчас исследуется'}</span>
-      <h3 id={`${panelId}-current`}>{activeConfig?.emoji} {activeConfig?.name ?? research.active.research_key}</h3>
+      <h3 id={`${panelId}-current`}><GameIcon name={activeConfig ? technologyIcon(activeConfig) : 'research'} size={18} /> {activeConfig?.name ?? research.active.research_key}</h3>
       {activeConfig && <p>{activeConfig.effectText}</p>}
       <div className="researchCurrentFoot"><span>{activeReady ? 'Обнови результат, чтобы применить технологию.' : `Осталось ${duration((activeEndsAt - now) / 1000)}`}</span>{activeReady && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить</button>}</div>
       <div className="researchProgress" role="progressbar" aria-label="Прогресс исследования" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><i style={{ width: `${progress}%` }} /></div>
@@ -183,7 +190,7 @@ export function ResearchPanel(props: Props) {
     <div className="researchBranchPicker" role="group" aria-label="Ветки исследований">
       {BRANCHES.map((item) => {
         const technologies = research.catalog.filter((technology) => technology.branch === item.key);
-        return <button type="button" key={item.key} className={branch === item.key ? 'isSelected' : ''} disabled={submittingKey !== null} aria-pressed={branch === item.key} onClick={() => setBranch(item.key)}><span aria-hidden="true">{item.emoji}</span><strong>{item.name}</strong><small>{technologies.filter(isCompleted).length} / {technologies.length}</small></button>;
+        return <button type="button" key={item.key} className={branch === item.key ? 'isSelected' : ''} disabled={submittingKey !== null} aria-pressed={branch === item.key} onClick={() => setBranch(item.key)}><span aria-hidden="true"><GameIcon name={item.icon} size={22} /></span><strong>{item.name}</strong><small>{technologies.filter(isCompleted).length} / {technologies.length}</small></button>;
       })}
     </div>
     <div className="researchBranch" aria-labelledby={`${panelId}-branch`}>

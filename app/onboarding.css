@@ -1,0 +1,94 @@
+.onboardingDialog { width:min(580px,calc(100% - 24px)); max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)); margin:auto; padding:0; border:1px solid rgba(157,190,213,.2); border-radius:24px; color:var(--text); background:#121a22; box-shadow:0 24px 90px rgba(0,0,0,.5); overflow:hidden; }
+.onboardingDialog::backdrop { background:rgba(3,8,13,.82); backdrop-filter:blur(7px); }
+.onboardingDialogBody { max-height:inherit; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scroll-padding:20px; }
+.onboardingDialog button, .colonyGuide button { min-height:44px; touch-action:manipulation; }
+.onboardingDialog button:focus-visible, .colonyGuide button:focus-visible, .welcomeBio summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.onboardingEyebrow { color:#8ecab7; font-size:12px; font-weight:700; line-height:1.5; letter-spacing:.04em; }
+.onboardingClose { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; padding:0; border:1px solid rgba(203,223,235,.16); border-radius:14px; background:#1a2631; color:var(--text); cursor:pointer; }
+.onboardingClose:disabled { opacity:.5; cursor:default; }
+.onboardingFeedback { margin:12px 0 0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.welcomeHero { position:relative; background:#183332; }
+.welcomeHero img { display:block; width:100%; height:clamp(145px,26dvh,235px); object-fit:cover; object-position:center 54%; }
+.welcomeClose { position:absolute; right:12px; top:12px; background:rgba(12,24,31,.86); }
+.welcomeContent { padding:22px 24px calc(22px + env(safe-area-inset-bottom,0px)); }
+.welcomeContent h1 { margin:8px 0 10px; max-width:430px; font-size:clamp(25px,6.5vw,32px); line-height:1.14; letter-spacing:-.035em; font-weight:800; }
+.welcomeIntro { color:#b0becb; margin:0; font-size:14px; line-height:1.55; }
+.welcomeSteps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:15px; margin:21px 0 23px; padding:0; list-style:none; }
+.welcomeSteps li { min-width:0; display:flex; flex-direction:column; gap:7px; }
+.welcomeStepIcon { display:grid; place-items:center; width:40px; height:40px; border:1px solid rgba(138,195,177,.18); border-radius:13px; background:rgba(114,228,173,.055); color:#a4d6c2; }
+.welcomeSteps strong { font-size:13px; line-height:1.4; font-weight:700; }
+.welcomeSteps li > span:last-child { color:#9eafbd; font-size:12px; line-height:1.5; }
+.welcomeForm { padding-top:20px; border-top:1px solid var(--line); }
+.welcomeForm > label, .welcomeBio label { display:block; margin-bottom:8px; font-size:14px; font-weight:700; }
+.welcomeForm input, .welcomeForm textarea { display:block; width:100%; min-width:0; border:1px solid #364a59; border-radius:13px; background:#0c141b; color:var(--text); font:inherit; font-size:16px; line-height:1.4; padding:12px 13px; }
+.welcomeForm input:focus, .welcomeForm textarea:focus { outline:2px solid rgba(114,228,173,.65); outline-offset:1px; border-color:transparent; }
+.welcomeForm input[aria-invalid=true] { border-color:var(--danger); }
+.welcomeForm textarea { resize:vertical; min-height:80px; max-height:180px; }
+.welcomeFieldHint { display:flex; justify-content:space-between; gap:12px; margin:7px 0 15px; color:#9eafbd; font-size:12px; line-height:1.45; }
+.welcomeFieldHint > span:last-child { flex-shrink:0; }
+.welcomeBio { margin:0 0 16px; }
+.welcomeBio summary { width:fit-content; padding:5px 0; cursor:pointer; color:#cad7e0; font-size:13px; line-height:1.5; }
+.welcomeBio summary span { color:var(--muted); font-size:12px; margin-left:5px; }
+.welcomeBio[open] summary { margin-bottom:10px; }
+.welcomeBio label { font-size:13px; }
+.welcomeSubmit, .colonyGuideActions .action, .mechanicsSection .action, .mechanicsDone { display:flex; justify-content:center; align-items:center; gap:10px; font-size:13px; line-height:1.45; }
+.welcomeForm .welcomeSubmit { margin-top:16px; min-height:48px; background:#9edec1; color:#10221c; font-size:14px; }
+.welcomeAfterword { color:#8fa2b1; font-size:12px; line-height:1.5; margin:11px 0 0; text-align:center; }
+.colonyGuide { border-color:rgba(132,190,169,.24); background:linear-gradient(120deg,rgba(42,79,67,.28),transparent 65%),#141e25; }
+.colonyGuideTop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.colonyGuideTop > div { display:flex; gap:7px; align-items:center; }
+.colonyGuideCount { color:#a4b7c4; font-size:12px; font-variant-numeric:tabular-nums; }
+.colonyGuideHelp { display:grid; place-items:center; min-width:44px; padding:4px; border:0; border-radius:11px; background:transparent; color:#b0c6d3; cursor:pointer; }
+.colonyGuide h2 { font-size:17px; line-height:1.35; margin:0 0 6px; }
+.colonyGuide .colonyGuideWhy { margin:0 0 8px; color:#c1d0d9; font-size:13px; line-height:1.5; }
+.colonyGuide .colonyGuideHint { margin:0 0 12px; color:#96aab8; font-size:12px; line-height:1.5; }
+.colonyGuidePending { display:flex; align-items:center; gap:9px; margin:12px 0; padding:10px; border:1px solid rgba(225,192,113,.2); border-radius:13px; background:rgba(225,192,113,.045); color:#e0c992; }
+.colonyGuidePending > svg { flex-shrink:0; }
+.colonyGuidePending > div { min-width:0; flex:1; }
+.colonyGuidePending strong, .colonyGuidePending span { display:block; font-size:12px; line-height:1.45; }
+.colonyGuidePending span { color:#b7b29f; margin-top:3px; }
+.colonyGuidePending .miniButton { white-space:normal; font-size:12px; }
+.colonyGuideRewards { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:7px 12px; margin:11px 0; font-size:12px; color:#9eafbd; }
+.colonyGuideRewards > div { display:flex; flex-wrap:wrap; gap:9px; color:#dce8ee; }
+.colonyGuideRewards > div > span { display:inline-flex; align-items:center; gap:5px; line-height:1.5; }
+.colonyGuideActions { margin-top:11px; }
+.colonyGuideActions .action { min-height:44px; }
+.colonyGuideActions .action.secondary { background:rgba(152,185,199,.07); border-color:rgba(152,185,199,.2); }
+.colonyGuideActions .colonyGuideClaim { background:#a0ddc1; color:#10221c; }
+.colonyGuideComplete { padding-top:12px; padding-bottom:12px; }
+.colonyGuideComplete .colonyGuideTop { margin-bottom:4px; }
+.mechanicsBody { padding:22px 24px calc(22px + env(safe-area-inset-bottom,0px)); }
+.mechanicsHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.mechanicsHeading h2 { margin:5px 0 0; font-size:24px; letter-spacing:-.025em; line-height:1.2; }
+.mechanicsIntro { color:#afbfcb; font-size:14px; line-height:1.55; margin:14px 0 22px; }
+.mechanicsSection { border-top:1px solid rgba(185,211,226,.1); padding-top:20px; margin-top:20px; }
+.mechanicsSection h3 { display:flex; align-items:center; gap:8px; margin:0 0 11px; font-size:16px; line-height:1.35; }
+.mechanicsSection p { color:#afbfcb; font-size:13px; line-height:1.6; margin:0 0 12px; }
+.mechanicsResources { display:grid; grid-template-columns:1fr 1fr; gap:16px 18px; margin:0; }
+.mechanicsResources dt { display:flex; gap:7px; align-items:center; font-size:13px; }
+.mechanicsResources dd { margin:7px 0 0; font-size:12px; line-height:1.55; color:#9dafbd; }
+.mechanicsSection .action { margin-top:14px; min-height:44px; font-weight:700; }
+.mechanicsRecipe { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:9px; padding:14px 10px; margin:14px 0 8px; border:1px solid rgba(145,184,205,.16); border-radius:13px; background:#17252e; font-size:14px; }
+.mechanicsRecipe > span { display:inline-flex; align-items:center; gap:5px; }
+.mechanicsRecipe > small { color:#a8bac6; font-size:12px; }
+.mechanicsSection .mechanicsCaption { font-size:12px; color:#8fa4b4; }
+.mechanicsOffline { border-color:rgba(132,190,169,.2); }
+.mechanicsDone { margin-top:22px; background:#a0ddc1; color:#10221c; }
+@media (max-width:420px) {
+  .onboardingDialog { width:calc(100% - 16px); border-radius:20px; max-height:calc(100dvh - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)); }
+  .welcomeContent, .mechanicsBody { padding:19px 18px calc(20px + env(safe-area-inset-bottom,0px)); }
+  .welcomeSteps { gap:11px; margin:19px 0 20px; }
+  .welcomeSteps strong { font-size:12px; }
+  .welcomeStepIcon { width:37px; height:37px; border-radius:11px; }
+}
+@media (max-width:340px) {
+  .welcomeSteps { grid-template-columns:1fr; gap:12px; }
+  .welcomeSteps li { display:grid; grid-template-columns:37px 1fr; column-gap:10px; row-gap:2px; }
+  .welcomeStepIcon { grid-row:1 / 3; }
+  .welcomeSteps strong { font-size:13px; }
+  .mechanicsResources { grid-template-columns:1fr; }
+  .colonyGuidePending { flex-wrap:wrap; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .onboardingDialog, .colonyGuide { scroll-behavior:auto; }
+}

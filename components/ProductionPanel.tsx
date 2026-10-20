@@ -6,6 +6,7 @@ import {
   type FoundryBuilding, type FoundryJob, type FoundryLink, type FoundryMode, type FoundryRecipeKey,
 } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
+import { GameAmount, GameIcon } from '@/components/GameIcon';
 import '@/app/production.css';
 
 type Props = {
@@ -43,7 +44,7 @@ function finishTime(value: number, now: number) {
     hour: '2-digit', minute: '2-digit',
   });
 }
-const LINK_LABEL: Record<FoundryLink, string> = { none: 'Без связи', ore: '⛏ Руда −15%', energy: '⚡ Энергия −20%' };
+const LINK_LABEL: Record<FoundryLink, string> = { none: 'Без связи', ore: 'Руда −15%', energy: 'Энергия −20%' };
 const RECIPE_HINT: Record<FoundryRecipeKey, string> = {
   standard_alloy: 'Универсальный рецепт для повседневной плавки.',
   precision_casting: 'Бережёт руду, но требует больше энергии и времени.',
@@ -124,7 +125,7 @@ export function ProductionPanel(props: Props) {
 
   return <section className="card productionPanel" aria-labelledby={`${panelId}-title`}>
     <div className="cardTitleRow">
-      <div><h2 id={`${panelId}-title`}>🏭 Производство</h2><p>Превращай руду и энергию в детали.</p></div>
+      <div><h2 id={`${panelId}-title`}><GameIcon name="parts" size={22} /> Производство</h2><p>Превращай руду и энергию в детали.</p></div>
       {foundries.length > 0 && <span className="productionBadge">{foundries.length} {foundries.length === 1 ? 'цех' : foundries.length < 5 ? 'цеха' : 'цехов'}</span>}
     </div>
 
@@ -142,7 +143,7 @@ export function ProductionPanel(props: Props) {
           </option>)}
         </select>
       </label>
-      {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}>На карте</button>}</div>
+      {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}><GameIcon name="city" size={14} /> На карте</button>}</div>
 
       {!isActive && <div className="notice productionStatus" role="status">{selected.status === 'upgrading'
         ? 'Цех улучшается. Новые плавки станут доступны после улучшения; уже запущенные продолжаются.'
@@ -160,9 +161,9 @@ export function ProductionPanel(props: Props) {
                 <label className="productionRecipeChoice">
                   <input type="radio" name={`${panelId}-recipe`} value={item.id} checked={effectiveRecipe === item.id} disabled={!unlocked} onChange={() => { setRecipe(item.id); clearFeedback(); }} />
                   <span className="productionRecipeBody">
-                    <span className="productionRecipeHeading"><strong>{item.name}</strong>{!unlocked && <small>🔒 Закрыт</small>}</span>
+                    <span className="productionRecipeHeading"><strong>{item.name}</strong>{!unlocked && <small>Закрыт</small>}</span>
                     <span className="productionRecipeHint">{RECIPE_HINT[item.id]}</span>
-                    <span className="productionRecipeCost">⛏ {number(recipeQuote.ore)} · ⚡ {number(recipeQuote.energy)} → ⚙️ {number(recipeQuote.parts)} деталей · {duration(recipeQuote.seconds)}</span>
+                    <span className="productionRecipeCost"><GameAmount resource="ore">{number(recipeQuote.ore)}</GameAmount> · <GameAmount resource="energy">{number(recipeQuote.energy)}</GameAmount> → <GameAmount resource="parts">{number(recipeQuote.parts)}</GameAmount> деталей · {duration(recipeQuote.seconds)}</span>
                   </span>
                 </label>
                 {!unlocked && item.requiredResearch && props.recipesEnabled !== false && <div className="productionRecipeUnlock">
@@ -182,7 +183,7 @@ export function ProductionPanel(props: Props) {
               const modeQuote = quoteFoundry({ level: selectedLevel, recipe: effectiveRecipe, mode: item.id, link: effectiveLink, cycles: 1, partsMultiplier: props.partsMultiplier });
               return <label key={item.id} className={`productionMode ${mode === item.id ? 'isSelected' : ''}`}>
                 <input type="radio" name={`${panelId}-mode`} value={item.id} checked={mode === item.id} onChange={() => { setMode(item.id); clearFeedback(); }} />
-                <strong>{item.name}</strong><span>⚡ {number(modeQuote.energy)}</span><small>{duration(modeQuote.cycleSeconds)}</small>
+                <strong>{item.name}</strong><span><GameAmount resource="energy">{number(modeQuote.energy)}</GameAmount></span><small>{duration(modeQuote.cycleSeconds)}</small>
               </label>;
             })}
           </div>
@@ -194,7 +195,7 @@ export function ProductionPanel(props: Props) {
           <div className="productionLinks">
             {links.map((availableLink) => <label key={availableLink} className={`productionLink ${effectiveLink === availableLink ? 'isSelected' : ''}`}>
               <input type="radio" name={`${panelId}-link`} value={availableLink} checked={effectiveLink === availableLink} onChange={() => { setLink(availableLink); clearFeedback(); }} />
-              {LINK_LABEL[availableLink]}
+              {availableLink !== 'none' && <><GameIcon name={availableLink} size={13} /> </>}{LINK_LABEL[availableLink]}
             </label>)}
           </div>
           <p className="productionHint">{links.length === 1
@@ -213,9 +214,9 @@ export function ProductionPanel(props: Props) {
 
         {freeSlots > 0 ? <>
           <div className="productionQuote" aria-live="polite">
-            <div><span>Потратишь сразу</span><strong>⛏ {number(quote.ore)} <i>+</i> ⚡ {number(quote.energy)}</strong></div>
-            <span className="productionArrow" aria-hidden="true">→</span>
-            <div><span>Получишь</span><strong>⚙️ {number(quote.parts)} деталей</strong></div>
+            <div><span>Потратишь сразу</span><strong><GameAmount resource="ore">{number(quote.ore)}</GameAmount> <i>+</i> <GameAmount resource="energy">{number(quote.energy)}</GameAmount></strong></div>
+            <span className="productionArrow" aria-hidden="true"><GameIcon name="arrow" size={16} /></span>
+            <div><span>Получишь</span><strong><GameAmount resource="parts">{number(quote.parts)}</GameAmount> деталей</strong></div>
           </div>
           <p className="productionTiming">{duration(quote.seconds)} работы · готово примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</p>
           {storageWillOverflow && <p className="productionStorage isBlocked">С учётом очередей всех цехов места на складе не хватит. Лишние готовые циклы останутся в цехе — детали не пропадут.</p>}
@@ -245,9 +246,9 @@ export function ProductionPanel(props: Props) {
               const progress = Math.max(0, Math.min(100, (now - startAt) / Math.max(1, endAt - startAt) * 100));
               const jobRecipe = FOUNDRY_RECIPES.find((item) => item.id === job.recipe_key) ?? FOUNDRY_RECIPES[0];
               return <li key={job.id} className={`productionJob ${ready ? 'isReady' : queued ? 'isQueued' : 'isRunning'}`}>
-                <div className="productionJobTop"><strong>{index + 1}. ⚙️ {number(Number(job.parts_reward))} деталей</strong><span>{ready ? 'Готово' : queued ? 'В очереди' : 'Плавка'}</span></div>
+                <div className="productionJobTop"><strong>{index + 1}. <GameAmount resource="parts">{number(Number(job.parts_reward))}</GameAmount> деталей</strong><span>{ready ? 'Готово' : queued ? 'В очереди' : 'Плавка'}</span></div>
                 <div className="productionJobRecipe">{jobRecipe.name}</div>
-                <div className="productionJobBottom"><span>⛏ {number(Number(job.ore_spent))} · ⚡ {number(Number(job.energy_spent))}</span><span>{ready ? 'Ожидает выдачи' : queued ? `Старт в ${finishTime(startAt, now)}` : `Ещё ${duration((endAt - now) / 1000)}`}</span></div>
+                <div className="productionJobBottom"><span><GameAmount resource="ore">{number(Number(job.ore_spent))}</GameAmount> · <GameAmount resource="energy">{number(Number(job.energy_spent))}</GameAmount></span><span>{ready ? 'Ожидает выдачи' : queued ? `Старт в ${finishTime(startAt, now)}` : `Ещё ${duration((endAt - now) / 1000)}`}</span></div>
                 {!queued && !ready && <div className="productionProgress" role="progressbar" aria-label={`Плавка ${index + 1}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><i style={{ width: `${progress}%` }} /></div>}
               </li>;
             })}

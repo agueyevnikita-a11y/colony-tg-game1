@@ -1,0 +1,62 @@
+.colonyApp { --panel:#14212a; --panel2:#192b35; --line:rgba(159,195,205,.14); --muted:#a4b7c2; --accent:#85ddbf; }
+body:has(.colonyApp) { background:radial-gradient(ellipse at 50% 0,rgba(43,81,96,.2),transparent 700px),#0b131b; }
+.colonyApp .header { align-items:center; margin:3px 0 16px; }
+.colonyApp .brandGroup { display:flex; align-items:center; gap:10px; min-width:0; }
+.brandMark { width:48px; flex-shrink:0; }
+.colonyApp .brand { font-size:19px; letter-spacing:0; overflow-wrap:anywhere; }
+.brandKicker { display:block; font-size:9px; color:#87cbbd; letter-spacing:.18em; margin-bottom:4px; }
+.colonyApp .level { font-size:11px; margin-top:4px; }
+.headerHelp { flex-shrink:0; width:42px; height:42px; border:1px solid var(--line); border-radius:14px; color:#b2d9db; background:var(--panel); display:flex; align-items:center; justify-content:center; }
+.headerHelp:focus-visible,.resourceTile:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.colonyApp .card { background:linear-gradient(145deg,#152630,#111d26); border-color:var(--line); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+.colonyApp .card h2 { font-size:17px; line-height:1.3; }
+.colonyApp .card h2 > .gameIcon { margin-right:6px; }
+.colonyApp .card p { line-height:1.55; }
+.colonyApp .colonyResources { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:0 0 14px; }
+.colonyApp .resourceTile { position:relative; min-width:0; padding:10px 8px; color:var(--text); border:1px solid var(--line); border-radius:14px; background:linear-gradient(150deg,#172831,#101e27); text-align:left; cursor:pointer; }
+.colonyApp .resourceLabel { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+.colonyApp .resourceTile b { display:block; margin:5px 0 3px; font-size:17px; letter-spacing:-.03em; }
+.resourceTile small { display:block; color:var(--muted); font-size:9px; line-height:1.4; }
+.colonyApp .resourceTile.isFull { border-color:rgba(228,190,115,.38); }
+.resourceTile.isFull small { color:#e9cb93; }
+.resourceDelta { position:absolute; right:7px; top:31px; font-style:normal; color:#f0b5a0; font-size:12px; font-weight:700; background:#16262d; padding:2px 3px; pointer-events:none; animation:resourceChange 1.8s ease-out both; }
+.resourceDelta.isPositive { color:#9ce7c9; }
+.colonyApp .action { min-height:44px; transition:transform .12s ease,background-color .16s ease; }
+.colonyApp .action:active:not(:disabled) { transform:scale(.985); }
+.colonyApp .miniButton { min-height:36px; }
+.colonyApp .tabs { background:rgba(15,28,36,.96); border-color:rgba(159,195,205,.18); box-shadow:0 -7px 32px rgba(0,0,0,.18); }
+.colonyApp .tab { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:48px; padding:7px 3px; }
+.colonyApp .tab span { margin:0; font-size:10px; }
+.colonyApp .tab.active { color:#a1e6d2; background:rgba(133,221,191,.09); }
+.colonyApp .tab:focus-visible { outline:2px solid var(--accent); outline-offset:0; border-radius:10px; }
+.colonyApp .catalog { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; gap:9px; }
+.colonyApp .catalogItem { min-width:0; display:flex; flex-direction:column; align-items:flex-start; padding:12px; }
+.catalogArt { width:92px; max-width:80%; margin:0 auto; }
+.colonyApp .catalogItem b { font-size:13px; line-height:1.4; }
+.colonyApp .catalogItem p { font-size:11px; margin:0 0 10px; flex:1; }
+.colonyApp .catalogItem .action { margin-top:9px; font-size:11px; padding:10px 6px; }
+.colonyApp .catalogItem small { font-size:11px; line-height:1.5; }
+.colonyApp .catalogItem .resourceShortage { font-size:11px; }
+.resourceCostInline { display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 10px; line-height:1.7; }
+.colonyApp .inspectorEmoji { width:72px; height:72px; flex-shrink:0; padding:0; background:rgba(136,191,197,.04); border:1px solid var(--line); border-radius:15px; }
+.buildingPurpose { padding:10px 12px; border-left:2px solid var(--accent); border-radius:0 10px 10px 0; background:rgba(133,221,191,.04); }
+.placementPreview { display:flex; align-items:center; gap:10px; margin:0 0 12px; padding:10px; border:1px solid rgba(133,221,191,.3); border-radius:14px; background:rgba(133,221,191,.055); }
+.placementPreview > .buildingArt { width:58px; flex-shrink:0; }
+.placementPreview strong { display:block; margin-bottom:5px; font-size:13px; }
+.placementPreview small { display:block; margin-top:5px; font-size:11px; color:var(--muted); line-height:1.5; }
+.placementPreview .resourceCostInline { font-size:12px; }
+.constructionStatus { border:1px solid rgba(240,199,126,.25); border-radius:13px; background:rgba(240,199,126,.04); padding:11px; margin:10px 0; }
+.constructionStatus > div:first-child { display:flex; align-items:center; gap:8px; color:#e2c898; font-size:12px; }
+.constructionStatus > div:first-child span { margin-left:auto; font-size:11px; }
+.constructionProgress { height:5px; border-radius:5px; background:#0d171e; margin-top:11px; overflow:hidden; }
+.constructionProgress i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#a2b986,#edc585); transition:width 1s linear; }
+.colonyApp .constructionStatus p { font-size:11px; margin:9px 0 0; }
+.constructionStatus .miniButton { margin-top:9px; }
+.colonyApp .actionFeedback[role=status] { animation:feedbackArrive .25s ease-out both; }
+.sectionHint { font-size:11px!important; color:var(--muted); }
+.colonyApp .launchArtwork { display:block; width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:15px; margin-bottom:16px; }
+@keyframes resourceChange { 0% { opacity:0; transform:translateY(5px); } 15%,65% { opacity:1; } 100% { opacity:0; transform:translateY(-11px); } }
+@keyframes feedbackArrive { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@media(min-width:640px) { .colonyApp .catalog { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:360px) { .brandMark { width:38px; } .colonyApp .brand { font-size:17px; } .colonyApp .resourceTile { padding:9px 6px; } .colonyApp .resourceLabel { font-size:10px; gap:3px; } .colonyApp .catalog { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { .resourceDelta,.colonyApp .actionFeedback[role=status] { animation:none; } .colonyApp .action,.constructionProgress i { transition:none; } }

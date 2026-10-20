@@ -1,19 +1,7 @@
-import { TUTORIAL_STEPS } from '@/lib/game/tutorial';
+import { TUTORIAL_STEPS, tutorialConditionMet } from '@/lib/game/tutorial';
 import { grantCosmetic } from './cosmetics';
 import { analyticsEvent } from './progression';
 import { pushInbox } from './inbox';
-
-function conditionMet(stepIndex: number, state: any, buildings: any[], stats: any) {
-  switch (stepIndex) {
-    case 0: return true;
-    case 1: return buildings.some((b) => b.type === 'foundry' && Number(b.level) >= 1 && b.status === 'active');
-    case 2: return Number(stats?.foundry_jobs_started ?? 0) >= 1;
-    case 3: return buildings.some((b) => b.type === 'trade_hub' && Number(b.level) >= 1 && b.status === 'active');
-    case 4: return Number(stats?.contracts_completed ?? 0) >= 1;
-    case 5: return Number(state?.hq_level ?? 1) >= 2;
-    default: return false;
-  }
-}
 
 export function getTutorialStateFromRows(state: any, buildings: any[], stats: any) {
   const step = Math.max(0, Math.min(TUTORIAL_STEPS.length, Number(state?.tutorial_step ?? 0)));
@@ -24,7 +12,7 @@ export function getTutorialStateFromRows(state: any, buildings: any[], stats: an
     total: TUTORIAL_STEPS.length,
     completed,
     completedAt: state?.tutorial_completed_at ?? null,
-    current: current ? { ...current, conditionMet: conditionMet(step, state, buildings, stats) } : null,
+    current: current ? { ...current, conditionMet: tutorialConditionMet(step, state, buildings, stats) } : null,
     catalog: TUTORIAL_STEPS,
   };
 }
@@ -37,7 +25,7 @@ export async function claimTutorialStep(tx: any, userId: string) {
   const step = TUTORIAL_STEPS[stepIndex];
   const buildings = await tx<any[]>`SELECT type,level,status FROM buildings WHERE user_id=${userId}`;
   const stats = (await tx<any[]>`SELECT * FROM player_stats WHERE user_id=${userId}`)[0] ?? {};
-  if (!conditionMet(stepIndex, state, buildings, stats)) throw new Error('Сначала выполни текущую задачу обучения');
+  if (!tutorialConditionMet(stepIndex, state, buildings, stats)) throw new Error('Сначала выполни текущую задачу обучения');
 
   const inserted = await tx<any[]>`
     INSERT INTO tutorial_claims(user_id,step_index,step_key)

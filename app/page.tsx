@@ -5,6 +5,14 @@ import { CityGrid } from '@/components/CityGrid';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
 import { ResearchPanel } from '@/components/ResearchPanel';
+import { GameIcon, GameAmount } from '@/components/GameIcon';
+import { BuildingArt } from '@/components/BuildingArt';
+import { ResourceBar } from '@/components/ResourceBar';
+import { ConstructionStatus } from '@/components/ConstructionStatus';
+import { ColonyWelcome } from '@/components/ColonyWelcome';
+import { ColonyGuide } from '@/components/ColonyGuide';
+import { MechanicsHelp } from '@/components/MechanicsHelp';
+import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
@@ -32,20 +40,20 @@ function expiresText(value?: string | null) {
   return `${Math.ceil(ms / 86_400_000)} дн.`;
 }
 
-function costText(cost?: Record<string, number> | null) {
-  if (!cost) return 'максимум';
-  const icons: Record<string, string> = { ore: '⛏', energy: '⚡', parts: '⚙️', credits: '💰', science: '🧠', crystals: '💎' };
-  return Object.entries(cost).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${icons[k] ?? k} ${n(v)}`).join(' · ');
+function costDisplay(cost?: Record<string, number> | null) {
+  if (!cost) return 'Максимальный уровень';
+  return <span className="resourceCostInline">{Object.entries(cost).filter(([, value]) => Number(value) > 0).map(([resource, value]) => <GameAmount key={resource} resource={resource}>{n(value)}</GameAmount>)}</span>;
 }
 
-function productionText(p?: { resource: string; perHour: number } | null) {
+function productionText(p?: { resource: string; perHour: number } | null, type?: string) {
+  if (type === 'foundry') return 'Детали по выбранному рецепту';
+  if (type === 'research_lab') return 'Наука для исследований';
   if (!p) return 'не производит ресурс напрямую';
-  const icons: Record<string, string> = { ore: '⛏', energy: '⚡', credits: '💰' };
-  return `${icons[p.resource] ?? p.resource} ${n(p.perHour)}/ч`;
+  return <GameAmount resource={p.resource}>{n(p.perHour)}/ч</GameAmount>;
 }
 function timeLeft(value?: string | null) { if(!value) return ''; const ms=Math.max(0,new Date(value).getTime()-Date.now()); const d=Math.floor(ms/86400000); const h=Math.floor((ms%86400000)/3600000); return d>0?`${d} дн. ${h} ч.`:`${h} ч.`; }
 function countdown(value?: string | null) { if(!value) return ''; const ms=Math.max(0,new Date(value).getTime()-Date.now()); const h=Math.floor(ms/3600000); const m=Math.ceil((ms%3600000)/60000); return h>0?`${h} ч. ${m} мин.`:`${Math.max(1,m)} мин.`; }
-function durationText(seconds:number){ const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
+function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(1,Math.ceil(Number(seconds)))} сек.`; const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
 function marketResourceLabel(resource:string){return ({ore:'⛏ Руда',energy:'⚡ Энергия',parts:'⚙️ Детали'} as Record<string,string>)[resource]??resource;}
 
 export default function Home() {
@@ -69,6 +77,13 @@ export default function Home() {
   const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
+  const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | null>(null);
+  const contractsRef = useRef<HTMLElement>(null);
+  const hqUpgradeRef = useRef<HTMLElement>(null);
+  const researchPanelRef = useRef<HTMLDivElement>(null);
+  const buildingCatalogRef = useRef<HTMLElement>(null);
   const [marketResource,setMarketResource]=useState<'ore'|'energy'|'parts'>('ore');
   const [marketAmount,setMarketAmount]=useState('100');
   const [marketPrice,setMarketPrice]=useState('3');
@@ -104,6 +119,55 @@ export default function Home() {
       productionPanelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
   }, [tab, requestedProductionRecipe]);
+
+  useEffect(() => {
+    const target = guideNavigationPending.current;
+    const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef };
+    const element = target ? refs[target].current : null;
+    if (element) {
+      guideNavigationPending.current = null;
+      element.setAttribute('tabindex', '-1');
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+  }, [tab, guideNavigationVersion]);
+
+  function navigateGuide(action: string) {
+    setHelpOpen(false);
+    setConstructionFeedback(null);
+    setMessage('');
+    setPlacementType(null);
+    setMoveBuildingId(null);
+    setDecorPlacementType(null);
+    productionNavigationPending.current = false;
+    if (action === 'build_foundry') return beginPlacement('foundry', 'Литейный цех');
+    if (action === 'build_trade_hub') return beginPlacement('trade_hub', 'Торговый узел');
+    if (action === 'build_lab') return beginPlacement('research_lab', 'Исследовательский центр');
+    if (action === 'production') {
+      const foundry = (game?.buildings ?? []).find((building: any) => building.type === 'foundry' && building.status === 'active');
+      if (foundry) setSelectedBuildingId(foundry.id);
+      if (game?.tutorial?.current?.key === 'first_smelt') setRequestedProductionRecipe('standard_alloy');
+      setTab('city'); guideNavigationPending.current = 'production';
+    } else if (action === 'contracts') {
+      setTab('city'); guideNavigationPending.current = 'contracts';
+    } else if (action === 'upgrade_hq') {
+      setTab('build'); guideNavigationPending.current = 'hq';
+    } else if (action === 'research') {
+      const next = game?.research?.catalog?.find((item: any) => item.status !== 'completed' && item.unlockedByHq && item.unlockedByLab && item.prereqsMet);
+      setFocusedResearch(next?.key ?? null);
+      setTab('build'); guideNavigationPending.current = 'research';
+    } else if (action === 'build') {
+      setTab('build'); guideNavigationPending.current = 'build';
+    } else if (action === 'market') {
+      setTab('market'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const target = game?.tutorial?.current?.targetBuilding;
+      const building = (game?.buildings ?? []).find((item: any) => item.type === target && item.status !== 'active');
+      if (building) setSelectedBuildingId(building.id);
+      setTab('city'); guideNavigationPending.current = 'map';
+    }
+    setGuideNavigationVersion((version) => version + 1);
+  }
 
   function constructionNotice(target: string) {
     if (constructionFeedback?.target !== target) return null;
@@ -172,17 +236,18 @@ export default function Home() {
     const app = window.Telegram?.WebApp;
     if (phase !== 'ready' || !supportsTelegram(app, '6.1') || !app?.BackButton) return;
     const back = () => {
+      if (helpOpen) { setHelpOpen(false); return; }
       if (placementType || decorPlacementType || moveBuildingId) { cancelMapAction(); return; }
       if (selectedBuildingId || selectedDecorId) { setSelectedBuildingId(null); setSelectedDecorId(null); return; }
       if (viewedCity) { setViewedCity(null); return; }
       setTab('city');
     };
-    const visible = !!game && !game.limited && !!game.profile?.profile_completed_at && (tab !== 'city' || !!viewedCity || !!placementType || !!decorPlacementType || !!moveBuildingId || !!selectedBuildingId || !!selectedDecorId);
+    const visible = !!game && !game.limited && !!game.profile?.profile_completed_at && (helpOpen || tab !== 'city' || !!viewedCity || !!placementType || !!decorPlacementType || !!moveBuildingId || !!selectedBuildingId || !!selectedDecorId);
     app.BackButton.onClick(back);
     if (visible) app.BackButton.show(); else app.BackButton.hide();
     return () => { app.BackButton?.offClick(back); app.BackButton?.hide(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, tab, viewedCity, placementType, decorPlacementType, moveBuildingId, selectedBuildingId, selectedDecorId, game?.limited, game?.profile?.profile_completed_at]);
+  }, [phase, tab, helpOpen, viewedCity, placementType, decorPlacementType, moveBuildingId, selectedBuildingId, selectedDecorId, game?.limited, game?.profile?.profile_completed_at]);
 
   useEffect(() => {
     if (phase !== 'ready') return;
@@ -408,10 +473,11 @@ export default function Home() {
   }
 
   if (phase !== 'ready') {
-    return <main className="app accessGate"><section className="card accessCard launchCard">
+    return <main className="app colonyApp accessGate"><section className="card accessCard launchCard">
+      <img className="launchArtwork" src="/art/colony-arrival.webp" alt="Колония на далёкой планете" width={1672} height={941} />
       <div className="betaMark">COLONY · v{APP_VERSION}</div>
       <h1>{phase === 'loading' ? 'Подключаем Telegram…' : phase === 'outside' ? 'Ваша колония в Telegram' : 'Не удалось подключить Telegram'}</h1>
-      <p>{phase === 'loading' ? 'Проверяем запуск приложения. Это займёт несколько секунд.' : phase === 'outside' ? 'Откройте COLONY кнопкой приложения в нашем боте. Telegram безопасно передаст данные для входа и сохранения прогресса.' : 'Проверьте подключение к интернету и попробуйте снова. Если эта страница открыта в браузере, перейдите в бота.'}</p>
+      <p>{phase === 'loading' ? 'Проверяем запуск приложения. Это займёт несколько секунд.' : phase === 'outside' ? 'Построй производственный город: добывай ресурсы, выпускай детали, торгуй и открывай технологии. Войди через приложение в Telegram, чтобы сохранить свою колонию.' : 'Проверьте подключение к интернету и попробуйте снова. Если эта страница открыта в браузере, перейдите в бота.'}</p>
       {phase !== 'loading' && <>{botLink ? <a className="action launchLink" href={botLink}>Открыть COLONY в Telegram</a> : <p>Откройте приложение через бота, который прислал вам приглашение.</p>}<button className="action secondary" onClick={retry}>Попробовать снова</button></>}
     </section></main>;
   }
@@ -442,27 +508,18 @@ export default function Home() {
   const totalCells = Number(game.gridSize ?? 6) ** 2;
 
   return (
-    <main className="app">
-      {!game.profile?.profile_completed_at && <div className="profileOverlay"><div className="profileModal">
-        <div className="betaMark">CLOSED BETA · v{APP_VERSION}</div><h1>Назови свою колонию</h1><p>Это имя будут видеть другие игроки в рейтингах, на рынке и при просмотре города. Его можно изменить позже.</p>
-        <label>Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)} placeholder="Например: Новый Байконур"/></label>
-        <label>Короткое описание · необязательно<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
-        <button className="action" disabled={busy || profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Колония получила имя')).catch(()=>{})}>Основать колонию</button>
-        {message && <div className="notice error" role="alert">{message}</div>}
-      </div></div>}
+    <main className="app colonyApp">
+      {!game.profile?.profile_completed_at && <ColonyWelcome colonyName={profileName} onNameChange={setProfileName} bio={profileBio} onBioChange={setProfileBio} busy={busy} onSubmit={async () => {
+        try { await api('/api/profile/update', { colonyName: profileName, bio: profileBio }); }
+        catch (error) { setMessage(''); throw error; }
+      }} />}
+      <MechanicsHelp open={helpOpen} onClose={() => setHelpOpen(false)} onNavigate={navigateGuide} />
       <div className="header">
-        <div><div className="brand">{game.profile?.colony_name || 'COLONY'}</div><div className="level">HQ {s.hq_level} · City Score {n(s.city_score)} · уровень {s.player_level}</div></div>
-        <div className="pill">{s.premium ? '👑 Premium' : 'Free colony'}</div>
+        <div className="brandGroup"><div className="brandMark" aria-hidden="true"><BuildingArt type="hq" /></div><div><span className="brandKicker">COLONY · КОСМИЧЕСКАЯ СТРАТЕГИЯ</span><div className="brand">{game.profile?.colony_name || 'Твоя колония'}</div><div className="level">Центр ур. {s.hq_level} · Рейтинг города {n(s.city_score)}{s.premium ? ' · Premium' : ''}</div></div></div>
+        <button type="button" className="headerHelp" aria-label="Открыть справочник игры" onClick={() => setHelpOpen(true)}><GameIcon name="help" size={23} /></button>
       </div>
 
-      <div className="resources">
-        <div className="resource"><span>⛏ Руда</span><b>{n(s.ore)}</b></div>
-        <div className="resource"><span>⚡ Энергия</span><b>{n(s.energy)}</b></div>
-        <div className="resource"><span>⚙️ Детали</span><b>{n(s.parts)}</b></div>
-        <div className="resource"><span>💰 Кредиты</span><b>{n(s.credits)}</b></div>
-        <div className="resource"><span>💎 Кристаллы</span><b>{n(s.crystals)}</b></div>
-        <div className="resource"><span>🧠 Наука</span><b>{n(s.science)}</b></div>
-      </div>
+      <ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} />
 
       {game.flags?.closed_beta_banner && <div className="betaBanner"><b>🧪 Закрытая бета v{APP_VERSION}</b><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></div>}
 
@@ -471,13 +528,18 @@ export default function Home() {
 
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
+      {(tab === 'city' || tab === 'build' || !game.tutorial?.completed) && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} busy={busy}
+        onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
+        onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
+
       {tab === 'city' && <>
         <section className="card cityCard" ref={cityMapRef}>
-          <div className="cardTitleRow"><div><h2>{game.profile?.colony_name || 'Ваша колония'}</h2><p>{game.gridSize}×{game.gridSize} · занято {usedCells}/{totalCells} · City Score {n(s.city_score)}. Территория расширяется развитием HQ.</p></div><button className="miniButton" onClick={shareCity}>Поделиться</button></div>
+          <div className="cardTitleRow"><div><h2>Твой город</h2><p>{game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание, чтобы узнать его пользу и улучшить.</p></div><button className="miniButton" onClick={shareCity}><GameIcon name="share" size={15} /> Поделиться</button></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
-            <span>{placementType ? '🏗️ Режим размещения' : decorPlacementType ? '🌳 Режим декора' : '↔️ Режим перемещения'}</span>
+            <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : 'Перемещение здания'}</span>
             <button className="miniButton" onClick={cancelMapAction}>Отмена</button>
           </div>}
+          {placementType && (() => { const item = game.catalog?.find((entry: any) => entry.type === placementType); return item && <div className="placementPreview"><BuildingArt type={placementType} /><div><strong>{item.name}</strong>{costDisplay(item.baseBuildCost)}<small>Нажми на свободную клетку. Ресурсы спишутся при выборе места.</small></div></div>; })()}
           <CityGrid
             buildings={game.buildings ?? []}
             decor={game.decor ?? []}
@@ -506,15 +568,17 @@ export default function Home() {
           {(() => {
             const cfg = game.catalog.find((x: any) => x.type === selectedBuilding.type);
             return <>
-              <div className="inspectorHead"><div className="inspectorEmoji">{cfg?.emoji ?? '🏗️'}</div><div><h2>{cfg?.name ?? selectedBuilding.type}</h2><p>Уровень {selectedBuilding.level} · клетка {Number(selectedBuilding.x) + 1}:{Number(selectedBuilding.y) + 1}</p></div></div>
+              <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedBuilding.type} /></div><div><h2>{cfg?.name ?? selectedBuilding.type}</h2><p>Уровень {selectedBuilding.level} · клетка {Number(selectedBuilding.x) + 1}:{Number(selectedBuilding.y) + 1}</p></div></div>
+              {cfg?.description && <p className="buildingPurpose">{cfg.description}</p>}
               <div className="inspectorStats">
-                <div><span>Статус</span><b>{selectedBuilding.status === 'active' ? 'Работает' : `Строится → ${selectedBuilding.target_level}`}</b></div>
-                <div><span>Производство</span><b>{productionText(selectedBuilding.production)}</b></div>
+                <div><span>Статус</span><b>{selectedBuilding.status === 'active' ? 'Работает' : `${selectedBuilding.status === 'upgrading' ? 'Улучшается' : 'Строится'} → ур. ${selectedBuilding.target_level}`}</b></div>
+                <div><span>Производство</span><b>{productionText(selectedBuilding.production, selectedBuilding.type)}</b></div>
               </div>
-              {selectedBuilding.nextUpgrade && <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costText(selectedBuilding.nextUpgrade.cost)}</b></div>}
+              <ConstructionStatus building={selectedBuilding} busy={busy} onRefresh={() => { void refresh(); }} />
+              {selectedBuilding.nextUpgrade && <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b></div>}
               <div className="grid2">
-                <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => constructionAction(`upgrade:${selectedBuilding.id}`, '/api/game/building/upgrade', { buildingId: selectedBuilding.id }, 'Улучшение запущено')}>⬆️ Улучшить</button>
-                <button className="action secondary" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => beginMove(selectedBuilding)}>↔️ Переместить</button>
+                <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => constructionAction(`upgrade:${selectedBuilding.id}`, '/api/game/building/upgrade', { buildingId: selectedBuilding.id }, 'Улучшение запущено')}><GameIcon name="upgrade" size={17} /> Улучшить</button>
+                <button className="action secondary" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => beginMove(selectedBuilding)}><GameIcon name="move" size={17} /> Переместить</button>
               </div>
               {selectedBuilding.status === 'active' && <ResourceShortage cost={selectedBuilding.nextUpgrade?.cost} resources={s} />}
               {constructionNotice(`upgrade:${selectedBuilding.id}`)}
@@ -524,7 +588,7 @@ export default function Home() {
 
         {selectedDecor && <section className="card buildingInspector">
           {(() => { const cfg=(game.decorCatalog??[]).find((x:any)=>x.type===selectedDecor.type); return <>
-            <div className="inspectorHead"><div className="inspectorEmoji">{cfg?.emoji ?? '✨'}</div><div><h2>{cfg?.name ?? selectedDecor.type}</h2><p>Декор · клетка {Number(selectedDecor.x)+1}:{Number(selectedDecor.y)+1}</p></div></div>
+            <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedDecor.type} /></div><div><h2>{cfg?.name ?? selectedDecor.type}</h2><p>Декор · клетка {Number(selectedDecor.x)+1}:{Number(selectedDecor.y)+1}</p></div></div>
             <p className="finePrint">Декор не даёт City Score и не влияет на производство. При демонтаже возвращается 50% кредитной стоимости.</p>
             <button className="action secondary" disabled={busy} onClick={()=>api('/api/game/decor/remove',{decorId:selectedDecor.id}).then((d:any)=>{setSelectedDecorId(null);setMessage(`Декор демонтирован · возврат 💰${n(d.result?.refund)}`)}).catch(()=>{})}>Убрать декор</button>
           </>})()}
@@ -551,64 +615,55 @@ export default function Home() {
           feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
         /></div>
 
-        <section className="card"><h2>🌳 Дороги и декор</h2><p>Покупаются только за игровые кредиты. На развитие и рейтинг не влияют.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span>{d.emoji}</span><b>{d.name}</b><small>💰 {n(d.credits)}</small></button>)}</div></section>
+        <section className="card"><h2><GameIcon name="tree" />Дороги и декор</h2><p>Оформляй город за игровые кредиты. Декор не меняет производство и рейтинг.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span><GameIcon name={d.type} size={28} /></span><b>{d.name}</b><small><GameAmount resource="credits">{n(d.credits)}</GameAmount></small></button>)}</div></section>
 
-        <section className="card">
-          <h2>NPC-контракты</h2>
+        <section className="card" ref={contractsRef}>
+          <h2><GameIcon name="market" />Контракты колонии</h2><p>Передай ресурсы заказчику и получи кредиты на новые постройки. Выполнение расходует указанные ресурсы.</p>
           {(game.contracts?.length ?? 0) === 0 ? <p>Построй торговый узел — здесь появятся первые контракты. Они создают кредиты, но сжигают реальные ресурсы.</p> : <div className="stack">
             {game.contracts.map((c: any) => <div className="rowCard" key={c.id}>
-              <div><strong>{c.resource === 'ore' ? '⛏ Поставка руды' : '⚙️ Поставка деталей'}</strong><small>{n(c.amount)} → 💰 {n(c.credit_reward)}</small></div>
+              <div><strong><GameIcon name={c.resource} size={17} /> {c.resource === 'ore' ? 'Поставка руды' : 'Поставка деталей'}</strong><small>{n(c.amount)} → <GameAmount resource="credits">{n(c.credit_reward)}</GameAmount></small></div>
               <button className="miniButton" disabled={busy} onClick={() => api('/api/game/contracts/complete', { contractId: c.id }).then(() => setMessage('Контракт выполнен')).catch(()=>{})}>Выполнить</button>
             </div>)}
           </div>}
         </section>
-        <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2>🔥 Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
+        <section className="card dailyLoginCard"><div className="cardTitleRow"><div><h2><GameIcon name="star" />Серия входов · {n(game.dailyLogin?.streak?.current_streak ?? 1)} дн.</h2><p>Небольшая ежедневная награда за возвращение. На 7-й день цикл наград начинается заново, а сама серия продолжается.</p></div><span className="pill">рекорд {n(game.dailyLogin?.streak?.longest_streak ?? 1)}</span></div>
           {game.dailyLogin?.today && <div className="dailyReward"><span>День {game.dailyLogin.today.cycle_day}/7</span><b>💰 {n(game.dailyLogin.today.credit_reward)}{Number(game.dailyLogin.today.crystal_reward)>0?` · 💎 ${n(game.dailyLogin.today.crystal_reward)}`:''}</b><button className="miniButton" disabled={busy||!!game.dailyLogin.today.claimed_at} onClick={()=>api('/api/game/daily-login/claim').then(()=>setMessage('Ежедневная награда получена')).catch(()=>{})}>{game.dailyLogin.today.claimed_at?'Получено':'Забрать'}</button></div>}
         </section>
-        {!game.tutorial?.completed && game.tutorial?.current && <section className="card tutorialCard">
-          <div className="cardTitleRow"><div><h2>🧭 Первые шаги · {Number(game.tutorial.step)+1}/{game.tutorial.total}</h2><p>{game.tutorial.current.title}</p></div><span className="pill">{game.tutorial.current.conditionMet?'Готово':'В процессе'}</span></div>
-          <p>{game.tutorial.current.description}</p>
-          <div className="tutorialReward"><span>Награда</span><b>{costText(game.tutorial.current.reward)}</b></div>
-          <div className="grid2">
-            <button className="action secondary" onClick={()=>setTab(game.tutorial.current.actionTab)}>Показать, куда идти</button>
-            <button className="action" disabled={busy||!game.tutorial.current.conditionMet} onClick={()=>api('/api/game/tutorial/claim').then(()=>setMessage('Шаг обучения завершён')).catch(()=>{})}>Забрать награду</button>
-          </div>
-        </section>}
-        {game.tutorial?.completed && <section className="card compactSuccess"><b>✅ Базовое обучение завершено</b><span>Дальше колония развивается свободно: рынок, наука, экспедиции и альянсы.</span></section>}
         <section className="card notificationCard">
-          <div className="cardTitleRow"><div><h2>🔔 Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
+          <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
           <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
         </section>
-        <section className="card inboxCard"><div className="cardTitleRow"><div><h2>📨 Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
+        <section className="card inboxCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Входящие</h2><p>Системные сообщения колонии и важные результаты событий.</p></div><span className="pill">{n(game.inbox?.unread ?? 0)} новых</span></div>
           <div className="stack">{(game.inbox?.items??[]).slice(0,5).map((item:any)=><button className={`inboxItem ${item.read_at?'':'unread'}`} key={item.id} onClick={()=>!item.read_at&&api('/api/inbox/read',{id:item.id}).catch(()=>{})}><div><strong>{item.title}</strong><small>{item.body}</small></div><span>{item.read_at?'':'●'}</span></button>)}</div>
           {(game.inbox?.unread??0)>0&&<button className="miniButton inboxReadAll" disabled={busy} onClick={()=>api('/api/inbox/read',{all:true}).then(()=>setMessage('Все сообщения отмечены прочитанными')).catch(()=>{})}>Прочитать всё</button>}
         </section>
       </>}
 
       {tab === 'build' && <>
-        <nav className="developmentNavigation" aria-label="Разделы развития"><a href="#colony-research">🧪 Исследования и чертежи</a><a href="#colony-buildings">🏗️ Постройки</a></nav>
-        <section className="card" id="colony-buildings">
-          <h2>🏗️ Строительство</h2><p>Выбираешь объект здесь, а место — прямо на карте. Free: 2 параллельные стройки, Premium: 3.</p>
+        <nav className="developmentNavigation" aria-label="Разделы развития"><a href="#colony-research"><GameIcon name="research" size={17} /> Исследования и чертежи</a><a href="#colony-buildings"><GameIcon name="build" size={17} /> Постройки</a></nav>
+        <section className="card" id="colony-buildings" ref={buildingCatalogRef}>
+          <h2><GameIcon name="build" />Строительство</h2><p>Выбери здание и место на карте. У каждой постройки есть своя роль: добыча, производство или новые возможности. Можно вести 2 стройки одновременно, с Premium — 3.</p>
           <div className="catalog">
             {available.map((item: any) => <div className="catalogItem" key={item.type}>
-              <div style={{fontSize:24}}>{item.emoji}</div><b>{item.name}</b>
+              <BuildingArt type={item.type} className="catalogArt" /><b>{item.name}</b>
               {item.description && <p>{item.description}</p>}
-              <small>{costText(item.baseBuildCost)} · {durationText(item.baseBuildTimeSec)}</small>
+              <small>{costDisplay(item.baseBuildCost)}</small><small><GameIcon name="clock" size={13} /> {durationText(item.baseBuildTimeSec)}</small>
               <button className="action secondary" disabled={busy || item.unlockedByResearch === false} onClick={() => beginPlacement(item.type, item.name)}>{item.unlockedByResearch === false ? 'Нужна технология' : 'Выбрать место'}</button>
               {item.unlockedByResearch === false && <small className="buildingResearchRequirement">Изучи «{item.researchRequirementName ?? item.unlockResearch}» в исследованиях.</small>}
               <ResourceShortage cost={item.baseBuildCost} resources={s} />
             </div>)}
           </div>
         </section>
-        <section className="card">
-          <h2>Центр управления</h2><p>HQ3 расширяет территорию до 7×7 и квалифицирует приглашённого игрока. HQ5 расширяет карту до 8×8.</p>
-          <div className="upgradeBox"><span>Следующее улучшение</span><b>{hq?.nextUpgrade ? costText(hq.nextUpgrade.cost) : 'пока максимум'}</b></div>
-          <button className="action" disabled={busy || !hq?.nextUpgrade || hq?.status !== 'active'} onClick={() => constructionAction('hq', '/api/game/building/upgrade', { buildingId: hq.id }, 'Улучшение HQ запущено')}>🏛️ Улучшить HQ</button>
+        <section className="card" ref={hqUpgradeRef}>
+          <h2><GameIcon name="upgrade" />Центр управления · уровень {hq?.level ?? s.hq_level}</h2><p>Уровень 2 открывает исследовательский центр. Уровень 3 даёт новые здания и карту 7×7, уровень 5 расширяет её до 8×8.</p>
+          <div className="upgradeBox"><span>Следующее улучшение</span><b>{hq?.nextUpgrade ? costDisplay(hq.nextUpgrade.cost) : 'пока максимум'}</b></div>
+          {hq && hq.status !== 'active' && <ConstructionStatus building={hq} busy={busy} onRefresh={() => { void refresh(); }} />}
+          <button className="action" disabled={busy || !hq?.nextUpgrade || hq?.status !== 'active'} onClick={() => constructionAction('hq', '/api/game/building/upgrade', { buildingId: hq.id }, 'Улучшение центра управления запущено')}><GameIcon name="upgrade" size={18} /> Улучшить центр управления</button>
           {hq?.status === 'active' && <ResourceShortage cost={hq.nextUpgrade?.cost} resources={s} />}
           {constructionNotice('hq')}
         </section>
 
-        {game.research && <div id="colony-research"><ResearchPanel
+        {game.research && <div id="colony-research" ref={researchPanelRef}><ResearchPanel
           research={game.research}
           resources={s}
           hqLevel={Number(s.hq_level)}
@@ -627,25 +682,25 @@ export default function Home() {
         /></div>}
 
         <section className="card expeditionCard">{game.flags?.expeditions===false&&<div className="notice">🚧 Экспедиции временно отключены feature flag.</div>}
-          <div className="cardTitleRow"><div><h2>🚀 Экспедиции</h2><p>Отправляй аппараты за ресурсами, научными данными и редкими артефактами.</p></div><span className="pill">{game.expeditions?.activeCount ?? 0}/{game.expeditions?.slots ?? 1}</span></div>
+          <div className="cardTitleRow"><div><h2><GameIcon name="rocket" />Экспедиции</h2><p>Отправляй аппараты за ресурсами, научными данными и редкими артефактами.</p></div><span className="pill">{game.expeditions?.activeCount ?? 0}/{game.expeditions?.slots ?? 1}</span></div>
           {!game.expeditions?.enabled ? <><p>Центр экспедиций открывается с HQ3. Stars не покупают слоты и не повышают шанс находок.</p><button className="action secondary" disabled={Number(s.hq_level)<3} onClick={()=>beginPlacement('expedition_center','Центр экспедиций')}>Построить центр</button></> : <>
             {(game.expeditions?.runs??[]).length>0&&<div className="stack expeditionRuns">{game.expeditions.runs.map((run:any)=><div className={`expeditionRun ${run.status}`} key={run.id}><div className="expeditionRunHead"><div><strong>{run.config?.emoji} {run.config?.name ?? run.expedition_key}</strong><small>{run.status==='active'?`Вернётся через ${countdown(run.completes_at)}`:run.status==='event'?`${run.event?.emoji??'⚠️'} Требуется решение`:'Экспедиция вернулась'}</small></div><span className="statusBadge">{run.status==='active'?'В пути':run.status==='event'?'Событие':'Готово'}</span></div>{run.status==='ready'&&<button className="action" disabled={busy} onClick={()=>api('/api/game/expedition/resolve',{expeditionId:run.id}).then((d:any)=>setMessage(`Экспедиция завершена: 💰${n(d.result?.credits)} · 🧠${n(d.result?.science)}`)).catch(()=>{})}>Забрать результат</button>}{run.status==='event'&&run.event&&<div className="eventCard"><b>{run.event.emoji} {run.event.title}</b><p>{run.event.description}</p><div className="eventChoices">{run.event.choices.map((choice:any)=><button className="eventChoice" key={choice.id} disabled={busy} onClick={()=>api('/api/game/expedition/resolve',{expeditionId:run.id,choiceId:choice.id}).then(()=>setMessage(`Решение принято: ${choice.title}`)).catch(()=>{})}><strong>{choice.title}</strong><small>{choice.description}</small></button>)}</div></div>}</div>)}</div>}
-            <div className="expeditionCatalog">{(game.expeditions?.catalog??[]).map((e:any)=><div className={`expeditionOption ${e.unlocked?'':'locked'}`} key={e.key}><div className="researchTop"><span>{e.emoji}</span><div><b>{e.name}</b><small>{durationText(e.durationSec)}</small></div></div><p>{e.description}</p><div className="researchMeta"><span>{costText(e.cost)}</span><span>🎲 события {Math.round(Number(e.eventChance)*100)}%</span></div><button className="action secondary" disabled={busy||game.flags?.expeditions===false||!e.unlocked||Number(game.expeditions.activeCount)>=Number(game.expeditions.slots)} onClick={()=>api('/api/game/expedition/start',{expeditionKey:e.key}).then(()=>setMessage(`Экспедиция «${e.name}» отправлена`)).catch(()=>{})}>{e.unlocked?'Отправить':e.lockReason}</button></div>)}</div>
+            <div className="expeditionCatalog">{(game.expeditions?.catalog??[]).map((e:any)=><div className={`expeditionOption ${e.unlocked?'':'locked'}`} key={e.key}><div className="researchTop"><span>{e.emoji}</span><div><b>{e.name}</b><small>{durationText(e.durationSec)}</small></div></div><p>{e.description}</p><div className="researchMeta"><span>{costDisplay(e.cost)}</span><span>🎲 события {Math.round(Number(e.eventChance)*100)}%</span></div><button className="action secondary" disabled={busy||game.flags?.expeditions===false||!e.unlocked||Number(game.expeditions.activeCount)>=Number(game.expeditions.slots)} onClick={()=>api('/api/game/expedition/start',{expeditionKey:e.key}).then(()=>setMessage(`Экспедиция «${e.name}» отправлена`)).catch(()=>{})}>{e.unlocked?'Отправить':e.lockReason}</button></div>)}</div>
           </>}
         </section>
 
-        <section className="card"><h2>🧭 Коллекция артефактов</h2><p>Артефакты находятся только в экспедициях. Собери все четыре вида — постоянная рамка первопроходца.</p><div className="artifactGrid">{(game.expeditions?.artifacts??[]).map((a:any)=><div className={`artifact ${Number(a.count)>0?'found':'unknown'}`} key={a.id}><span>{Number(a.count)>0?a.emoji:'❔'}</span><b>{Number(a.count)>0?a.name:'Неизвестный объект'}</b><small>{Number(a.count)>0?`${a.rarity} · ×${a.count}`:'ещё не найден'}</small></div>)}</div></section>
+        <section className="card"><h2><GameIcon name="star" />Коллекция артефактов</h2><p>Артефакты находятся только в экспедициях. Собери все четыре вида — постоянная рамка первопроходца.</p><div className="artifactGrid">{(game.expeditions?.artifacts??[]).map((a:any)=><div className={`artifact ${Number(a.count)>0?'found':'unknown'}`} key={a.id}><span>{Number(a.count)>0?a.emoji:'❔'}</span><b>{Number(a.count)>0?a.name:'Неизвестный объект'}</b><small>{Number(a.count)>0?`${a.rarity} · ×${a.count}`:'ещё не найден'}</small></div>)}</div></section>
       </>}
 
       {tab === 'market' && <>
-        <section className="card"><div className="cardTitleRow"><div><h2>📈 P2P-биржа</h2><p>Игроки продают реальные игровые ресурсы за кредиты. Комиссия 5% с продавца сгорает.</p></div><span className="pill">{game.flags?.market===false?'Пауза':game.market?.enabled?'Открыто':'Нужен торговый узел'}</span></div>{game.flags?.market===false?<div className="notice">Функция временно отключена feature flag во время теста.</div>:!game.market?.enabled&&<button className="action secondary" onClick={()=>setTab('build')}>🏗️ Построить торговый узел</button>}</section>
+        <section className="card"><div className="cardTitleRow"><div><h2><GameIcon name="market" />Рынок игроков</h2><p>Игроки продают реальные игровые ресурсы за кредиты. Комиссия 5% с продавца сгорает.</p></div><span className="pill">{game.flags?.market===false?'Пауза':game.market?.enabled?'Открыто':'Нужен торговый узел'}</span></div>{game.flags?.market===false?<div className="notice">Функция временно отключена feature flag во время теста.</div>:!game.market?.enabled&&<button className="action secondary" onClick={()=>setTab('build')}>🏗️ Построить торговый узел</button>}</section>
         {game.market?.enabled&&<section className="card"><h2>Выставить ресурс</h2><p>Ресурс резервируется сразу; непроданный остаток возвращается при отмене или через 24 часа.</p><div className="marketForm"><label><span>Ресурс</span><select value={marketResource} onChange={e=>setMarketResource(e.target.value as any)}><option value="ore">⛏ Руда</option><option value="energy">⚡ Энергия</option><option value="parts">⚙️ Детали</option></select></label><label><span>Количество</span><input inputMode="numeric" value={marketAmount} onChange={e=>setMarketAmount(e.target.value.replace(/\D/g,''))}/></label><label><span>Цена / ед.</span><input inputMode="numeric" value={marketPrice} onChange={e=>setMarketPrice(e.target.value.replace(/\D/g,''))}/></label></div><div className="marketPreview"><span>Сумма</span><b>💰 {n(Number(marketAmount||0)*Number(marketPrice||0))}</b></div><button className="action" disabled={busy} onClick={()=>api('/api/market/order/create',{resource:marketResource,amount:Number(marketAmount),unitPrice:Number(marketPrice)}).then(()=>setMessage('Ордер выставлен')).catch(()=>{})}>Выставить ордер</button><p className="finePrint">Цена: {game.market?.rules?.[marketResource]?.minUnitPrice}–{game.market?.rules?.[marketResource]?.maxUnitPrice}; минимум {game.market?.rules?.[marketResource]?.minAmount} ед.</p></section>}
         <section className="card"><h2>Стакан продаж</h2>{!game.market?.enabled?<p>Рынок откроется после торгового узла.</p>:(game.market?.orders?.length??0)===0?<p>Пока ордеров нет.</p>:<div className="stack">{game.market.orders.map((o:any)=>{const mine=o.user_id===game.userId;const av=buyAmounts[o.id]??String(Math.min(Number(o.amount_remaining),o.resource==='parts'?10:50));const amount=Math.max(0,Math.min(Number(o.amount_remaining),Number(av||0)));return <div className="marketOrder" key={o.id}><div className="marketOrderTop"><div><strong>{marketResourceLabel(o.resource)}</strong><small>{o.first_name||o.username||'Колонист'} · {n(o.amount_remaining)} · 💰{n(o.unit_price)}/ед.</small></div></div>{mine?<button className="miniButton" disabled={busy} onClick={()=>api('/api/market/order/cancel',{orderId:o.id}).then(()=>setMessage('Ордер отменён')).catch(()=>{})}>Отменить</button>:<div className="marketBuy"><input inputMode="numeric" value={av} onChange={e=>setBuyAmounts(v=>({...v,[o.id]:e.target.value.replace(/\D/g,'')}))}/><span>= 💰 {n(amount*Number(o.unit_price))}</span><button className="miniButton" disabled={busy||amount<=0} onClick={()=>api('/api/market/order/buy',{orderId:o.id,amount}).then(()=>setMessage('Покупка выполнена')).catch(()=>{})}>Купить</button></div>}</div>})}</div>}</section>
         {(game.market?.stats?.length??0)>0&&<section className="card"><h2>Рынок за 24 часа</h2><div className="marketStats">{game.market.stats.map((x:any)=><div key={x.resource}><span>{marketResourceLabel(x.resource)}</span><b>≈ 💰{n(x.median_price??x.avg_price)}</b><small>{n(x.volume)} ед. · {x.trades} сделок</small></div>)}</div></section>}
       </>}
 
       {tab === 'missions' && <>
-        {game.season&&<section className="card seasonCard"><div className="cardTitleRow"><div><h2>🛰️ Сезон I · {game.season.title}</h2><p>{game.season.subtitle} · осталось {timeLeft(game.season.ends_at)}</p></div><div className="seasonPoints">{n(game.season.points)}<span>SP</span></div></div><div className="seasonTrack">{game.season.rewards.map((r:any)=>{const claimed=(game.season.claims??[]).some((c:any)=>Number(c.level)===Number(r.level));const reached=Number(game.season.points)>=Number(r.points);const rewardText=r.cosmeticId?`🎨 ${r.cosmeticDays?`${r.cosmeticDays} дн.`:'навсегда'}`:r.crystals?`💎 ${r.crystals}`:`💰 ${n(r.credits)}`;return <div className={`seasonReward ${reached?'reached':''}`} key={r.level}><div className="seasonLevel">{r.level}</div><div className="seasonRewardBody"><strong>{r.title}</strong><small>{r.points} SP · {rewardText}</small><div className="progress"><i style={{width:`${Math.min(100,Math.round(Number(game.season.points)/Number(r.points)*100))}%`}}/></div></div><button className="miniButton" disabled={busy||!reached||claimed} onClick={()=>api('/api/season/claim',{level:r.level}).then(()=>setMessage('Сезонная награда получена')).catch(()=>{})}>{claimed?'✓':reached?'Забрать':'🔒'}</button></div>})}</div><p className="finePrint">Платной дорожки в первом сезоне нет.</p></section>}
+        {game.season&&<section className="card seasonCard"><div className="cardTitleRow"><div><h2><GameIcon name="missions" />Сезон I · {game.season.title}</h2><p>{game.season.subtitle} · осталось {timeLeft(game.season.ends_at)}</p></div><div className="seasonPoints">{n(game.season.points)}<span>SP</span></div></div><div className="seasonTrack">{game.season.rewards.map((r:any)=>{const claimed=(game.season.claims??[]).some((c:any)=>Number(c.level)===Number(r.level));const reached=Number(game.season.points)>=Number(r.points);const rewardText=r.cosmeticId?`🎨 ${r.cosmeticDays?`${r.cosmeticDays} дн.`:'навсегда'}`:r.crystals?`💎 ${r.crystals}`:`💰 ${n(r.credits)}`;return <div className={`seasonReward ${reached?'reached':''}`} key={r.level}><div className="seasonLevel">{r.level}</div><div className="seasonRewardBody"><strong>{r.title}</strong><small>{r.points} SP · {rewardText}</small><div className="progress"><i style={{width:`${Math.min(100,Math.round(Number(game.season.points)/Number(r.points)*100))}%`}}/></div></div><button className="miniButton" disabled={busy||!reached||claimed} onClick={()=>api('/api/season/claim',{level:r.level}).then(()=>setMessage('Сезонная награда получена')).catch(()=>{})}>{claimed?'✓':reached?'Забрать':'🔒'}</button></div>})}</div><p className="finePrint">Платной дорожки в первом сезоне нет.</p></section>}
         <section className="card"><h2>Ежедневные задания</h2><p>За день можно получить до 💎15. Награды нужно забрать вручную.</p><div className="stack">
           {(game.dailyQuests ?? []).map((q: any) => {
             const cfg = game.dailyQuestCatalog.find((x: any) => x.key === q.quest_key);
@@ -701,11 +756,11 @@ export default function Home() {
       </>}
 
       {tab === 'social' && <>
-        <section className="card profileCard"><div className="cardTitleRow"><div><h2>👤 Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
+        <section className="card profileCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
           <label className="profileField">Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)}/></label><label className="profileField">Описание<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
           <button className="action secondary" disabled={busy||profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Профиль сохранён')).catch(()=>{})}>Сохранить профиль</button>
         </section>
-        <section className="card feedbackCard"><div className="cardTitleRow"><div><h2>💬 Обратная связь</h2><p>Баг, баланс или идея — сообщение попадёт в закрытую beta-панель вместе с вашим игровым ID.</p></div><span className="pill">до 2000 знаков</span></div><div className="feedbackForm"><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value)}><option value="general">Общее</option><option value="bug">Баг</option><option value="balance">Баланс</option><option value="idea">Идея</option><option value="payment">Платёж</option></select><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder="Что произошло или что стоит улучшить?"/><button className="action secondary" disabled={busy||feedbackMessage.trim().length<5} onClick={sendFeedback}>Отправить</button></div></section>
+        <section className="card feedbackCard"><div className="cardTitleRow"><div><h2><GameIcon name="info" />Обратная связь</h2><p>Баг, баланс или идея — сообщение попадёт в закрытую beta-панель вместе с вашим игровым ID.</p></div><span className="pill">до 2000 знаков</span></div><div className="feedbackForm"><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value)}><option value="general">Общее</option><option value="bug">Баг</option><option value="balance">Баланс</option><option value="idea">Идея</option><option value="payment">Платёж</option></select><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder="Что произошло или что стоит улучшить?"/><button className="action secondary" disabled={busy||feedbackMessage.trim().length<5} onClick={sendFeedback}>Отправить</button></div></section>
         {game.flags?.alliances===false&&<section className="card"><h2>🏳️ Альянсы временно на паузе</h2><p>Feature flag отключён для текущего этапа закрытого теста. Уже созданные данные сохраняются.</p></section>}
         {game.flags?.alliances!==false && (game.alliance?.membership ? <>
           <section className="card allianceHero">
@@ -734,7 +789,7 @@ export default function Home() {
           {(game.alliance?.recommended?.length??0)>0&&<section className="card"><h2>Открытые альянсы</h2><div className="stack">{game.alliance.recommended.map((a:any)=><div className="rowCard" key={a.id}><div><strong>{a.name}</strong><small>{a.code} · {a.members}/{a.member_limit} · {n(a.season_points)} AP</small></div><button className="miniButton" disabled={busy||Number(s.hq_level)<Number(game.alliance?.rules?.joinHq??2)} onClick={()=>api('/api/alliance/join',{code:a.code}).then(()=>setMessage(`Вы вступили в «${a.name}»`)).catch(()=>{})}>Вступить</button></div>)}</div></section>}
         </>)}
 
-        <section className="card"><h2>🏆 Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · 🏙 {n(p.city_score)}</em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · ✦ {n(a.prestige)}</em></div>)}</div></div><p className="finePrint">AP начисляются за реальные вклады ресурсов в мегапроект. Покупки за Stars не дают рейтинговых очков.</p></section>
+        <section className="card"><h2><GameIcon name="star" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · 🏙 {n(p.city_score)}</em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · ✦ {n(a.prestige)}</em></div>)}</div></div><p className="finePrint">AP начисляются за реальные вклады ресурсов в мегапроект. Покупки за Stars не дают рейтинговых очков.</p></section>
 
         <section className="card">
           <h2>Сеть колоний</h2><p>Приглашение считается квалифицированным только после HQ3 приглашённого. Денежная affiliate-программа Telegram живёт отдельно от этих игровых наград.</p>
@@ -774,12 +829,7 @@ export default function Home() {
       </section>}
 
       <nav className="tabs">
-        <button className={`tab ${tab==='city'?'active':''}`} onClick={()=>setTab('city')}>🏙️<span>Город</span></button>
-        <button className={`tab ${tab==='build'?'active':''}`} onClick={()=>setTab('build')}>🧪<span>Развитие</span></button>
-        <button className={`tab ${tab==='market'?'active':''}`} onClick={()=>setTab('market')}>📈<span>Рынок</span></button>
-        <button className={`tab ${tab==='missions'?'active':''}`} onClick={()=>setTab('missions')}>🎯<span>Сезон</span></button>
-        <button className={`tab ${tab==='shop'?'active':''}`} onClick={()=>setTab('shop')}>⭐<span>Магазин</span></button>
-        <button className={`tab ${tab==='social'?'active':''}`} onClick={()=>setTab('social')}>👥<span>Связи</span></button>
+        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Сезон', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>setTab(item.key)}><GameIcon name={item.icon} size={22} /><span>{item.label}</span></button>)}
       </nav>
     </main>
   );
