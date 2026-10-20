@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.1-beta.1 — Clear Next Steps
+- Kept a compact next step visible on the city map after the tutorial, with direct laboratory, research and base-upgrade guidance.
+- Split the mechanics reference into short topics, including comfort and invitations, with direct navigation to each feature.
+- Grouped research goals by purpose and added market access, first expeditions, landscaping and storage goals.
+- Corrected tutorial and help text to explain the research requirements introduced in v1.10.
+- Preserved tutorial rewards, saved goals, resource costs and research timing; no additional migration is required from v1.10.
+
 ## 1.10.0-beta.1 — A Living Colony
 - Added a visible referral reward path and a manual 500-credit/10-crystal bonus for each side of a qualified HQ3 invitation, with unique receipts and historical eligibility.
 - Added comfort, nine decor objects, free relocation, diminishing duplicate contributions and permanent achievement progress; new landscaping is unlocked through research.

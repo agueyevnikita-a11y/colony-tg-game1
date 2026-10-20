@@ -206,6 +206,13 @@ export default function Home() {
     setSubsections(previous => previous[nextTab] === section ? previous : { ...previous, [nextTab]: section });
   }
 
+  function showSectionFromGuide(nextTab: Tab, section: string) {
+    const alreadyVisible = tab === nextTab && subsections[nextTab] === section;
+    navigationToTop.current = !alreadyVisible;
+    showSection(nextTab, section);
+    if (alreadyVisible) window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
   function openSubsection(section: string) {
     if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
     navigationToTop.current = true;
@@ -322,11 +329,13 @@ export default function Home() {
     } else if (action === 'market') {
       showSection('market', 'buy'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (action === 'expeditions') {
-      navigationToTop.current = true;
-      showSection('build', 'expeditions');
+      showSectionFromGuide('build', 'expeditions');
     } else if (action === 'alliance') {
-      navigationToTop.current = true;
-      showSection('social', 'alliance');
+      showSectionFromGuide('social', 'alliance');
+    } else if (action === 'decor') {
+      showSectionFromGuide('city', 'decor');
+    } else if (action === 'friends') {
+      showSectionFromGuide('social', 'friends');
     } else {
       const target = game?.tutorial?.current?.targetBuilding;
       const building = (game?.buildings ?? []).find((item: any) => item.type === target && item.status !== 'active');
@@ -737,9 +746,9 @@ export default function Home() {
         items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
-      {tab === 'city' && subsections.city === 'map' && <details className="cityGuideDetails" open={!game.tutorial?.completed}><summary>{game.tutorial?.completed ? 'Совет по развитию' : 'Первые шаги'}</summary><ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
+      {tab === 'city' && subsections.city === 'map' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
         onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
-        onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} /></details>}
+        onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
 
       {tab === 'city' && <>
         {subsections.city === 'map' && <div data-section-panel="city-map">

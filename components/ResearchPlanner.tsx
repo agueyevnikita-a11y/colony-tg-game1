@@ -27,14 +27,26 @@ type Props = {
   onRefresh: () => void;
 };
 
+const GOAL_GROUPS = [
+  { key: 'resources', name: 'Добыча', icon: 'ore' },
+  { key: 'production', name: 'Производство', icon: 'parts' },
+  { key: 'infrastructure', name: 'Город и связи', icon: 'city' },
+  { key: 'exploration', name: 'Экспедиции', icon: 'rocket' },
+] as const;
+type GoalGroup = typeof GOAL_GROUPS[number]['key'];
 const GOALS = [
-  { key: 'basic_theory', name: 'Первые исследования', icon: 'research' },
-  { key: 'deep_drilling', name: 'Глубинная шахта', building: 'deep_mine' },
-  { key: 'photovoltaic_arrays', name: 'Солнечный массив', building: 'solar_array' },
-  { key: 'precision_casting', name: 'Точное литьё', icon: 'parts' },
-  { key: 'industrial_casting', name: 'Поточное литьё', icon: 'parts' },
-  { key: 'autonomous_drones', name: 'Больше экспедиций', icon: 'rocket' },
-];
+  { key: 'deep_drilling', name: 'Глубинная шахта', building: 'deep_mine', group: 'resources' },
+  { key: 'photovoltaic_arrays', name: 'Солнечный массив', building: 'solar_array', group: 'resources' },
+  { key: 'precision_casting', name: 'Точное литьё', icon: 'parts', group: 'production' },
+  { key: 'industrial_casting', name: 'Поточное литьё', icon: 'parts', group: 'production' },
+  { key: 'compact_storage', name: 'Больше места на складе', icon: 'building', group: 'production' },
+  { key: 'trade_network', name: 'Рынок игроков', icon: 'market', group: 'infrastructure' },
+  { key: 'urban_ecology', name: 'Цветники', icon: 'flowerbed', group: 'infrastructure' },
+  { key: 'public_spaces', name: 'Сады и площади', icon: 'comfort', group: 'infrastructure' },
+  { key: 'expedition_protocols', name: 'Первые экспедиции', building: 'expedition_center', group: 'exploration' },
+  { key: 'autonomous_drones', name: 'Больше экспедиций', icon: 'rocket', group: 'exploration' },
+  { key: 'deep_space_protocol', name: 'Дальний сигнал', icon: 'signal', group: 'exploration' },
+] as const;
 
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
 function duration(seconds: number) {
@@ -57,6 +69,7 @@ export function ResearchPlanner(props: Props) {
   const id = useId();
   const [now, setNow] = useState(() => Date.now());
   const [choicesOpen, setChoicesOpen] = useState(false);
+  const [goalGroup, setGoalGroup] = useState<GoalGroup>('resources');
   const completed = new Set(props.completed);
   const plan = props.targetKey ? buildResearchPlan(props.targetKey, props.catalog, props.completed, props.active?.research_key) : null;
   const next = plan?.next ?? null;
@@ -67,8 +80,13 @@ export function ResearchPlanner(props: Props) {
   const activeEndsAt = props.active ? new Date(props.active.completes_at).getTime() : 0;
   const activeReady = !!props.active && Number.isFinite(activeEndsAt) && activeEndsAt <= now;
   const activeName = props.catalog.find((item) => item.key === props.active?.research_key)?.name ?? 'текущая технология';
-  const goals = GOALS.filter((goal) => props.catalog.some((item) => item.key === goal.key)
-    && (goal.key !== 'basic_theory' || !completed.has(goal.key)));
+  const goals = GOALS.filter((goal) => goal.group === goalGroup && props.catalog.some((item) => item.key === goal.key));
+  const foundation = props.catalog.find((item) => item.key === 'basic_theory' && !completed.has(item.key));
+
+  useEffect(() => {
+    const target = GOALS.find((goal) => goal.key === props.targetKey);
+    if (target) setGoalGroup(target.group);
+  }, [props.targetKey]);
 
   useEffect(() => {
     if (!props.active) return;
@@ -155,6 +173,8 @@ export function ResearchPlanner(props: Props) {
       </div>}
     </div>
     <div id={`${id}-choices`} className="researchPlanChoices" hidden={!!plan && !choicesOpen}>
+      {foundation && <button type="button" className="researchPlanFoundation" data-research-goal="basic_theory" disabled={props.busy} onClick={() => { props.onTargetChange('basic_theory'); setChoicesOpen(false); }}><GameIcon name="research" size={22} /><span><strong>Начни с первой технологии</strong><small>{foundation.name} · открывает путь к остальным исследованиям</small></span><GameIcon name="arrow" size={16} /></button>}
+      <div className="researchPlanGroups" role="group" aria-label="Направление цели">{GOAL_GROUPS.map((group) => <button type="button" key={group.key} aria-pressed={goalGroup === group.key} disabled={props.busy} onClick={() => setGoalGroup(group.key)}><GameIcon name={group.icon} size={16} />{group.name}</button>)}</div>
       <div className="researchPlanGoals" role="group" aria-label="Цели развития">
         {goals.map((goal) => <button type="button" key={goal.key} data-research-goal={goal.key} className={`researchPlanGoal ${props.targetKey === goal.key ? 'isSelected' : ''}`} aria-pressed={props.targetKey === goal.key} disabled={props.busy} onClick={() => { props.onTargetChange(goal.key); setChoicesOpen(false); }}>
           <span className="researchPlanGoalVisual" aria-hidden="true">{'building' in goal ? <BuildingArt type={goal.building!} /> : <GameIcon name={goal.icon!} size={22} />}</span>
@@ -168,7 +188,7 @@ export function ResearchPlanner(props: Props) {
       <div className="researchPlanTarget"><div><span className="researchPlanEyebrow">Твоя цель</span><h3>{plan.target.name}</h3><p>{plan.target.effectText}</p></div>
         {plan.target.unlockBuilding && <BuildingArt type={plan.target.unlockBuilding} />}
       </div>
-      {!next ? <div className="researchPlanComplete" role="status"><strong><GameIcon name="check" size={19} /> Технология открыта</strong><p>{plan.target.unlockBuilding ? 'Теперь можно перейти к её карточке и выбрать постройку нового здания.' : plan.target.unlockRecipe ? 'Теперь можно перейти к её карточке и открыть рецепт в производстве.' : 'Бонус технологии уже действует в колонии.'}</p><button type="button" className="action secondary" disabled={props.busy} onClick={() => props.onResearch(plan.target.key)}>Показать технологию<GameIcon name="arrow" size={15} /></button></div>
+      {!next ? <div className="researchPlanComplete" role="status"><strong><GameIcon name="check" size={19} /> Технология открыта</strong><p>{plan.target.unlockBuilding ? 'Теперь можно перейти к её карточке и выбрать постройку нового здания.' : plan.target.unlockRecipe ? 'Теперь можно перейти к её карточке и открыть рецепт в производстве.' : plan.target.unlockFeature ? 'Открой карточку технологии и перейди к новой возможности колонии.' : 'Бонус технологии уже действует в колонии.'}</p><button type="button" className="action secondary" disabled={props.busy} onClick={() => props.onResearch(plan.target.key)}>Показать технологию<GameIcon name="arrow" size={15} /></button></div>
         : <>
           <div className="researchPlanBudget"><span className="researchPlanEyebrow">Осталось на исследования</span><div>{costEntries(plan.remainingCost).length ? costEntries(plan.remainingCost).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{number(amount)}</GameAmount>) : <span>Все оставшиеся расходы уже оплачены.</span>}</div><p>Постройки и улучшения базы и лаборатории в сумму не входят.{plan.activeInPlan ? ' Текущее исследование уже оплачено и повторно не считается.' : ''}</p>{plan.remainingTimeSec > 0 && <p><GameIcon name="clock" size={11} /> Чистое время ещё не запущенных исследований: {duration(plan.remainingTimeSec)}. Без накопления ресурсов и улучшений.</p>}</div>
           {renderNextAction()}

@@ -57,11 +57,19 @@
 .colonyGuideActions .colonyGuideClaim { background:#a0ddc1; color:#10221c; }
 .colonyGuideComplete { padding-top:12px; padding-bottom:12px; }
 .colonyGuideComplete .colonyGuideTop { margin-bottom:4px; }
-.mechanicsBody { padding:22px 24px calc(22px + env(safe-area-inset-bottom,0px)); }
+.mechanicsDialog { height:min(760px,calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))); }
+.mechanicsBody { display:flex; flex-direction:column; height:100%; max-height:100%; overflow:hidden; padding:22px 24px calc(22px + env(safe-area-inset-bottom,0px)); }
 .mechanicsHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.mechanicsHeading, .mechanicsIntro, .mechanicsTopics, .mechanicsDone { flex-shrink:0; }
 .mechanicsHeading h2 { margin:5px 0 0; font-size:24px; letter-spacing:-.025em; line-height:1.2; }
-.mechanicsIntro { color:#afbfcb; font-size:14px; line-height:1.55; margin:14px 0 22px; }
+.mechanicsIntro { color:#afbfcb; font-size:13px; line-height:1.5; margin:12px 0; }
+.mechanicsTopics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.mechanicsTopicButton { min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:56px; padding:6px 4px; border:1px solid rgba(169,199,215,.16); border-radius:12px; background:#17242d; color:#aebfcd; font:inherit; font-size:12px; line-height:1.3; cursor:pointer; }
+.mechanicsTopicButton.isActive { border-color:rgba(151,218,190,.6); color:#c8efde; background:#213b37; }
+.mechanicsTopicIcon { display:flex; flex-shrink:0; }
 .mechanicsSection { border-top:1px solid rgba(185,211,226,.1); padding-top:20px; margin-top:20px; }
+.mechanicsTopicPanel { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; margin-top:14px; padding:15px 3px 3px; scroll-padding:6px; }
+.mechanicsTopicPanel:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
 .mechanicsSection h3 { display:flex; align-items:center; gap:8px; margin:0 0 11px; font-size:16px; line-height:1.35; }
 .mechanicsSection p { color:#afbfcb; font-size:13px; line-height:1.6; margin:0 0 12px; }
 .mechanicsResources { display:grid; grid-template-columns:1fr 1fr; gap:16px 18px; margin:0; }
@@ -72,11 +80,21 @@
 .mechanicsRecipe > span { display:inline-flex; align-items:center; gap:5px; }
 .mechanicsRecipe > small { color:#a8bac6; font-size:12px; }
 .mechanicsSection .mechanicsCaption { font-size:12px; color:#8fa4b4; }
+.mechanicsSection .mechanicsAfterResources { margin-top:14px; }
+.mechanicsTopicActions { display:grid; gap:8px; margin-top:14px; }
+.mechanicsTopicActions .action { margin-top:0; }
+.mechanicsMilestones { display:grid; gap:7px; list-style:none; padding:0; margin:14px 0; }
+.mechanicsMilestones li { display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid rgba(145,184,205,.15); border-radius:11px; background:#17252e; font-size:12px; line-height:1.4; color:#afbfcb; }
+.mechanicsMilestones strong { display:grid; place-items:center; min-width:30px; min-height:30px; border-radius:9px; background:#233d36; color:#b8e5ce; font-variant-numeric:tabular-nums; }
 .mechanicsOffline { border-color:rgba(132,190,169,.2); }
-.mechanicsDone { margin-top:22px; background:#a0ddc1; color:#10221c; }
+.mechanicsDone { margin-top:14px; background:#a0ddc1; color:#10221c; }
 @media (max-width:420px) {
   .onboardingDialog { width:calc(100% - 16px); border-radius:20px; max-height:calc(100dvh - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)); }
   .welcomeContent, .mechanicsBody { padding:19px 18px calc(20px + env(safe-area-inset-bottom,0px)); }
+  .mechanicsDialog { height:min(760px,calc(100dvh - 16px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))); }
+  .mechanicsHeading { gap:8px; }
+  .mechanicsHeading h2 { font-size:21px; }
+  .mechanicsTopicButton { font-size:11px; }
   .welcomeSteps { gap:11px; margin:19px 0 20px; }
   .welcomeSteps strong { font-size:12px; }
   .welcomeStepIcon { width:37px; height:37px; border-radius:11px; }
@@ -86,8 +104,17 @@
   .welcomeSteps li { display:grid; grid-template-columns:37px 1fr; column-gap:10px; row-gap:2px; }
   .welcomeStepIcon { grid-row:1 / 3; }
   .welcomeSteps strong { font-size:13px; }
-  .mechanicsResources { grid-template-columns:1fr; }
+  .mechanicsResources { gap:13px 12px; }
   .colonyGuidePending { flex-wrap:wrap; }
+}
+@media (max-height:600px) {
+  .mechanicsBody { padding-top:12px; padding-bottom:calc(12px + env(safe-area-inset-bottom,0px)); }
+  .mechanicsIntro { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .mechanicsTopics { margin-top:10px; }
+  .mechanicsTopicButton { min-height:44px; }
+  .mechanicsTopicIcon { display:none; }
+  .mechanicsTopicPanel { margin-top:10px; padding-top:10px; }
+  .mechanicsDone { margin-top:10px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .onboardingDialog, .colonyGuide { scroll-behavior:auto; }

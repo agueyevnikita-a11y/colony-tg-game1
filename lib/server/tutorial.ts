@@ -47,7 +47,7 @@ export async function claimTutorialStep(tx: any, userId: string) {
   if (r.cosmeticId) await grantCosmetic(tx, userId, r.cosmeticId, `tutorial_${step.key}`);
   await analyticsEvent(tx, userId, 'tutorial_step_claimed', { step_index: stepIndex, step_key: step.key });
   if (stepIndex + 1 >= TUTORIAL_STEPS.length) {
-    await pushInbox(tx,userId,{kind:'milestone',dedupeKey:'tutorial_complete',title:'Базовая подготовка завершена',body:'Теперь доступны свободное развитие, рынок, исследования, экспедиции и социальные механики COLONY.'});
+    await pushInbox(tx,userId,{kind:'milestone',dedupeKey:'tutorial_complete',title:'Базовая подготовка завершена',body:'Колония готова к научному развитию. Построй исследовательский центр и изучи первую технологию. Рынок игроков, экспедиции и новые предметы благоустройства открываются своими исследованиями; следующий шаг подскажет город.'});
   }
   return { stepIndex, step };
 }

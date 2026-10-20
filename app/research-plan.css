@@ -6,6 +6,11 @@
 .researchPlannerControls { display:flex; flex-shrink:0; flex-direction:column; align-items:stretch; gap:6px; }
 .researchPlanReset,.researchPlanToggle { flex-shrink:0; max-width:105px; font-size:11px; }
 .researchPlanChoices[hidden] { display:none; }
+.researchPlanFoundation { display:flex; align-items:center; gap:9px; width:100%; min-width:0; min-height:44px; margin-bottom:10px; padding:10px; border:1px solid rgba(144,203,179,.3); border-radius:11px; background:rgba(114,228,173,.05); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+.researchPlanFoundation > .gameIcon { flex-shrink:0; color:#a3d8c1; }.researchPlanFoundation > span { flex:1; min-width:0; }.researchPlanFoundation strong,.researchPlanFoundation small { display:block; font-size:12px; line-height:1.5; }.researchPlanFoundation small { color:var(--muted); font-size:11px; margin-top:3px; }
+.researchPlanGroups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:10px; }
+.researchPlanGroups button { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:44px; padding:7px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--muted); font:inherit; font-size:11px; line-height:1.4; cursor:pointer; }.researchPlanGroups .gameIcon { flex-shrink:0; }
+.researchPlanGroups button[aria-pressed=true] { background:rgba(125,171,231,.12); border-color:#a4c7f0; color:#d3e6ff; }.researchPlanGroups button:focus-visible,.researchPlanFoundation:focus-visible { outline:2px solid #a4c7f0; outline-offset:2px; }.researchPlanGroups button:disabled,.researchPlanFoundation:disabled { opacity:.55; cursor:default; }
 .researchPlanGoals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
 .researchPlanGoal { position:relative; min-width:0; min-height:84px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px solid var(--line); border-radius:11px; color:var(--muted); background:var(--panel2); font:inherit; font-size:11px; line-height:1.4; text-align:center; cursor:pointer; }
 .researchPlanGoalVisual { display:flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 34px; }

@@ -7,6 +7,7 @@ import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan } from '@/lib/game/research-plan';
 import { TUTORIAL_STEPS } from '@/lib/game/tutorial';
 import '@/app/onboarding.css';
+import '@/app/colony-guide.css';
 
 type Props = {
   tutorial: any;
@@ -46,12 +47,6 @@ function remainingTime(endsAt: unknown, now: number) {
   const minutes = roundedMinutes % 60;
   return hours ? `Осталось ${hours} ч.${minutes ? ` ${minutes} мин.` : ''}` : seconds >= 60 ? `Осталось ${Math.ceil(seconds / 60)} мин.` : `Осталось ${seconds} сек.`;
 }
-function researchTime(endsAt: unknown, now: number) {
-  const end = new Date(String(endsAt ?? '')).getTime();
-  if (!Number.isFinite(end)) return 'Обнови колонию, чтобы проверить готовность технологии.';
-  return now >= end ? 'Время вышло. Обнови результат, чтобы применить технологию.' : remainingTime(endsAt, now);
-}
-
 export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRefresh, onHelp, research, plannedResearchKey }: Props) {
   const id = useId();
   const [submitting, setSubmitting] = useState(false);
@@ -120,6 +115,7 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
   let nextHint = plannedResearchKey && completedSet.has(plannedResearchKey)
     ? 'Выбранная цель уже изучена. Выбери следующую технологию в исследованиях.'
     : 'Посмотри ветки исследований и выбери, что сейчас полезнее твоей колонии.';
+  let nextRefresh = false;
   const nextWaiting: { title: string; endsAt: unknown; kind: 'building' | 'research' }[] = [];
 
   if (hqLevel < BUILDINGS.research_lab.unlockHq) {
@@ -134,12 +130,13 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     }
   } else if (currentResearch) {
     const ready = new Date(currentResearch.completes_at).getTime() <= now;
+    nextRefresh = ready;
     nextEyebrow = ready ? 'Готово к проверке' : 'Сейчас исследуется';
     nextTitle = activeTechnology?.name ?? 'Исследование колонии';
     nextWhy = activeTechnology?.effectText ?? 'После завершения обнови колонию, чтобы увидеть результат.';
     nextHint = labPending ? `Центр ${labPending.status === 'building' ? 'строится' : 'улучшается'}, а запущенное исследование продолжает выполняться.` : 'Технология выполняется и при закрытой игре.';
     nextAction = activeTechnology ? `research:${activeTechnology.key}` : 'research';
-    nextLabel = 'Показать исследование';
+    nextLabel = ready ? 'Обновить результат' : 'К исследованию';
     nextWaiting.push({ title: 'Готовность технологии', endsAt: currentResearch.completes_at, kind: 'research' });
     if (labPending) nextWaiting.push({ title: labPending.status === 'upgrading' ? 'Центр улучшается' : 'Центр строится', endsAt: labPending.completes_at, kind: 'building' });
   } else if (allResearched) {
@@ -153,7 +150,7 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     nextWhy = 'Центр производит науку. Технологии помогут получать больше ресурсов с каждой клетки и развивать производство.';
     nextHint = 'Выбери свободную клетку в городе для нового центра.';
     nextAction = 'build_lab';
-    nextLabel = 'Показать исследовательский центр';
+    nextLabel = 'Выбрать место';
   } else if (labStatus === 'building' || labStatus === 'upgrading') {
     nextEyebrow = 'Научное развитие';
     nextTitle = labStatus === 'building' ? 'Исследовательский центр строится' : 'Исследовательский центр улучшается';
@@ -166,9 +163,9 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     nextEyebrow = 'Цель достигнута';
     nextTitle = target?.name ?? 'Технология открыта';
     nextWhy = target?.effectText ?? 'Бонус технологии уже действует в колонии.';
-    nextHint = target?.unlockBuilding ? 'Открой карточку технологии, чтобы выбрать постройку нового здания.' : target?.unlockRecipe ? 'Открой карточку технологии и перейди к новому рецепту плавки.' : 'Можно выбрать новую цель в плане развития.';
+    nextHint = target?.unlockBuilding ? 'Открой карточку технологии, чтобы выбрать постройку нового здания.' : target?.unlockRecipe ? 'Открой карточку технологии и перейди к новому рецепту плавки.' : target?.unlockFeature ? 'Открой карточку технологии и перейди к новой возможности колонии.' : 'Можно выбрать новую цель в плане развития.';
     nextAction = `research:${plannedResearchKey}`;
-    nextLabel = target?.unlockBuilding || target?.unlockRecipe ? 'Использовать технологию' : 'Выбрать следующую цель';
+    nextLabel = target?.unlockBuilding || target?.unlockRecipe || target?.unlockFeature ? 'Использовать технологию' : 'Сменить цель';
   } else if (plan?.next) {
     nextEyebrow = 'План развития';
     nextTitle = `Следующая цель: ${plan.target.name}`;
@@ -178,23 +175,57 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
       : plan.next.key === plan.target.key ? 'Предыдущие технологии изучены. Посмотри стоимость и запусти исследование, когда хватит ресурсов.'
       : `Сначала изучи «${plan.next.name}». Это следующий шаг на пути к выбранной цели.`;
     nextAction = `research:${plan.next.key}`;
-    nextLabel = 'Показать следующий шаг';
+    nextLabel = 'К следующему шагу';
+    if (hqLevel < plan.next.unlockHq) {
+      nextTitle = `Улучши базу до уровня ${plan.next.unlockHq}`;
+      nextAction = 'upgrade_hq';
+      nextLabel = 'К улучшению базы';
+      if (hq?.status === 'upgrading') nextWaiting.push({ title: 'Центр управления улучшается', endsAt: hq.completes_at, kind: 'building' });
+    } else if (labLevel < plan.next.labLevel) {
+      nextTitle = `Улучши исследовательский центр до уровня ${plan.next.labLevel}`;
+      nextAction = 'upgrade_lab';
+      nextLabel = 'К улучшению центра';
+    }
+  } else if (!plannedResearchKey && labStatus === 'active' && !completedSet.has('basic_theory')) {
+    const foundation = catalog.find((item) => item.key === 'basic_theory');
+    if (foundation) {
+      nextTitle = `Изучи «${foundation.name}»`;
+      nextWhy = `${foundation.effectText}. Эта технология открывает путь к остальным исследованиям.`;
+      nextHint = 'Открой карточку первой технологии: там указаны стоимость и время. Наука копится в исследовательском центре.';
+      nextAction = 'research:basic_theory';
+      nextLabel = 'К первой технологии';
+    }
+  }
+
+  if (completed) {
+    const waiting = nextWaiting[0];
+    const waitingReady = waiting && new Date(String(waiting.endsAt)).getTime() <= now;
+    const refreshAction = nextRefresh || (waiting?.kind === 'building' && waitingReady);
+    const actionLabel = !nextRefresh && refreshAction ? 'Проверить готовность' : nextLabel;
+    return <section className="card colonyGuide colonyGuideComplete colonyNextStep" aria-labelledby={`${id}-title`}>
+      <div className="colonyNextStepMain">
+        <div className="colonyNextStepHeading"><span className="onboardingEyebrow">{nextEyebrow}</span><h2 id={`${id}-title`}>{nextTitle}</h2>
+          {waiting && <span className="colonyNextStepTimer" role="timer" aria-live="off" aria-label={`${waiting.title}: ${remainingTime(waiting.endsAt, now)}`}><GameIcon name={waiting.kind === 'research' ? 'research' : 'clock'} size={14} />{waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}</span>}
+        </div>
+        <button className="action secondary colonyNextStepAction" type="button" disabled={locked} onClick={refreshAction ? onRefresh : () => onAction(nextAction)}>{actionLabel}<GameIcon name={refreshAction ? 'refresh' : 'arrow'} size={16} /></button>
+      </div>
+      <details className="colonyNextStepDetails"><summary>Зачем это нужно</summary><p className="colonyGuideWhy">{nextWhy}</p><p className="colonyGuideHint">{nextHint}</p>
+        {nextWaiting.slice(1).map((item, index) => <p className="colonyNextStepExtraTimer" key={`${item.kind}-${index}`}><GameIcon name="clock" size={14} />{item.title}: {remainingTime(item.endsAt, now)}</p>)}
+      </details>
+    </section>;
   }
   const rewards = Object.entries(current?.reward ?? {}).filter(([resource, amount]) => resource !== 'cosmeticId' && typeof amount === 'number' && amount > 0);
   const labels: Record<string, string> = { ore: 'руды', energy: 'энергии', parts: 'деталей', credits: 'кредитов', crystals: 'кристаллов', science: 'науки' };
 
-  return <section className={`card colonyGuide${completed ? ' colonyGuideComplete' : ''}`} aria-labelledby={`${id}-title`} aria-busy={submitting}>
-    <div className="colonyGuideTop"><span className="onboardingEyebrow">{completed ? nextEyebrow : 'Первые шаги'}</span><div>{!completed && <span className="colonyGuideCount" aria-label={`Шаг ${step + 1} из ${total}`}>{step + 1} / {total}</span>}{onHelp && <button className="colonyGuideHelp" type="button" onClick={onHelp} aria-label="Как играть в COLONY"><GameIcon name="help" size={20} /></button>}</div></div>
-    <h2 id={`${id}-title`}>{completed ? nextTitle : text(current?.title, 'Развивай колонию')}</h2>
-    <p className="colonyGuideWhy">{completed ? nextWhy : text(current?.why, fallback.why)}</p>
-    {completed && <p className="colonyGuideHint">{nextHint}</p>}
-    {completed && nextWaiting.map((waiting, index) => <div className="colonyGuidePending" key={`${waiting.kind}-${index}`}><GameIcon name={waiting.kind === 'research' ? 'research' : 'clock'} size={19} /><div><strong>{waiting.title}</strong><span role="timer" aria-live="off">{waiting.kind === 'research' ? researchTime(waiting.endsAt, now) : remainingTime(waiting.endsAt, now)}</span></div>{index === 0 && <button className="miniButton" type="button" disabled={locked} onClick={onRefresh}>Проверить</button>}</div>)}
-    {!completed && !canClaim && <p className="colonyGuideHint">{text(current?.hint, FALLBACKS[current?.key]?.hint ?? text(current?.description, fallback.hint))}</p>}
+  return <section className="card colonyGuide" aria-labelledby={`${id}-title`} aria-busy={submitting}>
+    <div className="colonyGuideTop"><span className="onboardingEyebrow">Первые шаги</span><div><span className="colonyGuideCount" aria-label={`Шаг ${step + 1} из ${total}`}>{step + 1} / {total}</span>{onHelp && <button className="colonyGuideHelp" type="button" onClick={onHelp} aria-label="Как играть в COLONY"><GameIcon name="help" size={20} /></button>}</div></div>
+    <h2 id={`${id}-title`}>{text(current?.title, 'Развивай колонию')}</h2>
+    <p className="colonyGuideWhy">{text(current?.why, fallback.why)}</p>
+    {!canClaim && <p className="colonyGuideHint">{text(current?.hint, FALLBACKS[current?.key]?.hint ?? text(current?.description, fallback.hint))}</p>}
     {pending && !canClaim && <div className="colonyGuidePending"><GameIcon name="clock" size={19} /><div><strong>{pending.status === 'upgrading' ? 'Улучшение идёт…' : 'Строительство идёт…'}</strong><span role="timer" aria-live="off">{remainingTime(pending.completes_at, now)}</span></div><button className="miniButton" type="button" disabled={locked} onClick={onRefresh}>Проверить</button></div>}
-    {!completed && <div className="colonyGuideRewards"><span>{canClaim ? 'Готово. Твоя награда:' : 'Награда за шаг:'}</span><div>{rewards.map(([resource, amount]) => <span key={resource} title={labels[resource] ?? resource} aria-label={`${amount} ${labels[resource] ?? resource}`}><GameIcon name={resource} size={15} />{Number(amount).toLocaleString('ru-RU')}</span>)}{current?.reward?.cosmeticId && <span><GameIcon name="star" size={15} />Предмет оформления</span>}</div></div>}
+    <div className="colonyGuideRewards"><span>{canClaim ? 'Готово. Твоя награда:' : 'Награда за шаг:'}</span><div>{rewards.map(([resource, amount]) => <span key={resource} title={labels[resource] ?? resource} aria-label={`${amount} ${labels[resource] ?? resource}`}><GameIcon name={resource} size={15} />{Number(amount).toLocaleString('ru-RU')}</span>)}{current?.reward?.cosmeticId && <span><GameIcon name="star" size={15} />Предмет оформления</span>}</div></div>
     <div className="colonyGuideActions">
-      {completed ? <button className="action secondary" type="button" disabled={locked} onClick={() => onAction(nextAction)}>{nextLabel}<GameIcon name="arrow" size={17} /></button>
-        : canClaim ? <button className="action colonyGuideClaim" type="button" disabled={locked} onClick={() => void claim()}>{submitting ? 'Получаем награду…' : step === 0 ? 'Начать развитие' : 'Забрать награду и продолжить'}<GameIcon name={step === 0 ? 'arrow' : 'check'} size={18} /></button>
+      {canClaim ? <button className="action colonyGuideClaim" type="button" disabled={locked} onClick={() => void claim()}>{submitting ? 'Получаем награду…' : step === 0 ? 'Начать развитие' : 'Забрать награду и продолжить'}<GameIcon name={step === 0 ? 'arrow' : 'check'} size={18} /></button>
           : <button className="action secondary" type="button" disabled={locked} onClick={() => onAction(pending ? 'city' : text(current?.action, fallback.action))}>{pending ? 'Показать на карте' : text(current?.actionLabel, fallback.label)}<GameIcon name="arrow" size={17} /></button>}
     </div>
     {feedback && <div className={`notice onboardingFeedback${feedback.error ? ' error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
