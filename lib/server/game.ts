@@ -160,9 +160,10 @@ export async function reconcilePlayer(userId: string) {
     await ensureDailyLogin(tx, userId);
     await ensureWelcomeInbox(tx, userId);
     await reconcileExpiredMarketOrders(tx, userId);
+    await reconcileExpeditions(tx, userId);
 
-    // Daily login and market already lock their rows before game_states. Keep
-    // that order, then serialize research completion/progression on this state.
+    // Daily login, market and expedition settlement lock their rows before
+    // game_states. Keep that order, then serialize research completion here.
     const stateRows = await tx<any[]>`
       SELECT *, now() AS reconciled_at FROM game_states WHERE user_id = ${userId} FOR UPDATE
     `;
@@ -175,7 +176,6 @@ export async function reconcilePlayer(userId: string) {
       SELECT research_key,status,completes_at,completed_at FROM user_research WHERE user_id=${userId}
     `;
     await reconcileResearch(tx, userId);
-    await reconcileExpeditions(tx, userId);
 
     await tx`
       UPDATE buildings
