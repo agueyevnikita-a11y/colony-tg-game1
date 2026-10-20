@@ -205,7 +205,7 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     return <section className="card colonyGuide colonyGuideComplete colonyNextStep" aria-labelledby={`${id}-title`}>
       <div className="colonyNextStepMain">
         <div className="colonyNextStepHeading"><span className="onboardingEyebrow">{nextEyebrow}</span><h2 id={`${id}-title`}>{nextTitle}</h2>
-          {waiting && <span className="colonyNextStepTimer" role="timer" aria-live="off" aria-label={`${waiting.title}: ${remainingTime(waiting.endsAt, now)}`}><GameIcon name={waiting.kind === 'research' ? 'research' : 'clock'} size={14} />{waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}</span>}
+          {waiting && <span className="colonyNextStepTimer" role="timer" aria-live="off" aria-label={`${waiting.title}: ${waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}`}><GameIcon name={waiting.kind === 'research' ? 'research' : 'clock'} size={14} />{waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}</span>}
         </div>
         <button className="action secondary colonyNextStepAction" type="button" disabled={locked} onClick={refreshAction ? onRefresh : () => onAction(nextAction)}>{actionLabel}<GameIcon name={refreshAction ? 'refresh' : 'arrow'} size={16} /></button>
       </div>

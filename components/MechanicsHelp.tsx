@@ -78,7 +78,25 @@ export function MechanicsHelp({ open, onClose, onNavigate }: Props) {
   }
 
   return <dialog ref={dialogRef} className="onboardingDialog mechanicsDialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-intro`}
-    onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    onCancel={(event) => { event.preventDefault(); onClose(); }}
+    onKeyDown={(event) => {
+      if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = [...dialog.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, summary, [tabindex]')]
+        .filter((element) => element.tabIndex >= 0 && !element.matches(':disabled')
+          && !element.closest('[hidden], [inert]') && element.getClientRects().length > 0
+          && getComputedStyle(element).visibility === 'visible')
+        .sort((a, b) => (a.tabIndex || Infinity) - (b.tabIndex || Infinity));
+      const first = focusable[0] ?? closeRef.current;
+      const last = focusable.at(-1) ?? closeRef.current;
+      const active = document.activeElement;
+      if (!dialog.contains(active) || (event.shiftKey ? active === first : active === last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      }
+    }}
+    onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="onboardingDialogBody mechanicsBody">
       <header className="mechanicsHeading"><div><span className="onboardingEyebrow">Справочник колониста</span><h2 id={`${id}-title`}>Как играть в COLONY</h2></div><button ref={closeRef} type="button" className="onboardingClose" aria-label="Закрыть справочник" onClick={onClose}><GameIcon name="close" size={21} /></button></header>
       <p id={`${id}-intro`} className="mechanicsIntro">Построй самостоятельную колонию: наладь добычу, выпускай детали и выбирай, что развивать дальше.</p>
