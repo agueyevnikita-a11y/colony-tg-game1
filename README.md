@@ -1,4 +1,4 @@
-# COLONY v1.9.1 Beta
+# COLONY v1.9.2 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -21,6 +21,8 @@ v1.8 introduces gentle colony events after the initial tutorial. Each situation 
 v1.9 reorganizes long screens into task-focused subsections: city map, production, contracts, events and decor; research, construction and expeditions; separate buying/selling; daily and weekly goals; offers and owned cosmetics; social tools and settings. Resources and post-tutorial guidance expand on demand. Direct actions open the relevant subsection, and prepared foundry settings survive a visit to the map. Contracts and expeditions now show local errors and complete outcomes; expedition cargo waits instead of overflowing, and repeated collection cannot grant rewards twice. No new database migration is required from v1.8. See [navigation and reliability changes](docs/INTERFACE_v1.9.md).
 
 v1.9.1 applies beta visual feedback: smaller research goal graphics with safe spacing and undistorted building previews in the cosmetics shop. No migration or gameplay change is required.
+
+v1.9.2 makes city actions immediately accessible: tapping a building opens a panel over the map, with links to its function, upgrade costs and duration. Construction is available beside the map. Closing the panel restores the map position; placement and existing production settings are retained. No database migration is required.
 
 ## Stack
 

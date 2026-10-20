@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.2-beta.1 — City Actions Within Reach
+- Opened building and decor actions in an accessible panel over the map, with local feedback and close/back controls.
+- Added direct links from buildings to the selected foundry, research, contracts, expeditions and alliance.
+- Added a construction entry beside the map, feedback for empty cells and upgrade durations.
+- Preserved placement, paid work, production settings and economy; no database migration is required.
+
 ## 1.9.1-beta.1 — Beta Visual Feedback
 - Reduced research goal thumbnails, removed negative margins and reserved a consistent visual area inside each button.
 - Added comfortable spacing around goal art without reducing the touch target or changing research behavior.

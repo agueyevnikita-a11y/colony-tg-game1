@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
+import { CityActionSheet } from '@/components/CityActionSheet';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
 import { ResearchPanel } from '@/components/ResearchPanel';
@@ -48,6 +49,13 @@ const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> 
   social: [{ key: 'profile', label: 'Профиль' }, { key: 'alliance', label: 'Альянс' }, { key: 'rating', label: 'Рейтинг' }, { key: 'friends', label: 'Друзья' }, { key: 'inbox', label: 'Почта' }, { key: 'settings', label: 'Настройки' }, { key: 'admin', label: 'Управление' }],
 };
 const DEFAULT_SUBSECTIONS: Record<Tab, string> = { city: 'map', build: 'research', market: 'buy', missions: 'daily', shop: 'offers', social: 'profile' };
+const BUILDING_SHORTCUTS: Record<string, { action: string; label: string; icon: string }> = {
+  foundry: { action: 'production', label: 'Открыть этот цех', icon: 'parts' },
+  research_lab: { action: 'research', label: 'Открыть исследования', icon: 'research' },
+  trade_hub: { action: 'contracts', label: 'Открыть контракты', icon: 'market' },
+  expedition_center: { action: 'expeditions', label: 'Открыть экспедиции', icon: 'rocket' },
+  alliance_hub: { action: 'alliance', label: 'Открыть альянс', icon: 'social' },
+};
 function readAwaitingProducts(key: string): string[] {
   try {
     const stored: unknown = JSON.parse(sessionStorage.getItem(key) ?? '[]');
@@ -96,6 +104,7 @@ export default function Home() {
   const [moveBuildingId, setMoveBuildingId] = useState<string | null>(null);
   const [decorPlacementType, setDecorPlacementType] = useState<string | null>(null);
   const [selectedDecorId, setSelectedDecorId] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [constructionFeedback, setConstructionFeedback] = useState<{ target: string; text: string; error: boolean } | null>(null);
   const cityMapRef = useRef<HTMLElement>(null);
   const mapFeedbackRef = useRef<HTMLDivElement>(null);
@@ -183,6 +192,7 @@ export default function Home() {
   }, [tab, subsections]);
 
   function showSection(nextTab: Tab, section: string) {
+    setInspectorOpen(false);
     setTab(nextTab);
     setSubsections(previous => previous[nextTab] === section ? previous : { ...previous, [nextTab]: section });
   }
@@ -200,6 +210,7 @@ export default function Home() {
   }
 
   function openSection(nextTab: Tab) {
+    setInspectorOpen(false);
     navigationToTop.current = true;
     setFocusedResearch(null);
     guideNavigationPending.current = null;
@@ -234,6 +245,7 @@ export default function Home() {
 
   useEffect(() => {
     const target = guideNavigationPending.current;
+    if (inspectorOpen && target === 'map') { guideNavigationPending.current = null; return; }
     const refs = { map: cityMapRef, production: productionPanelRef, contracts: contractsRef, hq: hqUpgradeRef, research: researchPanelRef, build: buildingCatalogRef, events: colonyEventsRef, publicCity: publicCityRef };
     const element = target ? refs[target].current : null;
     if (element) {
@@ -242,9 +254,10 @@ export default function Home() {
       element.focus({ preventScroll: true });
       element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
-  }, [tab, subsections, guideNavigationVersion]);
+  }, [tab, subsections, guideNavigationVersion, inspectorOpen]);
 
   function navigateGuide(action: string) {
+    setInspectorOpen(false);
     setHelpOpen(false);
     setConstructionFeedback(null);
     setMessage('');
@@ -270,18 +283,21 @@ export default function Home() {
         ?? (game?.buildings ?? []).find((item: any) => item.type === type);
       if (building) setSelectedBuildingId(building.id);
       showSection('city', 'map'); guideNavigationPending.current = 'map';
+      setInspectorOpen(!!building);
     } else if (action === 'contracts') {
       showSection('city', 'contracts'); guideNavigationPending.current = 'contracts';
     } else if (action === 'upgrade_hq') {
       const center = (game?.buildings ?? []).find((building: any) => building.type === 'hq');
       if (center) setSelectedBuildingId(center.id);
       showSection('city', 'map'); guideNavigationPending.current = 'map';
+      setInspectorOpen(!!center);
     } else if (action === 'upgrade_lab') {
       const labs = (game?.buildings ?? []).filter((building: any) => building.type === 'research_lab');
       const lab = labs.filter((building: any) => building.status === 'active').sort((a: any, b: any) => Number(b.level) - Number(a.level))[0]
         ?? labs.sort((a: any, b: any) => Number(b.level) - Number(a.level))[0];
       if (lab) setSelectedBuildingId(lab.id);
       showSection('city', 'map'); guideNavigationPending.current = 'map';
+      setInspectorOpen(!!lab);
     } else if (action.startsWith('research:')) {
       const key = action.slice('research:'.length);
       if (game?.research?.catalog?.some((item: any) => item.key === key)) {
@@ -296,11 +312,18 @@ export default function Home() {
       showSection('build', 'buildings'); guideNavigationPending.current = 'build';
     } else if (action === 'market') {
       showSection('market', 'buy'); window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (action === 'expeditions') {
+      navigationToTop.current = true;
+      showSection('build', 'expeditions');
+    } else if (action === 'alliance') {
+      navigationToTop.current = true;
+      showSection('social', 'alliance');
     } else {
       const target = game?.tutorial?.current?.targetBuilding;
       const building = (game?.buildings ?? []).find((item: any) => item.type === target && item.status !== 'active');
       if (building) setSelectedBuildingId(building.id);
       showSection('city', 'map'); guideNavigationPending.current = 'map';
+      setInspectorOpen(!!building);
     }
     setGuideNavigationVersion((version) => version + 1);
   }
@@ -558,12 +581,14 @@ export default function Home() {
       setSelectedBuildingId(building.id);
       setSelectedDecorId(null);
       setConstructionFeedback(placementType || decorPlacementType || moveBuildingId ? { target: 'map', text: 'Клетка занята. Выбери свободную.', error: true } : null);
+      setInspectorOpen(!placementType && !decorPlacementType && !moveBuildingId);
       return;
     }
     if (decor) {
       setSelectedDecorId(decor.id);
       setSelectedBuildingId(null);
       setConstructionFeedback(placementType || decorPlacementType || moveBuildingId ? { target: 'map', text: 'Клетка занята декором. Выбери свободную.', error: true } : null);
+      setInspectorOpen(!placementType && !decorPlacementType && !moveBuildingId);
       return;
     }
     if (decorPlacementType) {
@@ -586,7 +611,10 @@ export default function Home() {
         setMoveBuildingId(null);
         setSelectedBuildingId(buildingId);
       }
+      return;
     }
+    setSelectedBuildingId(null); setSelectedDecorId(null);
+    setConstructionFeedback({ target: 'map', text: 'Свободная клетка. Нажми «Построить», выбери здание, затем место на карте.', error: false });
   }
 
   function beginPlacement(type: string, name: string) {
@@ -601,6 +629,7 @@ export default function Home() {
   }
 
   function beginMove(building: any) {
+    setInspectorOpen(false);
     setMoveBuildingId(building.id);
     setPlacementType(null);
     setDecorPlacementType(null);
@@ -696,7 +725,7 @@ export default function Home() {
       {tab === 'city' && <>
         {subsections.city === 'map' && <div data-section-panel="city-map">
 <section className="card cityCard" ref={cityMapRef}>
-          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание, чтобы узнать его пользу и улучшить.</p></div><button className="miniButton" onClick={shareCity}><GameIcon name="share" size={15} /> Поделиться</button></div>
+          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание — откроются его действия.</p></div></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : 'Перемещение здания'}</span>
             <button className="miniButton" onClick={cancelMapAction}>Отмена</button>
@@ -723,12 +752,17 @@ export default function Home() {
             badge={equippedBadge}
             onCell={handleCityCell}
           />
+          {!placementType && !decorPlacementType && !moveBuildingId && <div className="cityMapActions">
+            <button type="button" className="action" disabled={busy} onClick={() => navigateGuide('build')}><GameIcon name="build" size={17} /> Построить</button>
+            <button type="button" className="action secondary" onClick={shareCity}><GameIcon name="share" size={17} /> Поделиться</button>
+          </div>}
           <div className="mapFeedback" ref={mapFeedbackRef}>
             {constructionNotice('map')}
             {placementType && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}
           </div>
         </section>
 
+        <CityActionSheet open={inspectorOpen && !!(selectedBuilding || selectedDecor)} title="Действия на карте" onClose={() => setInspectorOpen(false)}>
         {selectedBuilding && <section className="card buildingInspector">
           {(() => {
             const cfg = game.catalog.find((x: any) => x.type === selectedBuilding.type);
@@ -739,8 +773,13 @@ export default function Home() {
                 <div><span>Статус</span><b>{selectedBuilding.status === 'active' ? 'Работает' : `${selectedBuilding.status === 'upgrading' ? 'Улучшается' : 'Строится'} → ур. ${selectedBuilding.target_level}`}</b></div>
                 <div><span>Производство</span><b>{productionText(selectedBuilding.production, selectedBuilding.type)}</b></div>
               </div>
+              {BUILDING_SHORTCUTS[selectedBuilding.type] && <button type="button" className="action inspectorShortcut" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => {
+                const id = selectedBuilding.id;
+                navigateGuide(BUILDING_SHORTCUTS[selectedBuilding.type].action);
+                if (selectedBuilding.type === 'foundry') setSelectedBuildingId(id);
+              }}><GameIcon name={BUILDING_SHORTCUTS[selectedBuilding.type].icon} size={18} /> {BUILDING_SHORTCUTS[selectedBuilding.type].label}</button>}
               <ConstructionStatus building={selectedBuilding} busy={busy} onRefresh={() => { void refresh(); }} />
-              {selectedBuilding.nextUpgrade && <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b></div>}
+              {selectedBuilding.nextUpgrade ? <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b>{Number(selectedBuilding.nextUpgrade.timeSec) > 0 && <small className="inspectorUpgradeTime"><GameIcon name="clock" size={14} /> {durationText(selectedBuilding.nextUpgrade.timeSec)}</small>}</div> : <p className="finePrint">Достигнут максимальный уровень здания.</p>}
               <div className="grid2">
                 <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => constructionAction(`upgrade:${selectedBuilding.id}`, '/api/game/building/upgrade', { buildingId: selectedBuilding.id }, 'Улучшение запущено')}><GameIcon name="upgrade" size={17} /> Улучшить</button>
                 <button className="action secondary" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => beginMove(selectedBuilding)}><GameIcon name="move" size={17} /> Переместить</button>
@@ -755,9 +794,20 @@ export default function Home() {
           {(() => { const cfg=(game.decorCatalog??[]).find((x:any)=>x.type===selectedDecor.type); return <>
             <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedDecor.type} /></div><div><h2>{cfg?.name ?? selectedDecor.type}</h2><p>Декор · клетка {Number(selectedDecor.x)+1}:{Number(selectedDecor.y)+1}</p></div></div>
             <p className="finePrint">Декор не даёт City Score и не влияет на производство. При демонтаже возвращается 50% кредитной стоимости.</p>
-            <button className="action secondary" disabled={busy} onClick={()=>api('/api/game/decor/remove',{decorId:selectedDecor.id}).then((d:any)=>{setSelectedDecorId(null);setMessage(`Декор демонтирован · возврат 💰${n(d.result?.refund)}`)}).catch(()=>{})}>Убрать декор</button>
+            <button className="action secondary" disabled={busy} onClick={async () => {
+              try {
+                const data = await api('/api/game/decor/remove', { decorId: selectedDecor.id });
+                setInspectorOpen(false); setSelectedDecorId(null);
+                setConstructionFeedback({ target: 'map', text: `Декор демонтирован · возврат кредитов: ${n(data.result?.refund)}`, error: false });
+              } catch (error) {
+                setMessage('');
+                setConstructionFeedback({ target: `decor:${selectedDecor.id}`, text: error instanceof Error ? error.message : 'Не удалось убрать декор. Попробуй ещё раз.', error: true });
+              }
+            }}>Убрать декор</button>
+            {constructionNotice(`decor:${selectedDecor.id}`)}
           </>})()}
         </section>}
+        </CityActionSheet>
         </div>}
         <div data-section-panel="city-production" hidden={subsections.city !== 'production'}>
 <div ref={productionPanelRef}><ProductionPanel
@@ -777,7 +827,7 @@ export default function Home() {
           onResearch={(key) => navigateGuide(`research:${key}`)}
           onRefresh={() => { void refresh(); }}
           onBuild={() => beginPlacement('foundry', 'Литейный цех')}
-          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); showSection('city', 'map'); guideNavigationPending.current = 'map'; setGuideNavigationVersion(version => version + 1); }}
+          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); showSection('city', 'map'); setInspectorOpen(true); guideNavigationPending.current = 'map'; setGuideNavigationVersion(version => version + 1); }}
           feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
         /></div>
         </div>

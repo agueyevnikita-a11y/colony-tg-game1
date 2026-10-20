@@ -51,6 +51,12 @@ body:has(.colonyApp) { background:radial-gradient(ellipse at 50% 0,rgba(43,81,96
 .resourceCostInline { display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 10px; line-height:1.7; }
 .colonyApp .inspectorEmoji { width:72px; height:72px; flex-shrink:0; padding:0; background:rgba(136,191,197,.04); border:1px solid var(--line); border-radius:15px; }
 .buildingPurpose { padding:10px 12px; border-left:2px solid var(--accent); border-radius:0 10px 10px 0; background:rgba(133,221,191,.04); }
+.cityMapActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.cityMapActions .action { display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; padding-inline:8px; }
+.inspectorShortcut { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; }
+.inspectorUpgradeTime { display:flex; align-items:center; gap:5px; margin-top:6px; color:var(--muted); font-size:11px; }
+.buildingInspector .upgradeBox .resourceCostInline { display:flex; margin:0; font-size:12px; color:var(--text); }
+.buildingInspector .upgradeBox .gameAmount { display:inline-flex; margin:0; font-size:inherit; color:inherit; }
 .placementPreview { display:flex; align-items:center; gap:10px; margin:0 0 12px; padding:10px; border:1px solid rgba(133,221,191,.3); border-radius:14px; background:rgba(133,221,191,.055); }
 .placementPreview > .buildingArt { width:58px; flex-shrink:0; }
 .placementPreview strong { display:block; margin-bottom:5px; font-size:13px; }

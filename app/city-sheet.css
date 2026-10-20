@@ -1,0 +1,94 @@
+.cityActionSheet {
+  position:fixed;
+  inset:auto 0 0;
+  width:100%;
+  height:fit-content;
+  max-width:600px;
+  max-height:90vh;
+  max-height:90dvh;
+  margin:0 auto;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--text);
+  overflow:visible;
+}
+.cityActionSheet::backdrop {
+  background:rgba(3,10,16,.72);
+  backdrop-filter:blur(4px);
+}
+.cityActionSheetPanel {
+  display:flex;
+  flex-direction:column;
+  max-height:90vh;
+  max-height:90dvh;
+  min-height:0;
+  border:1px solid rgba(114,228,173,.24);
+  border-bottom:0;
+  border-radius:24px 24px 0 0;
+  background:var(--panel);
+  box-shadow:0 -12px 50px rgba(0,0,0,.3);
+  overflow:hidden;
+}
+.cityActionSheetHeader {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex:0 0 auto;
+  gap:12px;
+  padding:8px 12px 8px 16px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+}
+.cityActionSheetTitle {
+  position:absolute;
+  width:1px;
+  height:1px;
+  margin:-1px;
+  padding:0;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
+}
+.cityActionSheetEyebrow {color:var(--muted);font-size:12px;line-height:1.4;}
+.cityActionSheetClose {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  gap:6px;
+  min-width:44px;
+  min-height:44px;
+  padding:8px 12px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--panel2);
+  color:var(--text);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.cityActionSheetClose:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
+.cityActionSheetContent {
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:12px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  scroll-padding:12px;
+}
+.cityActionSheetContent > .card {margin:0;}
+.cityActionSheetContent .inspectorHead > div:last-child {min-width:0;}
+.cityActionSheetContent .inspectorHead h2 {overflow-wrap:anywhere;}
+.cityActionSheetContent .grid2 .action {display:flex;align-items:center;justify-content:center;gap:5px;padding-inline:6px;font-size:13px;}
+.cityActionSheetContent .grid2 .gameIcon {flex-shrink:0;}
+.cityActionSheet[open] .cityActionSheetPanel {animation:cityActionSheetEnter .18s ease-out;}
+@keyframes cityActionSheetEnter {from {opacity:.6;transform:translateY(18px);}to {opacity:1;transform:translateY(0);}}
+@media (min-width:640px) {
+  .cityActionSheet {inset:0;margin:auto;width:calc(100% - 32px);}
+  .cityActionSheetPanel {border-bottom:1px solid rgba(114,228,173,.24);border-radius:24px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .cityActionSheet[open] .cityActionSheetPanel {animation:none;}
+}
