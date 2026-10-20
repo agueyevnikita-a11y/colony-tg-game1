@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0-beta.1 — Cosmetics and Focused Tabs
+- Replaced the repeated colony-name header with COLONY and contextual section titles, with the full resource overview and guide on the city screen.
+- Added visual previews for the existing Stars products and collection controls for applying or removing cosmetics.
+- Displayed neon, aurora, orbital and founder appearances on the city and profile, sharing the rendering with shop previews.
+- Added a dedicated illustrated founder monument without changing existing product contents or prices.
+- Serialized cosmetic equipment changes and preserved precise PostgreSQL acquisition timestamps when selecting owned items.
+- Retained player progress and existing entitlements; no new migration is needed from v1.4/v1.5.
+
 ## 1.5.0-beta.1 — Colony Interface and First Steps
 - Added illustrated city buildings from a shared image atlas, a colony arrival illustration and consistent SVG icons for resources and actions.
 - Reworked the mobile resource bar, city catalog, building inspector, production and research presentation.

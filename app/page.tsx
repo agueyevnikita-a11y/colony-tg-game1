@@ -12,6 +12,8 @@ import { ConstructionStatus } from '@/components/ConstructionStatus';
 import { ColonyWelcome } from '@/components/ColonyWelcome';
 import { ColonyGuide } from '@/components/ColonyGuide';
 import { MechanicsHelp } from '@/components/MechanicsHelp';
+import { CosmeticsShop } from '@/components/CosmeticsShop';
+import { ColonyIdentity } from '@/components/CosmeticAppearance';
 import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
 import { APP_VERSION } from '@/lib/version';
@@ -21,6 +23,14 @@ import { botAppLink, playerStartParam, shareTelegramLink, supportsTelegram, tele
 
 type Tab = 'city' | 'build' | 'market' | 'missions' | 'shop' | 'social';
 const botLink = botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME);
+const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
+  city: { title: 'COLONY', hint: 'Твой город и производство' },
+  build: { title: 'Развитие', hint: 'Технологии и новые постройки' },
+  market: { title: 'Рынок', hint: 'Обмен ресурсами между колониями' },
+  missions: { title: 'Сезон', hint: 'Задания, достижения и награды' },
+  shop: { title: 'Магазин', hint: 'Оформление твоей колонии' },
+  social: { title: 'Связи', hint: 'Профиль, альянс и другие колонии' },
+};
 
 function n(value: unknown) {
   return new Intl.NumberFormat('ru-RU', {
@@ -31,13 +41,6 @@ function n(value: unknown) {
 
 function pct(progress: number, target: number) {
   return Math.max(0, Math.min(100, Math.round((Number(progress || 0) / Math.max(1, Number(target || 1))) * 100)));
-}
-
-function expiresText(value?: string | null) {
-  if (!value) return 'навсегда';
-  const ms = new Date(value).getTime() - Date.now();
-  if (ms <= 0) return 'истёк';
-  return `${Math.ceil(ms / 86_400_000)} дн.`;
 }
 
 function costDisplay(cost?: Record<string, number> | null) {
@@ -78,6 +81,9 @@ export default function Home() {
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const invoiceOpening = useRef(false);
+  const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
   const guideNavigationPending = useRef<'map' | 'production' | 'contracts' | 'hq' | 'research' | 'build' | null>(null);
   const contractsRef = useRef<HTMLElement>(null);
@@ -99,6 +105,24 @@ export default function Home() {
   const [feedbackCategory,setFeedbackCategory]=useState('general');
   const [feedbackMessage,setFeedbackMessage]=useState('');
   const [adminGeneratedCode,setAdminGeneratedCode]=useState('');
+
+  useEffect(() => {
+    if (!navigationToTop.current) return;
+    navigationToTop.current = false;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [tab]);
+
+  function openSection(nextTab: Tab) {
+    navigationToTop.current = true;
+    guideNavigationPending.current = null;
+    productionNavigationPending.current = false;
+    setPlacementType(null);
+    setMoveBuildingId(null);
+    setDecorPlacementType(null);
+    setConstructionFeedback(null);
+    setTab(nextTab);
+    if (nextTab === tab) { navigationToTop.current = false; window.scrollTo({ top: 0, behavior: 'auto' }); }
+  }
 
   useEffect(() => {
     if (tab === 'city' && (placementType || decorPlacementType || moveBuildingId)) {
@@ -151,7 +175,9 @@ export default function Home() {
     } else if (action === 'contracts') {
       setTab('city'); guideNavigationPending.current = 'contracts';
     } else if (action === 'upgrade_hq') {
-      setTab('build'); guideNavigationPending.current = 'hq';
+      const center = (game?.buildings ?? []).find((building: any) => building.type === 'hq');
+      if (center) setSelectedBuildingId(center.id);
+      setTab('city'); guideNavigationPending.current = 'map';
     } else if (action === 'research') {
       const next = game?.research?.catalog?.find((item: any) => item.status !== 'completed' && item.unlockedByHq && item.unlockedByLab && item.prereqsMet);
       setFocusedResearch(next?.key ?? null);
@@ -236,6 +262,8 @@ export default function Home() {
     const app = window.Telegram?.WebApp;
     if (phase !== 'ready' || !supportsTelegram(app, '6.1') || !app?.BackButton) return;
     const back = () => {
+      const dialog = document.querySelector<HTMLDialogElement>('dialog[open]');
+      if (dialog) { dialog.dispatchEvent(new Event('cancel', { cancelable: true })); return; }
       if (helpOpen) { setHelpOpen(false); return; }
       if (placementType || decorPlacementType || moveBuildingId) { cancelMapAction(); return; }
       if (selectedBuildingId || selectedDecorId) { setSelectedBuildingId(null); setSelectedDecorId(null); return; }
@@ -289,6 +317,9 @@ export default function Home() {
   const equippedTheme = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'theme')?.cosmetic_id ?? '';
   const equippedWeather = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'weather')?.cosmetic_id ?? '';
   const equippedBuildingSkin = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'building_skin')?.cosmetic_id ?? '';
+  const equippedFrame = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'frame')?.cosmetic_id ?? '';
+  const equippedEffect = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'effect')?.cosmetic_id ?? '';
+  const equippedBadge = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'badge')?.cosmetic_id ?? '';
 
   async function toggleNotifications(enable: boolean) {
     if (enable && game?.flags?.notifications === false) { setMessage('Уведомления временно отключены для закрытого теста'); return; }
@@ -342,14 +373,6 @@ export default function Home() {
     } catch {}
   }
 
-  async function recoverPurchases() {
-    try {
-      const data=await api('/api/payments/recover');
-      setMessage(data.message ?? `Восстановлено покупок: ${data.recovered ?? 0}`);
-      await refresh();
-    } catch {}
-  }
-
   async function sendFeedback() {
     try {
       await api('/api/feedback',{category:feedbackCategory,message:feedbackMessage,context:{tab,version:game?.version}});
@@ -359,19 +382,32 @@ export default function Home() {
   }
 
   async function buyStars(productId: string) {
-    if (game?.flags?.stars_shop === false) { setMessage('Магазин Stars временно отключён для закрытого теста'); return; }
+    if (game?.flags?.stars_shop === false) throw new Error('Покупки за Stars временно недоступны.');
+    if (invoiceOpening.current) throw new Error('Сначала заверши или закрой открытый счёт Telegram.');
     const app = window.Telegram?.WebApp;
-    if (!supportsTelegram(app, '6.1') || !app?.openInvoice) { setMessage('Покупки доступны внутри актуального Telegram.'); return; }
+    if (!supportsTelegram(app, '6.1') || !app?.openInvoice) throw new Error('Покупки доступны внутри актуального Telegram.');
+    invoiceOpening.current = true;
+    setInvoiceOpen(true);
     try {
       const data = await api('/api/payments/invoice', { productId });
       const invoice = new URL(data.invoiceLink);
       if (invoice.protocol !== 'https:' || invoice.hostname !== 't.me') throw new Error('Не удалось открыть счёт Telegram. Попробуйте позже.');
-      app.openInvoice(invoice.href, (status) => {
-        if (status === 'paid') setMessage('Платёж принят. Обновляем покупки…');
-        if (status === 'failed') setMessage('Платёж не завершён. Проверьте покупки перед повтором.');
-        void refresh(true);
+      await new Promise<void>((resolve, reject) => {
+        app.openInvoice!(invoice.href, (status) => {
+          invoiceOpening.current = false;
+          setInvoiceOpen(false);
+          void refresh(true);
+          if (status === 'failed') reject(new Error('Платёж не завершён. Проверь покупки перед повтором.'));
+          else if (status === 'cancelled') reject(new Error('Покупка отменена.'));
+          else resolve();
+        });
       });
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Не удалось открыть счёт Telegram.'); }
+    } catch (error) {
+      invoiceOpening.current = false;
+      setInvoiceOpen(false);
+      setMessage('');
+      throw error;
+    }
   }
 
   async function shareLink(start: string | undefined, text: string) {
@@ -514,27 +550,28 @@ export default function Home() {
         catch (error) { setMessage(''); throw error; }
       }} />}
       <MechanicsHelp open={helpOpen} onClose={() => setHelpOpen(false)} onNavigate={navigateGuide} />
-      <div className="header">
-        <div className="brandGroup"><div className="brandMark" aria-hidden="true"><BuildingArt type="hq" /></div><div><span className="brandKicker">COLONY · КОСМИЧЕСКАЯ СТРАТЕГИЯ</span><div className="brand">{game.profile?.colony_name || 'Твоя колония'}</div><div className="level">Центр ур. {s.hq_level} · Рейтинг города {n(s.city_score)}{s.premium ? ' · Premium' : ''}</div></div></div>
+      <div className={`header ${tab === 'city' ? 'cityHeader' : 'sectionHeader'}`}>
+        <div className="brandGroup"><div className="brandMark" aria-hidden="true">{tab === 'city' ? <BuildingArt type="hq" /> : <GameIcon name={tab === 'build' ? 'research' : tab === 'missions' ? 'missions' : tab === 'social' ? 'social' : tab} size={26} />}</div><div><span className="brandKicker">{tab === 'city' ? 'ПОСТРОЙ СВОЮ КОЛОНИЮ' : 'COLONY'}</span><h1 className="brand">{SECTION_TITLES[tab].title}</h1><div className="level">{SECTION_TITLES[tab].hint}</div></div></div>
         <button type="button" className="headerHelp" aria-label="Открыть справочник игры" onClick={() => setHelpOpen(true)}><GameIcon name="help" size={23} /></button>
       </div>
 
-      <ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} />
+      {tab === 'city' && <ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} />}
+      {(tab === 'build' || tab === 'market') && <div className="sectionResources" aria-label="Ресурсы для этого раздела"><span>В наличии</span>{(tab === 'build' ? ['ore', 'energy', 'parts', 'credits', 'science'] : ['ore', 'energy', 'parts', 'credits']).map(resource => <GameAmount key={resource} resource={resource}>{n(s[resource])}</GameAmount>)}</div>}
 
-      {game.flags?.closed_beta_banner && <div className="betaBanner"><b>🧪 Закрытая бета v{APP_VERSION}</b><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></div>}
+      {tab === 'city' && game.flags?.closed_beta_banner && <details className="betaBanner compactBeta"><summary><GameIcon name="research" size={14} />Тестовая версия · {APP_VERSION}</summary><span>Баланс и механики ещё меняются. Прогресс тестовой версии может корректироваться перед публичным запуском.</span></details>}
 
       {connectionError && <div className="notice error connectionNotice" role="status"><span>{connectionError}</span><button className="miniButton" disabled={busy} onClick={() => refresh()}>Обновить</button>{botLink && connectionError.includes('Сессия Telegram') && <a href={botLink}>Открыть из бота</a>}</div>}
       {shareFallbackLink && <label className="shareFallback">Ссылка приглашения<input readOnly value={shareFallbackLink} onFocus={event => event.target.select()} /></label>}
 
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
-      {(tab === 'city' || tab === 'build' || !game.tutorial?.completed) && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} busy={busy}
+      {tab === 'city' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} busy={busy}
         onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
         onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
 
       {tab === 'city' && <>
         <section className="card cityCard" ref={cityMapRef}>
-          <div className="cardTitleRow"><div><h2>Твой город</h2><p>{game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание, чтобы узнать его пользу и улучшить.</p></div><button className="miniButton" onClick={shareCity}><GameIcon name="share" size={15} /> Поделиться</button></div>
+          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание, чтобы узнать его пользу и улучшить.</p></div><button className="miniButton" onClick={shareCity}><GameIcon name="share" size={15} /> Поделиться</button></div>
           {(placementType || decorPlacementType || moveBuildingId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : 'Перемещение здания'}</span>
             <button className="miniButton" onClick={cancelMapAction}>Отмена</button>
@@ -556,6 +593,9 @@ export default function Home() {
             theme={equippedTheme}
             weather={equippedWeather}
             buildingSkin={equippedBuildingSkin}
+            frame={equippedFrame}
+            effect={equippedEffect}
+            badge={equippedBadge}
             onCell={handleCityCell}
           />
           <div className="mapFeedback" ref={mapFeedbackRef}>
@@ -736,27 +776,28 @@ export default function Home() {
         </div></section>
       </>}
 
-      {tab === 'shop' && <>
-        <section className="card">
-          <h2>Premium без pay-to-win</h2><p>+5% производство, +5% скорость строительства, 10 часов offline вместо 8 и дополнительный слот стройки.</p>
-          <div className="grid2">
-            <button className="action star" disabled={busy} onClick={() => buyStars('premium_30d')}>⭐ 199 / 30 дней</button>
-            <button className="action crystal" disabled={busy} onClick={() => api('/api/shop/premium-crystals').then(() => setMessage('Premium активирован')).catch(()=>{})}>💎 1200 / 30 дней</button>
-          </div>
-        </section>
-        <section className="card paymentRecoveryCard"><div className="cardTitleRow"><div><h2>🧾 Покупка не появилась?</h2><p>Проверим последние Telegram Star transactions и восстановим только реально оплаченные покупки с нашим invoice payload.</p></div><span className="pill">без повторной оплаты</span></div><button className="action secondary" disabled={busy||game.flags?.stars_shop===false} onClick={recoverPurchases}>Проверить покупки</button></section>
-        <section className="card"><h2>Косметика</h2><p>Купленная тема теперь видна непосредственно на карте города. Stars — навсегда; достижения могут дать тот же визуал временно.</p>
-          {(game.shopCosmetics ?? []).filter((x:any)=>x.star_price).map((item:any) => {
-            const owned = (game.cosmetics ?? []).find((x:any)=>x.cosmetic_id===item.id);
-            return <div className="shopItem" key={item.id}><div><strong>{item.name}</strong><small>{owned ? `Есть · ${expiresText(owned.expires_at)} · ${owned.source}` : `Категория: ${item.category}`}</small></div><div className="shopActions">{owned && <button className="price" disabled={busy || owned.equipped} onClick={() => api('/api/shop/equip',{cosmeticId:item.id}).then(()=>setMessage('Оформление применено')).catch(()=>{})}>{owned.equipped?'Надето':'Надеть'}</button>}<button className="price" disabled={busy} onClick={() => buyStars(item.id)}>⭐ {item.star_price}</button></div></div>;
-          })}
-          <div className="shopItem"><div><strong>👑 Founder Pack</strong><small>Только визуальные предметы основателя</small></div><button className="price" disabled={busy} onClick={() => buyStars('founder_pack')}>⭐ 499</button></div>
-        </section>
-        {(game.cosmetics?.length ?? 0) > 0 && <section className="card"><h2>Моя коллекция</h2><div className="stack">{game.cosmetics.map((c:any)=><div className="rowCard" key={`${c.cosmetic_id}-${c.acquired_at}`}><div><strong>{c.name}</strong><small>{c.source} · {expiresText(c.expires_at)}</small></div><button className="miniButton" disabled={busy || c.equipped} onClick={() => api('/api/shop/equip',{cosmeticId:c.cosmetic_id}).then(()=>setMessage('Оформление применено')).catch(()=>{})}>{c.equipped?'Надето':'Надеть'}</button></div>)}</div></section>}
-      </>}
-
+      {tab === 'shop' && <CosmeticsShop
+        cosmetics={game.cosmetics ?? []} shopCosmetics={game.shopCosmetics ?? []}
+        busy={busy || invoiceOpen} starsEnabled={game.flags?.stars_shop !== false}
+        premium={!!s.premium} premiumUntil={s.premium_until} crystals={Number(s.crystals ?? 0)}
+        onBuy={buyStars}
+        onEquip={async (cosmeticId, equipped = true) => {
+          try { await api('/api/shop/equip', { cosmeticId, equipped }); }
+          catch (error) { setMessage(''); throw error; }
+        }}
+        onPremiumCrystals={async () => {
+          try { await api('/api/shop/premium-crystals'); }
+          catch (error) { setMessage(''); throw error; }
+        }}
+        onRecover={async () => {
+          try { await api('/api/payments/recover'); await api('/api/session'); }
+          catch (error) { setMessage(''); throw error; }
+        }}
+      />}
       {tab === 'social' && <>
         <section className="card profileCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
+          <ColonyIdentity name={game.profile?.colony_name || 'Твоя колония'} cosmetics={game.cosmetics ?? []} />
+          <p className="profileCityStats">Центр ур. {s.hq_level} · Рейтинг города {n(s.city_score)}{s.premium ? ' · Premium' : ''}</p>
           <label className="profileField">Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)}/></label><label className="profileField">Описание<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
           <button className="action secondary" disabled={busy||profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Профиль сохранён')).catch(()=>{})}>Сохранить профиль</button>
         </section>
@@ -797,7 +838,7 @@ export default function Home() {
           <button className="action" onClick={shareReferral}>👥 Пригласить друга</button>
         </section>
         {(game.referrals?.length ?? 0) > 0 && <section className="card"><h2>Мои приглашённые</h2><div className="stack">{game.referrals.map((r:any)=><div className="rowCard" key={r.telegram_id}><div><strong>{r.colony_name || r.first_name || r.username || r.telegram_id}</strong><small>HQ {r.hq_level} · {r.referral_qualified_at ? '✅ квалифицирован' : 'до HQ3 ещё не дошёл'}</small></div><button className="miniButton" onClick={()=>viewCity(Number(r.telegram_id))}>Город</button></div>)}</div></section>}
-        {viewedCity && <section className="card publicCity"><div className="cardTitleRow"><div><h2>{viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'}</h2><p>HQ {viewedCity.hq_level} · City Score {n(viewedCity.city_score)} · {viewedCity.premium ? '👑 Premium' : 'Free'}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
+        {viewedCity && <section className="card publicCity"><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)}{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
             buildings={viewedCity.buildings ?? []}
@@ -808,6 +849,9 @@ export default function Home() {
             theme={viewedCity.cosmetics?.find((c:any)=>c.category==='theme')?.cosmetic_id ?? ''}
             weather={viewedCity.cosmetics?.find((c:any)=>c.category==='weather')?.cosmetic_id ?? ''}
             buildingSkin={viewedCity.cosmetics?.find((c:any)=>c.category==='building_skin')?.cosmetic_id ?? ''}
+            frame={viewedCity.cosmetics?.find((c:any)=>c.category==='frame')?.cosmetic_id ?? ''}
+            effect={viewedCity.cosmetics?.find((c:any)=>c.category==='effect')?.cosmetic_id ?? ''}
+            badge={viewedCity.cosmetics?.find((c:any)=>c.category==='badge')?.cosmetic_id ?? ''}
             compact
           />
         </section>}
@@ -829,7 +873,7 @@ export default function Home() {
       </section>}
 
       <nav className="tabs">
-        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Сезон', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>setTab(item.key)}><GameIcon name={item.icon} size={22} /><span>{item.label}</span></button>)}
+        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Сезон', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>openSection(item.key)}><GameIcon name={item.icon} size={22} /><span>{item.label}</span></button>)}
       </nav>
     </main>
   );

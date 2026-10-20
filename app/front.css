@@ -4,6 +4,17 @@ body:has(.colonyApp) { background:radial-gradient(ellipse at 50% 0,rgba(43,81,96
 .colonyApp .brandGroup { display:flex; align-items:center; gap:10px; min-width:0; }
 .brandMark { width:48px; flex-shrink:0; }
 .colonyApp .brand { font-size:19px; letter-spacing:0; overflow-wrap:anywhere; }
+.colonyApp h1.brand { margin:0; font-weight:850; }
+.sectionHeader .brandMark { display:flex; align-items:center; justify-content:center; width:40px; height:40px; border:1px solid var(--line); border-radius:13px; color:#9bdcc8; background:var(--panel); }
+.sectionHeader .brandKicker { font-size:9px; }
+.sectionResources { display:flex; flex-wrap:wrap; align-items:center; gap:9px 13px; margin:0 0 14px; padding:10px 12px; border:1px solid var(--line); border-radius:13px; background:rgba(23,40,49,.55); font-size:12px; }
+.sectionResources > span:first-child { color:var(--muted); font-size:11px; }
+.colonyApp .compactBeta { display:block; padding:9px 12px; margin:0 0 12px; background:rgba(159,182,175,.035); border-color:var(--line); }
+.compactBeta summary { display:flex; align-items:center; gap:7px; cursor:pointer; color:var(--muted); font-size:11px; }
+.compactBeta summary::after { content:'Подробнее'; margin-left:auto; font-size:10px; }
+.compactBeta[open] summary::after { content:'Свернуть'; }
+.compactBeta > span { display:block; margin-top:8px; font-size:11px; }
+.colonyApp .profileCityStats { margin:10px 0 16px; }
 .brandKicker { display:block; font-size:9px; color:#87cbbd; letter-spacing:.18em; margin-bottom:4px; }
 .colonyApp .level { font-size:11px; margin-top:4px; }
 .headerHelp { flex-shrink:0; width:42px; height:42px; border:1px solid var(--line); border-radius:14px; color:#b2d9db; background:var(--panel); display:flex; align-items:center; justify-content:center; }

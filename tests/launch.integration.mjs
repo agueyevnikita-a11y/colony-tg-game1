@@ -921,6 +921,91 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(Number((await sql`SELECT count(*) AS count FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='title_cadet'`)[0].count), 1);
   });
 
+  await t.test('cosmetic appearance enforces ownership, supports removal and serializes category switches', async () => {
+    const userId = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0].id;
+    const otherUserId = (await sql`SELECT id FROM users WHERE telegram_id=${adminId}`)[0].id;
+    await sql`DELETE FROM user_cosmetics WHERE user_id=${userId}`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${userId}`}`;
+    await sql`
+      INSERT INTO user_cosmetics (user_id,cosmetic_id,source,expires_at,equipped,acquired_at)
+      VALUES
+        (${userId},'frame_orbit','integration',NULL,false,'2024-01-01T00:00:00.123001Z'),
+        (${userId},'frame_orbit','integration',NULL,false,'2024-01-01T00:00:00.123999Z'),
+        (${userId},'founder_frame','integration',now()+interval '1 day',false,'2024-01-01T00:00:00.124001Z'),
+        (${userId},'theme_neon','integration',NULL,true,'2024-01-01T00:00:00.125001Z'),
+        (${userId},'weather_aurora','integration',now()-interval '1 day',true,'2024-01-01T00:00:00.126001Z'),
+        (${otherUserId},'founder_badge','integration',NULL,true,'2024-01-01T00:00:00.127001Z')
+    `;
+    const equip = (body) => request('/api/shop/equip', { method: 'POST', auth: initData(playerId), body });
+    const owned = (ownerId = userId) => sql`
+      SELECT cosmetic_id,acquired_at::text AS acquired_at,expires_at::text AS expires_at,equipped
+      FROM user_cosmetics WHERE user_id=${ownerId} ORDER BY cosmetic_id,acquired_at
+    `;
+    const appearanceEvents = async () => Number((await sql`
+      SELECT count(*) AS count FROM analytics_events WHERE user_id=${userId}
+        AND event_name IN ('cosmetic_equipped','cosmetic_unequipped')
+    `)[0].count);
+    const activeFrames = (game) => game.cosmetics.filter((item) => item.category === 'frame' && item.equipped);
+    const moneyBefore = (await sql`SELECT ore,energy,parts,credits,crystals FROM game_states WHERE user_id=${userId}`)[0];
+    const initialOwned = await owned();
+    const otherOwned = await owned(otherUserId);
+    for (const body of [
+      { cosmeticId: 'founder_badge' }, { cosmeticId: 'missing_cosmetic' },
+      { cosmeticId: 'weather_aurora' }, { cosmeticId: 'weather_aurora', equipped: false },
+      { cosmeticId: 'frame_orbit', equipped: 'false' }, { cosmeticId: 'frame_orbit', equipped: null }, [],
+    ]) {
+      const rejected = await equip(body);
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+      assert.deepEqual(await owned(), initialOwned, 'Rejected ownership or malformed requests cannot alter appearance');
+      assert.deepEqual(await owned(otherUserId), otherOwned, 'Another player\'s items must remain unchanged');
+    }
+
+    // Omitting equipped remains compatible with existing callers. Deliberate
+    // microseconds in the composite key also catch accidental JS Date rounding.
+    const first = await equip({ cosmeticId: 'frame_orbit' });
+    assert.equal(first.status, 200, JSON.stringify(first.data));
+    assert.deepEqual(activeFrames(first.data).map((item) => item.cosmetic_id), ['frame_orbit']);
+    const frameCopies = (await owned()).filter((item) => item.cosmetic_id === 'frame_orbit');
+    assert.deepEqual(frameCopies.map((item) => item.equipped), [false, true], 'Only the latest active copy may be equipped');
+    assert.ok(first.data.cosmetics.some((item) => item.cosmetic_id === 'theme_neon' && item.equipped));
+    assert.ok(!first.data.cosmetics.some((item) => item.cosmetic_id === 'weather_aurora'), 'Expired ownership is absent from the private session');
+    const beforeRepeat = await owned();
+    const eventsBeforeRepeat = await appearanceEvents();
+    assert.equal((await equip({ cosmeticId: 'frame_orbit' })).status, 200);
+    assert.deepEqual(await owned(), beforeRepeat);
+    assert.equal(await appearanceEvents(), eventsBeforeRepeat, 'Repeating an equip is idempotent');
+
+    const switched = await equip({ cosmeticId: 'founder_frame', equipped: true });
+    assert.equal(switched.status, 200, JSON.stringify(switched.data));
+    assert.deepEqual(activeFrames(switched.data).map((item) => item.cosmetic_id), ['founder_frame']);
+    const removeOld = await equip({ cosmeticId: 'frame_orbit', equipped: false });
+    assert.equal(removeOld.status, 200, JSON.stringify(removeOld.data));
+    assert.deepEqual(activeFrames(removeOld.data).map((item) => item.cosmetic_id), ['founder_frame'], 'Removing one item must not remove the category replacement');
+    const removed = await equip({ cosmeticId: 'founder_frame', equipped: false });
+    assert.equal(removed.status, 200, JSON.stringify(removed.data));
+    assert.deepEqual(activeFrames(removed.data), []);
+    const afterRemoval = await owned();
+    const eventsAfterRemoval = await appearanceEvents();
+    assert.equal((await equip({ cosmeticId: 'founder_frame', equipped: false })).status, 200);
+    assert.deepEqual(await owned(), afterRemoval);
+    assert.equal(await appearanceEvents(), eventsAfterRemoval, 'Repeating a removal is idempotent');
+
+    const concurrent = await Promise.all([
+      equip({ cosmeticId: 'frame_orbit', equipped: true }),
+      equip({ cosmeticId: 'founder_frame', equipped: true }),
+    ]);
+    assert.ok(concurrent.every((result) => result.status === 200), JSON.stringify(concurrent));
+    const session = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(session.status, 200, JSON.stringify(session.data));
+    assert.equal(activeFrames(session.data).length, 1, 'Concurrent requests must leave exactly one frame equipped');
+    assert.equal((await owned()).filter((item) => ['frame_orbit', 'founder_frame'].includes(item.cosmetic_id) && item.equipped).length, 1);
+    assert.ok(session.data.cosmetics.some((item) => item.cosmetic_id === 'theme_neon' && item.equipped), 'Other categories stay equipped');
+    const publicCity = await request('/api/social/city', { method: 'POST', auth: initData(adminId), body: { telegramId: playerId } });
+    assert.equal(publicCity.status, 200, JSON.stringify(publicCity.data));
+    assert.deepEqual(publicCity.data.city.cosmetics.map((item) => item.cosmetic_id).sort(), [activeFrames(session.data)[0].cosmetic_id, 'theme_neon'].sort());
+    assert.deepEqual((await sql`SELECT ore,energy,parts,credits,crystals FROM game_states WHERE user_id=${userId}`)[0], moneyBefore, 'Changing appearance does not charge game resources');
+  });
+
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;
     await sql`UPDATE system_settings SET value='{"enabled":true,"message":"Launch test"}'::jsonb WHERE setting_key='maintenance'`;

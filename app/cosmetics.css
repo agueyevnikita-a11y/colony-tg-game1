@@ -1,0 +1,71 @@
+.cosmeticSurface { position:relative; isolation:isolate; }
+.cosmeticSurface.theme_neon { background:radial-gradient(ellipse at 15% 15%,rgba(179,74,245,.36),transparent 62%),radial-gradient(ellipse at 85% 70%,rgba(22,195,221,.23),transparent 58%),linear-gradient(145deg,#1d1236,#0b1631 65%,#06232b); border-color:rgba(128,125,255,.75); box-shadow:inset 0 0 27px rgba(139,69,225,.15),0 0 18px rgba(78,179,224,.1); }
+.cosmeticSurface.theme_neon .cityCell.occupied { border-color:rgba(115,203,244,.45); background:linear-gradient(135deg,rgba(187,86,240,.2),rgba(23,149,180,.16)); box-shadow:inset 0 -2px 0 rgba(79,211,240,.24); }
+.cosmeticSurface.theme_neon .cityCell.empty { background:rgba(108,74,181,.06); border-color:rgba(144,127,216,.17); }
+.cosmeticSurface.theme_neon .buildingArt { filter:saturate(1.2) drop-shadow(0 0 3px rgba(92,223,241,.32)); }
+.cosmeticSurface.theme_neon .cityCell.selected { border-color:#9bfaff; box-shadow:inset 0 0 0 1px rgba(155,250,255,.45),0 0 11px rgba(109,218,255,.35); }
+.cosmeticSurface.theme_neon .cityLevel { color:#d3f7ff; background:rgba(13,13,41,.94); border-color:rgba(148,133,244,.4); }
+.cosmeticSurface.cityMap.cityArtMap.theme_first_signal { background:radial-gradient(ellipse at 20% 0,rgba(79,163,145,.28),transparent 65%),linear-gradient(145deg,#193336,#10252c 65%,#0b1c23); border-color:rgba(112,191,175,.55); }
+.cosmeticSurface.theme_first_signal .cityCell.occupied { border-color:rgba(136,210,191,.3); background:linear-gradient(140deg,rgba(143,202,181,.12),rgba(29,65,70,.18)); }
+.cosmeticSurface.theme_first_signal .buildingArt { filter:drop-shadow(0 0 3px rgba(118,204,173,.22)); }
+.cosmeticAtmosphere { position:absolute; z-index:1; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
+.cosmeticSky { position:absolute; inset:0; overflow:hidden; background:radial-gradient(ellipse at 45% 0,rgba(81,142,174,.16),transparent 70%); }
+.cosmeticSky i { position:absolute; display:block; width:135%; height:45%; left:-17%; top:-11%; transform:rotate(-14deg); border-radius:0 0 50% 50%; background:linear-gradient(178deg,transparent 18%,rgba(59,238,184,.48) 42%,rgba(64,198,222,.19) 62%,transparent 80%); filter:blur(7px); animation:cosmeticAurora 11s ease-in-out infinite alternate; }
+.cosmeticSky i:nth-child(2) { top:0; left:0; height:37%; opacity:.7; background:linear-gradient(170deg,transparent 14%,rgba(124,109,249,.4) 40%,rgba(84,236,193,.15) 63%,transparent 83%); animation-delay:-5s; animation-duration:15s; transform:rotate(12deg); }
+.cosmeticSky > span { position:absolute; inset:0; opacity:.55; background-image:radial-gradient(circle at 12% 13%,#c1f2ef 0 1px,transparent 1.5px),radial-gradient(circle at 71% 10%,#d0f1fa 0 1px,transparent 1.5px),radial-gradient(circle at 86% 28%,#c1f2ef 0 1px,transparent 1.5px),radial-gradient(circle at 44% 21%,#daf7fa 0 .7px,transparent 1.2px); }
+.cosmeticSky.isFounderSky { background:radial-gradient(ellipse at 70% 0,rgba(222,155,69,.25),transparent 60%),radial-gradient(ellipse at 15% 20%,rgba(113,73,158,.22),transparent 65%); }
+.isFounderSky i { background:linear-gradient(176deg,transparent 12%,rgba(245,188,93,.5) 40%,rgba(211,134,91,.2) 62%,transparent 84%); animation-name:cosmeticFounderSky; }
+.isFounderSky i:nth-child(2) { background:linear-gradient(170deg,transparent 12%,rgba(201,144,240,.4) 40%,rgba(239,192,111,.18) 64%,transparent 85%); }
+.isFounderSky > span { opacity:.8; background-image:radial-gradient(circle at 15% 13%,#fbe6b0 0 1px,transparent 1.5px),radial-gradient(circle at 74% 9%,#ffecbc 0 1.2px,transparent 1.8px),radial-gradient(circle at 85% 25%,#e8c9ff 0 1px,transparent 1.5px),radial-gradient(circle at 44% 20%,#fae1a0 0 .7px,transparent 1.2px); }
+.cosmeticSky.isSignalStorm { background:radial-gradient(ellipse at 65% 0,rgba(102,115,218,.28),transparent 65%); }
+.isSignalStorm i { top:-5%; height:65%; background:linear-gradient(172deg,transparent 12%,rgba(92,137,225,.4) 37%,rgba(93,193,218,.17) 64%,transparent 86%); animation-duration:14s; }
+.isSignalStorm i:nth-child(2) { top:12%; background:linear-gradient(160deg,transparent 12%,rgba(123,116,214,.31) 38%,rgba(101,195,226,.15) 65%,transparent 87%); }
+.isSignalStorm > span { opacity:.6; }
+.cosmeticSignal { position:absolute; inset:0; overflow:hidden; }
+.cosmeticSignal i { position:absolute; left:50%; top:50%; width:45%; aspect-ratio:1; margin-left:-22.5%; margin-top:-22.5%; border:1px solid rgba(116,214,213,.4); border-radius:50%; opacity:0; animation:cosmeticSignal 7s ease-out infinite; }
+.cosmeticSignal i + i { animation-delay:-3.5s; }
+.cosmeticFrame { --frame-tone:#92c2d8; position:relative; isolation:isolate; border:2px solid var(--frame-tone); box-shadow:inset 0 0 0 2px rgba(13,25,34,.8),0 0 14px rgba(112,169,205,.1); }
+.cosmeticFrame::before { content:''; position:absolute; z-index:6; inset:3px; border:1px solid color-mix(in srgb,var(--frame-tone) 42%,transparent); border-radius:inherit; pointer-events:none; }
+.cosmeticFrame.frame_orbit { --frame-tone:#a4c5ff; border-color:#8baff0; box-shadow:inset 0 0 0 3px rgba(35,54,88,.45),0 0 18px rgba(115,158,239,.16); }
+.cosmeticFrame.frame_orbit::before { inset:4px; border-color:rgba(164,197,255,.5); border-style:solid; border-radius:inherit; }
+.cosmeticFrame.frame_orbit::after { content:''; position:absolute; z-index:7; width:7px; height:7px; right:19%; top:-4px; border-radius:50%; background:#d7e5ff; box-shadow:0 0 0 3px #263c60,0 0 12px rgba(166,201,255,.65); pointer-events:none; }
+.cosmeticFrame.founder_frame { --frame-tone:#e3bb71; border-color:#dbb572; box-shadow:inset 0 0 0 2px rgba(70,48,24,.45),0 0 19px rgba(202,155,75,.12); }
+.cosmeticFrame.founder_frame::before { border-color:rgba(247,212,148,.46); border-width:1px; }
+.cosmeticFrame.founder_frame::after { content:''; position:absolute; z-index:7; width:10px; height:10px; left:calc(50% - 5px); top:-6px; transform:rotate(45deg); background:#e2bc77; border:2px solid #f0d99d; box-shadow:0 0 0 2px #4b3924; pointer-events:none; }
+.cosmeticFrame.frame_first_signal { --frame-tone:#8bcfc6; }.cosmeticFrame.frame_exchange { --frame-tone:#d1c68b; }.cosmeticFrame.frame_researcher { --frame-tone:#c4aff0; }.cosmeticFrame.frame_pathfinder { --frame-tone:#d4a184; }
+.cityMap.cosmeticFrame { overflow:hidden; padding:13px; }
+.cityMap.cosmeticFrame::before { border-radius:13px; }
+.cityMap.cosmeticFrame.frame_orbit::after { top:1px; }.cityMap.cosmeticFrame.founder_frame::after { top:-2px; }
+.colonyIdentity { position:relative; min-width:0; border-radius:12px; }
+.colonyIdentity.cosmeticFrame { padding:10px 13px; }
+.colonyIdentity.founder_frame { background:linear-gradient(135deg,rgba(229,177,89,.075),transparent 75%); }
+.colonyIdentityName { display:flex; align-items:center; gap:7px; min-width:0; font-weight:700; line-height:1.4; }
+.colonyIdentityName > span:last-child { min-width:0; overflow-wrap:anywhere; }
+.colonyIdentityTitle { display:flex; align-items:center; gap:5px; margin-top:4px; color:#b7c9d8; font-size:11px; line-height:1.4; }
+.colonyIdentity.isCompact .colonyIdentityName { font-size:13px; }.colonyIdentity.isCompact.cosmeticFrame { padding:7px 11px; }.colonyIdentity.isCompact .colonyIdentityTitle { font-size:10px; }
+.cosmeticBadge { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:23px; height:26px; border:1px solid #92b3c8; background:linear-gradient(145deg,#294354,#152b38); border-radius:6px 6px 9px 9px; color:#badceb; }
+.cosmeticBadge.isFounderBadge { width:26px; height:29px; color:#ffe0a0; background:linear-gradient(135deg,#705a33,#37291b); border-color:#d9b46d; box-shadow:inset 0 0 0 2px rgba(252,221,156,.1); }
+.cosmeticBadge.isFounderBadge::after { content:''; position:absolute; width:10px; height:2px; bottom:3px; background:#d4b06b; opacity:.8; }
+.cityCosmeticFooter { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:38px; margin-top:8px; padding-top:7px; border-top:1px solid rgba(196,187,147,.12); pointer-events:none; }
+.cityCosmeticBadge { display:flex; align-items:center; gap:6px; color:#d9bf88; font-size:10px; }
+.cityMonumentDisplay { display:flex; align-items:center; gap:7px; margin-left:auto; color:var(--muted); font-size:9px; line-height:1.4; }
+.cityMonumentDisplay > span { max-width:75px; text-align:right; }
+.cityMonumentDisplay > .buildingArt { width:43px; }
+.cityMonumentDisplay.founder_monument { color:#dec18d; }
+.cityMonumentDisplay.founder_monument { font-size:10px; }
+.cityMonumentDisplay.founder_monument .founderMonumentArt { width:78px; filter:drop-shadow(0 0 4px rgba(221,174,90,.2)); }
+.founderMonumentArt { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:contain; }
+.cosmeticPreview { width:100%; min-width:0; margin:0; }
+.cosmeticPreviewSurface { position:relative; height:156px; min-width:0; padding:12px!important; overflow:hidden; border-radius:15px; }
+.cosmeticPreviewName { position:relative; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:6px; color:#d9e7ee; font-size:11px; font-weight:700; letter-spacing:.1em; }
+.cosmeticPreviewName .cosmeticBadge { width:21px; height:23px; }
+.cosmeticPreviewTitle { display:block; max-width:200px; margin-top:4px; color:#b7c9d8; font-size:9px; font-weight:500; line-height:1.4; letter-spacing:0; }
+.cosmeticPreviewBuildings { position:absolute; z-index:2; inset:28px 12px 6px; display:flex; align-items:flex-end; justify-content:center; gap:0; }
+.cosmeticPreviewBuildings > .buildingArt { width:34%; max-height:100%; }
+.cosmeticPreviewBuildings > .founderMonumentArt { width:34%; max-height:100%; object-fit:contain; }
+.cosmeticPreview figcaption { margin-top:7px; font-size:11px; line-height:1.4; color:var(--muted); }
+@keyframes cosmeticAurora { from { transform:translate3d(-6%,-4%,0) rotate(-12deg); opacity:.7; } to { transform:translate3d(8%,12%,0) rotate(4deg); opacity:1; } }
+@keyframes cosmeticFounderSky { from { transform:translate3d(-5%,-4%,0) rotate(-10deg); opacity:.65; } to { transform:translate3d(6%,9%,0) rotate(7deg); opacity:1; } }
+@keyframes cosmeticSignal { 0% { transform:scale(.3); opacity:0; } 20% { opacity:.5; } 100% { transform:scale(2.7); opacity:0; } }
+@media(max-width:420px) { .cityMap.cosmeticFrame { padding:10px; } .cosmeticPreviewSurface { height:145px; } }
+@media(prefers-reduced-motion:reduce) { .cosmeticSky i,.cosmeticSignal i { animation:none; } .cosmeticSky i { opacity:.8; } .cosmeticSignal i { opacity:.22; transform:scale(1.2); } .cosmeticSignal i + i { transform:scale(1.8); } }

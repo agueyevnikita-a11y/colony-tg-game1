@@ -3,6 +3,7 @@
 import { availableFoundryLinks } from '@/lib/game/foundry';
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
+import { CosmeticAtmosphere, CosmeticBadge, FounderMonument, cosmeticFrameClass } from '@/components/CosmeticAppearance';
 import '@/app/production.css';
 import '@/app/city-art.css';
 
@@ -36,6 +37,9 @@ export function CityGrid(props: {
   theme?: string;
   weather?: string;
   buildingSkin?: string;
+  frame?: string;
+  effect?: string;
+  badge?: string;
   onCell?: (x: number, y: number, building?: Building, decor?: Decor) => void;
   compact?: boolean;
 }) {
@@ -84,14 +88,18 @@ export function CityGrid(props: {
     }
   }
 
-  return <div className={`cityMap cityArtMap ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
+  return <div className={`cityMap cityArtMap cosmeticSurface ${cosmeticFrameClass(props.frame)} ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
+    <CosmeticAtmosphere weather={props.weather} effect={props.effect} />
     <div className="cityMapGrid" style={{ gridTemplateColumns: `repeat(${props.gridSize}, minmax(0, 1fr))` }}>
       {cells}
     </div>
     {planningFoundry && <div className="cityLinkLegend"><strong>Выгодные клетки: <GameIcon name="ore" size={14} /> −15% руды · <GameIcon name="energy" size={14} /> −20% энергии.</strong> Работают соседи по стороне. После постройки выбери одну связь в производстве.</div>}
-    {props.weather === 'weather_aurora' && <div className="auroraOverlay" aria-hidden="true" />}
-    {props.buildingSkin && <div className={`cityMonument ${props.buildingSkin}`}>
-      <BuildingArt type="statue" decorative={false} label="Декоративный объект" />
+    {(props.badge || props.buildingSkin) && <div className="cityCosmeticFooter">
+      {props.badge && <div className="cityCosmeticBadge"><CosmeticBadge id={props.badge} /><span>{props.badge === 'founder_badge' ? 'Основатель' : 'Знак колонии'}</span></div>}
+      {props.buildingSkin && <div className={`cityMonumentDisplay ${props.buildingSkin}`}>
+        <span>{props.buildingSkin === 'founder_monument' ? 'Монумент основателя' : 'Монумент колонии'}</span>
+        {props.buildingSkin === 'founder_monument' ? <FounderMonument /> : <BuildingArt type="statue" />}
+      </div>}
     </div>}
   </div>;
 }
