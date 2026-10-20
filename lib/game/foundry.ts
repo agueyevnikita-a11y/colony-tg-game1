@@ -1,10 +1,32 @@
 export type FoundryMode = 'economy' | 'standard' | 'rush';
 export type FoundryLink = 'none' | 'ore' | 'energy';
+export type FoundryRecipeKey = 'standard_alloy' | 'precision_casting' | 'industrial_casting';
+export type FoundryRecipe = {
+  id: FoundryRecipeKey;
+  name: string;
+  description: string;
+  ore: number;
+  energy: number;
+  parts: number;
+  seconds: number;
+  requiredResearch?: string;
+};
 export type FoundryBuilding = { id: string; type: string; status: string; level: number; x: number; y: number };
 export type FoundryJob = {
   id: string; building_id: string; started_at: string; completes_at: string;
   parts_reward: number; ore_spent: number; energy_spent: number;
+  recipe_key?: string | null;
 };
+
+export const FOUNDRY_RECIPES: FoundryRecipe[] = [
+  { id: 'standard_alloy', name: 'Стандартный сплав', description: 'Сбалансированный расход руды и энергии', ore: 100, energy: 40, parts: 35, seconds: 300 },
+  { id: 'precision_casting', name: 'Точное литьё', description: 'Экономит руду за счёт энергии и времени', ore: 70, energy: 90, parts: 35, seconds: 420, requiredResearch: 'precision_casting' },
+  { id: 'industrial_casting', name: 'Поточное литьё', description: 'Вдвое больше деталей за цикл, меньше энергии на деталь', ore: 240, energy: 60, parts: 70, seconds: 600, requiredResearch: 'industrial_casting' },
+];
+
+export function availableFoundryRecipes(completed: Set<string>) {
+  return FOUNDRY_RECIPES.filter((recipe) => !recipe.requiredResearch || completed.has(recipe.requiredResearch));
+}
 
 export const FOUNDRY_MODES: { id: FoundryMode; name: string; description: string; ore: number; energy: number; seconds: number }[] = [
   { id: 'economy', name: 'Экономный', description: 'Меньше энергии, больше времени', ore: 100, energy: 25, seconds: 600 },
@@ -27,18 +49,20 @@ export function availableFoundryLinks(building: FoundryBuilding, buildings: Foun
   return links;
 }
 
-export function quoteFoundry({ level, mode, link, cycles, partsMultiplier = 1 }: {
-  level: number; mode: FoundryMode; link: FoundryLink; cycles: number; partsMultiplier?: number;
+export function quoteFoundry({ level, mode, link, cycles, partsMultiplier = 1, recipe = 'standard_alloy' }: {
+  level: number; mode: FoundryMode; link: FoundryLink; cycles: number; partsMultiplier?: number; recipe?: FoundryRecipeKey;
 }) {
   const config = FOUNDRY_MODES.find((item) => item.id === mode);
+  const recipeConfig = FOUNDRY_RECIPES.find((item) => item.id === recipe);
   if (!config || !['none', 'ore', 'energy'].includes(link)) throw new Error('Неизвестный режим или связь цеха');
+  if (!recipeConfig) throw new Error('Неизвестный рецепт плавки');
   if (!Number.isInteger(level) || level < 1 || level > 15) throw new Error('Некорректный уровень цеха');
   if (!Number.isInteger(cycles) || cycles < 1 || cycles > foundryQueueCapacity(level)) throw new Error('Некорректное количество циклов');
   if (!Number.isFinite(partsMultiplier) || partsMultiplier <= 0) throw new Error('Некорректный бонус производства');
-  const cycleOre = Math.ceil(config.ore * (link === 'ore' ? 0.85 : 1));
-  const cycleEnergy = Math.ceil(config.energy * (link === 'energy' ? 0.8 : 1));
-  const cycleSeconds = Math.max(30, Math.ceil(config.seconds / (1 + (level - 1) * 0.12)));
-  const cycleParts = Math.floor(35 * (1 + (level - 1) * 0.08) * partsMultiplier);
+  const cycleOre = Math.ceil(recipeConfig.ore * (link === 'ore' ? 0.85 : 1));
+  const cycleEnergy = Math.ceil(recipeConfig.energy * (config.energy / 40) * (link === 'energy' ? 0.8 : 1));
+  const cycleSeconds = Math.max(30, Math.ceil(recipeConfig.seconds * (config.seconds / 300) / (1 + (level - 1) * 0.12)));
+  const cycleParts = Math.floor(recipeConfig.parts * (1 + (level - 1) * 0.08) * partsMultiplier);
   return { ore: cycleOre * cycles, energy: cycleEnergy * cycles, parts: cycleParts * cycles,
     seconds: cycleSeconds * cycles, cycleSeconds, cycleParts };
 }
@@ -47,9 +71,11 @@ export function parseFoundryOrder(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Некорректный заказ');
   const body = value as Record<string, unknown>;
   const mode = body.mode === undefined ? 'standard' : body.mode;
+  const recipe = body.recipe === undefined ? 'standard_alloy' : body.recipe;
   const link = body.link === undefined ? 'none' : body.link;
   const cycles = body.cycles === undefined ? 1 : body.cycles;
   if (!FOUNDRY_MODES.some((item) => item.id === mode)) throw new Error('Неизвестный режим плавки');
+  if (!FOUNDRY_RECIPES.some((item) => item.id === recipe)) throw new Error('Неизвестный рецепт плавки');
   if (!['none', 'ore', 'energy'].includes(link as string)) throw new Error('Неизвестная производственная связь');
   if (typeof cycles !== 'number' || !Number.isInteger(cycles) || cycles < 1 || cycles > 12) throw new Error('Выберите от 1 до 12 циклов');
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -59,7 +85,7 @@ export function parseFoundryOrder(value: unknown) {
     }
   }
   return { buildingId: body.buildingId as string | undefined, requestId: body.requestId as string | undefined,
-    mode: mode as FoundryMode, link: link as FoundryLink, cycles };
+    mode: mode as FoundryMode, recipe: recipe as FoundryRecipeKey, link: link as FoundryLink, cycles };
 }
 
 /** Keep whole completed cycles in the workshop when the warehouse cannot hold their output. */

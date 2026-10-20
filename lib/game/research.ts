@@ -1,4 +1,5 @@
 import { DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, type BuildingType, type ResourceCost } from './config';
+import type { FoundryRecipeKey } from './foundry';
 
 export type ResearchKey =
   | 'basic_theory'
@@ -8,6 +9,8 @@ export type ResearchKey =
   | 'photovoltaic_arrays'
   | 'compact_storage'
   | 'thermal_recovery'
+  | 'precision_casting'
+  | 'industrial_casting'
   | 'deep_navigation'
   | 'signal_analysis'
   | 'autonomous_drones'
@@ -18,6 +21,7 @@ export type ResearchConfig = {
   key: ResearchKey;
   branch: 'foundation' | 'resources' | 'production' | 'exploration';
   unlockBuilding?: BuildingType;
+  unlockRecipe?: FoundryRecipeKey;
   name: string;
   emoji: string;
   description: string;
@@ -72,6 +76,18 @@ export const RESEARCH_TREE: ResearchConfig[] = [
     description: 'Возврат тепла и вторичная переработка отходов литейного цикла.',
     unlockHq: 3, labLevel: 2, science: 260, cost: { credits: 2200, parts: 120 }, timeSec: 2700, prereqs: ['basic_theory'],
     effectText: '+10% к выходу деталей из плавки',
+  },
+  {
+    key: 'precision_casting', branch: 'production', name: 'Точное литьё', emoji: '🎯',
+    description: 'Более точная обработка сохраняет руду, но требует больше энергии и времени. Полезно при избытке энергии.',
+    unlockHq: 3, labLevel: 2, science: 340, cost: { credits: 2600, parts: 160 }, timeSec: 3600, prereqs: ['thermal_recovery'],
+    effectText: 'Открывает рецепт: 70 руды + 90 энергии → базово 35 деталей за 7 минут', unlockRecipe: 'precision_casting',
+  },
+  {
+    key: 'industrial_casting', branch: 'production', name: 'Поточное литьё', emoji: '🏗️',
+    description: 'Двойной выпуск за одно место в очереди. Больше руды, меньше энергии на деталь — удобно для длинной партии.',
+    unlockHq: 3, labLevel: 2, science: 420, cost: { credits: 3400, parts: 200 }, timeSec: 5400, prereqs: ['thermal_recovery', 'extraction_ai'],
+    effectText: 'Открывает рецепт: 240 руды + 60 энергии → базово 70 деталей за 10 минут', unlockRecipe: 'industrial_casting',
   },
   {
     key: 'deep_navigation', branch: 'exploration', name: 'Глубокая навигация', emoji: '🧭',

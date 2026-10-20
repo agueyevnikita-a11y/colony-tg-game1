@@ -5,12 +5,13 @@ import { ensurePlayer, reconcilePlayer } from '@/lib/server/game';
 import { sql } from '@/lib/server/db';
 import { recordProgressEvent } from '@/lib/server/progression';
 import { completedResearchKeys } from '@/lib/server/research';
+import { recipeSchemaReady } from '@/lib/server/production-schema';
 import { productionMultipliers } from '@/lib/game/research';
-import { availableFoundryLinks, foundryQueueCapacity, parseFoundryOrder, quoteFoundry } from '@/lib/game/foundry';
+import { FOUNDRY_RECIPES, availableFoundryLinks, foundryQueueCapacity, parseFoundryOrder, quoteFoundry } from '@/lib/game/foundry';
 
 export const runtime = 'nodejs';
 
-// Existing job IDs also serve as durable batch receipts; no schema migration needed.
+// Existing job IDs also serve as durable batch receipts.
 function cycleId(userId: string, requestId: string, cycle: number) {
   const hex = createHash('sha256').update(`${userId}:${requestId}:${cycle}`).digest('hex');
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`;
@@ -37,13 +38,18 @@ export async function POST(request: Request) {
         : buildings.find((building) => building.type === 'foundry' && building.status === 'active');
       if (!foundry) throw new Error('Выберите свой литейный цех');
       if (foundry.status !== 'active') throw new Error('Дождитесь окончания строительства или улучшения цеха');
-      const jobs = await tx<any[]>`SELECT * FROM foundry_jobs WHERE building_id=${foundry.id} AND claimed_at IS NULL ORDER BY completes_at ASC`;
+      const jobs = await tx<any[]>`SELECT completes_at FROM foundry_jobs WHERE building_id=${foundry.id} AND claimed_at IS NULL ORDER BY completes_at ASC`;
       const capacity = foundryQueueCapacity(Number(foundry.level));
       if (jobs.length + order.cycles > capacity) throw new Error(`В очереди цеха осталось мест: ${Math.max(0, capacity - jobs.length)}. Готовые детали должны поместиться на склад.`);
       if (!availableFoundryLinks(foundry, buildings).includes(order.link)) throw new Error('Связь недоступна: поставьте действующую шахту или электростанцию рядом с цехом по стороне клетки');
       const researched = await completedResearchKeys(tx, userId);
+      const recipe = FOUNDRY_RECIPES.find((item) => item.id === order.recipe)!;
+      if (recipe.requiredResearch && !researched.has(recipe.requiredResearch)) throw new Error(`Сначала заверши исследование «${recipe.name}»`);
+      if (order.recipe !== 'standard_alloy' && !(await recipeSchemaReady(tx))) {
+        throw new Error('Новые рецепты временно недоступны. Можно запустить стандартный сплав.');
+      }
       const quote = quoteFoundry({ level: Number(foundry.level), mode: order.mode, link: order.link,
-        cycles: order.cycles, partsMultiplier: productionMultipliers(researched).foundryParts });
+        recipe: order.recipe, cycles: order.cycles, partsMultiplier: productionMultipliers(researched).foundryParts });
       if (Number(state.ore) < quote.ore || Number(state.energy) < quote.energy) {
         throw new Error(`Для партии нужно ${quote.ore} руды и ${quote.energy} энергии`);
       }
@@ -52,15 +58,24 @@ export async function POST(request: Request) {
       let startsAt = Math.max(Date.now(), ...jobs.map((job) => new Date(job.completes_at).getTime()));
       for (let cycle = 0; cycle < order.cycles; cycle++) {
         const completesAt = startsAt + quote.cycleSeconds * 1000;
-        await tx`
-          INSERT INTO foundry_jobs (id,user_id,building_id,ore_spent,energy_spent,parts_reward,started_at,completes_at)
-          VALUES (${cycleId(userId, requestId, cycle)},${userId},${foundry.id},${quote.ore/order.cycles},${quote.energy/order.cycles},
-            ${quote.cycleParts},${new Date(startsAt)},${new Date(completesAt)})
-        `;
+        if (order.recipe === 'standard_alloy') {
+          // Keep the original insert valid while a deployment awaits migration.
+          await tx`
+            INSERT INTO foundry_jobs (id,user_id,building_id,ore_spent,energy_spent,parts_reward,started_at,completes_at)
+            VALUES (${cycleId(userId, requestId, cycle)},${userId},${foundry.id},${quote.ore/order.cycles},${quote.energy/order.cycles},
+              ${quote.cycleParts},${new Date(startsAt)},${new Date(completesAt)})
+          `;
+        } else {
+          await tx`
+            INSERT INTO foundry_jobs (id,user_id,building_id,recipe_key,ore_spent,energy_spent,parts_reward,started_at,completes_at)
+            VALUES (${cycleId(userId, requestId, cycle)},${userId},${foundry.id},${order.recipe},${quote.ore/order.cycles},${quote.energy/order.cycles},
+              ${quote.cycleParts},${new Date(startsAt)},${new Date(completesAt)})
+          `;
+        }
         startsAt = completesAt;
       }
       await recordProgressEvent(tx, userId, 'foundry_started', order.cycles, {
-        building_id: foundry.id, mode: order.mode, link: order.link, cycles: order.cycles, parts_reward: quote.parts,
+        building_id: foundry.id, recipe_key: order.recipe, mode: order.mode, link: order.link, cycles: order.cycles, parts_reward: quote.parts,
       });
       return { buildingId: foundry.id, jobsStarted: order.cycles, completesAt: new Date(startsAt).toISOString() };
     });

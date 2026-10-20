@@ -5,6 +5,7 @@ export const REQUIRED_SCHEMA: Readonly<Record<string, readonly string[]>> = {
   users: ['id', 'telegram_id', 'bot_write_allowed', 'colony_name'],
   game_states: ['user_id', 'passive_carry', 'tutorial_step', 'science'],
   buildings: ['id', 'user_id', 'completes_at'],
+  foundry_jobs: ['id', 'recipe_key'],
   purchases: ['invoice_payload', 'telegram_payment_charge_id', 'status'],
   system_settings: ['setting_key', 'value'],
   beta_access: ['user_id'],

@@ -171,11 +171,13 @@ test('schema diagnostics cover cumulative tables and added columns', async () =>
   assert.ok(requirements.tables.includes('purchases'));
   assert.ok(requirements.tables.includes('system_settings'));
   assert.ok(requirements.columns.includes('game_states.passive_carry'));
+  assert.ok(requirements.columns.includes('foundry_jobs.recipe_key'));
   assert.ok(requirements.columns.includes('users.bot_write_allowed'));
   const rows = requirements.tables.map((table_name) => ({ table_name, column_name: 'id' }));
   rows.push(...requirements.columns.map((column) => { const [table_name, column_name] = column.split('.'); return { table_name, column_name }; }));
   assert.deepEqual(inspectSchema(rows, requirements), []);
   assert.ok(inspectSchema(rows.filter((row) => row.column_name !== 'passive_carry'), requirements).some((issue) => issue.includes('game_states.passive_carry')));
+  assert.ok(inspectSchema(rows.filter((row) => row.column_name !== 'recipe_key'), requirements).some((issue) => issue.includes('foundry_jobs.recipe_key')));
   assert.ok(inspectSchema(rows.filter((row) => row.table_name !== 'purchases'), requirements).some((issue) => issue.includes('purchases')));
 });
 

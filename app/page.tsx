@@ -5,7 +5,7 @@ import { CityGrid } from '@/components/CityGrid';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
 import { ResearchPanel } from '@/components/ResearchPanel';
-import type { FoundryLink, FoundryMode } from '@/lib/game/foundry';
+import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { RequestCancelled } from '@/lib/client/requests';
@@ -65,6 +65,10 @@ export default function Home() {
   const mapFeedbackRef = useRef<HTMLDivElement>(null);
   const constructionFeedbackRef = useRef<HTMLDivElement>(null);
   const pendingProduction = useRef<{ key: string; requestId: string } | null>(null);
+  const [focusedResearch, setFocusedResearch] = useState<string | null>(null);
+  const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
+  const productionPanelRef = useRef<HTMLDivElement>(null);
+  const productionNavigationPending = useRef(false);
   const [marketResource,setMarketResource]=useState<'ore'|'energy'|'parts'>('ore');
   const [marketAmount,setMarketAmount]=useState('100');
   const [marketPrice,setMarketPrice]=useState('3');
@@ -94,6 +98,13 @@ export default function Home() {
     }
   }, [tab, constructionFeedback]);
 
+  useEffect(() => {
+    if (tab === 'city' && productionNavigationPending.current) {
+      productionNavigationPending.current = false;
+      productionPanelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, [tab, requestedProductionRecipe]);
+
   function constructionNotice(target: string) {
     if (constructionFeedback?.target !== target) return null;
     return <div ref={constructionFeedbackRef} className={`notice actionFeedback ${constructionFeedback.error ? 'error' : ''}`} role={constructionFeedback.error ? 'alert' : 'status'}>{constructionFeedback.text}</div>;
@@ -122,7 +133,7 @@ export default function Home() {
     } catch {}
   }
 
-  async function startProduction(body: { buildingId: string; mode: FoundryMode; link: FoundryLink; cycles: number }) {
+  async function startProduction(body: { buildingId: string; recipe: FoundryRecipeKey; mode: FoundryMode; link: FoundryLink; cycles: number }) {
     const key = JSON.stringify(body);
     if (pendingProduction.current?.key !== key) {
       const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -519,22 +530,26 @@ export default function Home() {
           </>})()}
         </section>}
 
-        <ProductionPanel
+        <div ref={productionPanelRef}><ProductionPanel
           buildings={game.buildings ?? []}
           jobs={game.activeJobs ?? []}
           resources={s}
           partsCapacity={Math.max(0, Number(game.caps?.parts ?? 800) - Number(game.escrow?.parts ?? 0))}
           partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
+          unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
+          recipesEnabled={game.production?.recipesEnabled}
+          selectedRecipe={requestedProductionRecipe}
           busy={busy}
           selectedBuildingId={selectedBuildingId}
           onFoundryChange={setSelectedBuildingId}
           onChangeSelection={() => setConstructionFeedback(null)}
           onStart={startProduction}
+          onResearch={(key) => { setFocusedResearch(key); setTab('build'); }}
           onRefresh={() => { void refresh(); }}
           onBuild={() => beginPlacement('foundry', 'Литейный цех')}
           onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }}
           feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
-        />
+        /></div>
 
         <section className="card"><h2>🌳 Дороги и декор</h2><p>Покупаются только за игровые кредиты. На развитие и рейтинг не влияют.</p><div className="decorCatalog">{(game.decorCatalog??[]).filter((d:any)=>Number(s.hq_level)>=Number(d.unlockHq)).map((d:any)=><button className="decorPick" key={d.type} disabled={busy} onClick={()=>beginDecorPlacement(d.type,d.name)}><span>{d.emoji}</span><b>{d.name}</b><small>💰 {n(d.credits)}</small></button>)}</div></section>
 
@@ -600,6 +615,8 @@ export default function Home() {
           scienceRate={Number(game.scienceRate ?? 0)}
           offlineCapHours={Number(game.offlineCapHours ?? 8)}
           busy={busy}
+          focusResearchKey={focusedResearch}
+          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); setTab('city'); }}
           onStart={async (researchKey) => {
             try { await api('/api/game/research/start', { researchKey }); }
             catch (error) { setMessage(''); throw error; }

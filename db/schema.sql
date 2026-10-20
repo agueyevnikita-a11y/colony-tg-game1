@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS foundry_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   building_id UUID NOT NULL REFERENCES buildings(id) ON DELETE CASCADE,
+  recipe_key TEXT NOT NULL DEFAULT 'standard_alloy',
   ore_spent BIGINT NOT NULL,
   energy_spent BIGINT NOT NULL,
   parts_reward BIGINT NOT NULL,
@@ -585,3 +586,6 @@ CREATE INDEX IF NOT EXISTS payment_recovery_user_time_idx ON payment_recovery_ru
 
 -- v1.0.1: keep sub-unit income when sessions refresh more often than production.
 ALTER TABLE game_states ADD COLUMN IF NOT EXISTS passive_carry JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- v1.4: existing cycles retain their prepaid values and use the original recipe.
+ALTER TABLE foundry_jobs ADD COLUMN IF NOT EXISTS recipe_key TEXT NOT NULL DEFAULT 'standard_alloy';

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { BUILDINGS } from '@/lib/game/config';
 import type { ResearchConfig } from '@/lib/game/research';
+import type { FoundryRecipeKey } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import '@/app/research.css';
 
@@ -31,11 +32,13 @@ type Props = {
   onBuildLab: () => void;
   onBuild: (type: string, name: string) => void;
   onRefresh: () => void;
+  focusResearchKey?: string | null;
+  onProduction?: (recipe: FoundryRecipeKey) => void;
 };
 
 const BRANCHES = [
   { key: 'resources', name: 'Ресурсы', title: 'Ресурсы', emoji: '⛏️', description: 'Больше руды и энергии. Новые технологии открывают мощные добывающие здания.' },
-  { key: 'production', name: 'Производство', title: 'Производство и хранение', emoji: '🏭', description: 'Повышай выход деталей, расширяй склад и продлевай автономную работу колонии.' },
+  { key: 'production', name: 'Производство', title: 'Производство и хранение', emoji: '🏭', description: 'Открывай рецепты под запасы колонии, повышай выход деталей и расширяй склад.' },
   { key: 'exploration', name: 'Экспедиции', title: 'Экспедиции', emoji: '🧭', description: 'Открывай маршруты, получай больше научных данных и отправляй аппараты параллельно.' },
 ] as const;
 type Branch = typeof BRANCHES[number]['key'];
@@ -60,6 +63,7 @@ export function ResearchPanel(props: Props) {
   const [now, setNow] = useState(() => Date.now());
   const submitGuard = useRef(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const focusedCardRef = useRef<HTMLElement>(null);
   const { research } = props;
   const completed = new Set(research.completed);
   const locked = props.busy || submittingKey !== null;
@@ -69,6 +73,15 @@ export function ResearchPanel(props: Props) {
   const activeReady = !!research.active && now >= activeEndsAt;
   const progress = research.active ? Math.max(0, Math.min(100, (now - activeStartsAt) / Math.max(1, activeEndsAt - activeStartsAt) * 100)) : 0;
   const selectedBranch = BRANCHES.find((item) => item.key === branch)!;
+  const focusedBranch = research.catalog.find((item) => item.key === props.focusResearchKey)?.branch;
+
+  useEffect(() => {
+    if (focusedBranch && focusedBranch !== 'foundation') setBranch(focusedBranch);
+  }, [props.focusResearchKey, focusedBranch]);
+
+  useEffect(() => {
+    if (props.focusResearchKey) focusedCardRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [props.focusResearchKey, branch]);
 
   useEffect(() => {
     if (!research.active) return;
@@ -128,7 +141,7 @@ export function ResearchPanel(props: Props) {
       : research.active ? 'Дождись текущего исследования'
       : !canAfford(item) ? 'Не хватает ресурсов' : 'Исследовать';
 
-    return <article key={item.key} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
+    return <article key={item.key} ref={item.key === props.focusResearchKey ? focusedCardRef : undefined} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''} ${item.key === props.focusResearchKey ? 'isFocused' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
       <div className="technologyTitle"><span aria-hidden="true">{item.emoji}</span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : ''}`}>{done ? '✓ Изучено' : researching ? 'В работе' : available ? 'Требования выполнены' : 'Предстоит открыть'}</span></div></div>
       <p className="technologyEffect">{item.effectText}</p>
       {!done && <>
@@ -142,6 +155,7 @@ export function ResearchPanel(props: Props) {
         </>}
       </>}
       {done && unlockedBuilding && item.unlockBuilding && <button type="button" className="action secondary technologyBuild" disabled={locked || props.hqLevel < unlockedBuilding.unlockHq} onClick={() => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? `Для постройки нужен HQ${unlockedBuilding.unlockHq}` : `Построить: ${unlockedBuilding.name}`}</button>}
+      {done && item.unlockRecipe && props.onProduction && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onProduction?.(item.unlockRecipe!)}>Открыть рецепт в производстве</button>}
       {feedback?.key === item.key && <div ref={feedbackRef} className={`notice researchFeedback ${feedback.error ? 'error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
     </article>;
   }

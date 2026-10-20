@@ -76,6 +76,49 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.deepEqual(ready.data.checks, { configuration: 'ok', database: 'ok', schema: 'ok' });
     assert.equal((await request('/api/health')).status, 200);
   });
+  await t.test('recipe migration backfills legacy jobs and can be applied twice without repricing them', async () => {
+    const migration = await readFile(new URL('../db/migrations/012_v1_4_recipes.sql', import.meta.url), 'utf8');
+    await sql.begin(async (tx) => {
+      // A transaction-local table shadows the live test table only on this connection.
+      await tx`
+        CREATE TEMP TABLE foundry_jobs (
+          id UUID PRIMARY KEY,
+          ore_spent BIGINT NOT NULL,
+          energy_spent BIGINT NOT NULL,
+          parts_reward BIGINT NOT NULL,
+          started_at TIMESTAMPTZ NOT NULL,
+          completes_at TIMESTAMPTZ NOT NULL
+        ) ON COMMIT DROP
+      `;
+      const legacyId = crypto.randomUUID();
+      const before = (await tx`
+        INSERT INTO foundry_jobs (id,ore_spent,energy_spent,parts_reward,started_at,completes_at)
+        VALUES (${legacyId},100,40,35,now()-interval '10 minutes',now()-interval '5 minutes') RETURNING *
+      `)[0];
+      await tx.unsafe(migration);
+      await tx.unsafe(migration);
+      const migrated = (await tx`SELECT * FROM foundry_jobs WHERE id=${legacyId}`)[0];
+      assert.equal(migrated.recipe_key, 'standard_alloy');
+      const { recipe_key, ...retained } = migrated;
+      assert.deepEqual(retained, before, 'The migration must preserve prepaid rewards, costs and timestamps');
+      const nextId = crypto.randomUUID();
+      const next = (await tx`
+        INSERT INTO foundry_jobs (id,ore_spent,energy_spent,parts_reward,started_at,completes_at)
+        VALUES (${nextId},100,40,35,now(),now()+interval '5 minutes') RETURNING recipe_key
+      `)[0];
+      assert.equal(next.recipe_key, 'standard_alloy', 'Legacy callers omitting a recipe must retain their default');
+      await tx`UPDATE foundry_jobs SET recipe_key='precision_casting' WHERE id=${nextId}`;
+      await tx.unsafe(migration);
+      assert.equal((await tx`SELECT recipe_key FROM foundry_jobs WHERE id=${nextId}`)[0].recipe_key, 'precision_casting');
+      const definition = (await tx`
+        SELECT a.attnotnull, pg_get_expr(d.adbin,d.adrelid) AS default_value
+        FROM pg_attribute a JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+        WHERE a.attrelid='pg_temp.foundry_jobs'::regclass AND a.attname='recipe_key'
+      `)[0];
+      assert.equal(definition.attnotnull, true);
+      assert.match(definition.default_value, /standard_alloy/);
+    });
+  });
   await t.test('missing, forged and expired Telegram signatures are rejected', async () => {
     const missing = await request('/api/session', { method: 'POST' });
     assert.equal(missing.status, 401);
@@ -109,7 +152,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   });
 
   let foreignFoundryId;
-  async function productionFixture({ activeNeighbors = false } = {}) {
+  async function productionFixture({ activeNeighbors = false, completed = [], activeResearch } = {}) {
     const user = (await sql`SELECT id FROM users WHERE telegram_id=${playerId}`)[0];
     assert.ok(user, 'The signed session must have created the test player');
     if (!foreignFoundryId) {
@@ -123,7 +166,21 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     // Only the two isolated users created by this test can be changed here.
     // No warehouse gives the documented base capacity of 800 parts.
     await sql`DELETE FROM market_orders WHERE user_id=${user.id}`;
+    await sql`DELETE FROM user_research WHERE user_id=${user.id}`;
     await sql`DELETE FROM buildings WHERE user_id=${user.id}`;
+    await sql`DELETE FROM api_rate_limits WHERE bucket_key=${`global:${user.id}`}`;
+    for (const researchKey of completed) {
+      await sql`
+        INSERT INTO user_research (user_id,research_key,status,started_at,completes_at,completed_at)
+        VALUES (${user.id},${researchKey},'completed',now()-interval '2 days',now()-interval '1 day',now()-interval '1 day')
+      `;
+    }
+    if (activeResearch) {
+      await sql`
+        INSERT INTO user_research (user_id,research_key,status,started_at,completes_at)
+        VALUES (${user.id},${activeResearch},'researching',now(),now()+interval '1 day')
+      `;
+    }
     const buildings = await sql`
       INSERT INTO buildings (user_id,type,level,x,y,status,completes_at)
       VALUES
@@ -218,6 +275,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     const valid = { buildingId: fixture.low.id, mode: 'standard', link: 'none', cycles: 1 };
     const invalidOrders = [
       { mode: 'unknown' }, { link: 'unknown' }, { link: 'ore,energy' },
+      { recipe: 'unknown' }, { recipe: 'constructor' }, { recipe: null }, { recipe: 1 }, { recipe: {} },
       { cycles: 0 }, { cycles: -1 }, { cycles: 1.5 }, { cycles: 7 },
       { buildingId: foreignFoundryId }, { buildingId: fixture.inactive.id },
       { buildingId: fixture.high.id, link: 'ore' }, { buildingId: 'not-a-uuid' },
@@ -285,6 +343,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
       assert.equal(collected.data.activeJobs.length, 0);
       const jobs = await foundryJobs(fixture.userId);
       assert.equal(jobs.length, 3);
+      assert.ok(jobs.every((job) => job.recipe_key === 'standard_alloy'));
       assert.ok(jobs.every((job) => job.claimed_at !== null));
       assert.deepEqual(await balances(fixture.userId), { ore: 1800, energy: 1120, parts: 87 });
     }
@@ -335,6 +394,163 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
       assert.equal(collected.data.activeJobs.length, 0);
       assert.notEqual((await foundryJobs(fixture.userId))[0].claimed_at, null);
     }
+  });
+
+  await t.test('legacy production requests retain the standard alloy recipe without research', async () => {
+    const fixture = await productionFixture();
+    const result = await startFoundry({ buildingId: fixture.low.id });
+    assert.equal(result.status, 200, JSON.stringify(result.data));
+    const jobs = await foundryJobs(fixture.userId);
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].recipe_key, 'standard_alloy');
+    assert.equal(Number(jobs[0].ore_spent), 100);
+    assert.equal(Number(jobs[0].energy_spent), 40);
+    assert.equal(Number(jobs[0].parts_reward), 35);
+    assertSerial(jobs, [300]);
+    assert.deepEqual(await balances(fixture.userId), { ore: 1900, energy: 1160, parts: 0 });
+  });
+
+  await t.test('advanced recipes require completed research and snapshot their prices and research bonus', async () => {
+    for (const recipe of [
+      { key: 'precision_casting', ore: 70, energy: 90, parts: 38, seconds: 420 },
+      { key: 'industrial_casting', ore: 240, energy: 60, parts: 77, seconds: 600 },
+    ]) {
+      const fixture = await productionFixture({ completed: ['basic_theory', 'thermal_recovery', 'extraction_ai'] });
+      const order = { buildingId: fixture.low.id, recipe: recipe.key, mode: 'standard', link: 'none', cycles: 1 };
+      const before = await balances(fixture.userId);
+      const missing = await startFoundry(order);
+      assert.equal(missing.status, 400, JSON.stringify(missing.data));
+      assert.deepEqual(await balances(fixture.userId), before, 'Posting a locked recipe directly must not charge resources');
+      assert.equal((await foundryJobs(fixture.userId)).length, 0);
+      await sql`
+        INSERT INTO user_research (user_id,research_key,status,started_at,completes_at)
+        VALUES (${fixture.userId},${recipe.key},'researching',now(),now()+interval '1 hour')
+      `;
+      const pending = await startFoundry(order);
+      assert.equal(pending.status, 400, JSON.stringify(pending.data));
+      assert.deepEqual(await balances(fixture.userId), before, 'An unfinished technology must not unlock its recipe');
+      assert.equal((await foundryJobs(fixture.userId)).length, 0);
+      await sql`
+        UPDATE user_research SET completes_at=now()-interval '1 second'
+        WHERE user_id=${fixture.userId} AND research_key=${recipe.key}
+      `;
+      const unlocked = await startFoundry(order);
+      assert.equal(unlocked.status, 200, JSON.stringify(unlocked.data));
+      assert.ok(unlocked.data.research.completed.includes(recipe.key));
+      assert.equal(unlocked.data.production.partsMultiplier, 1.1);
+      const jobs = await foundryJobs(fixture.userId);
+      assert.equal(jobs.length, 1);
+      assert.equal(jobs[0].recipe_key, recipe.key);
+      assert.equal(Number(jobs[0].ore_spent), recipe.ore);
+      assert.equal(Number(jobs[0].energy_spent), recipe.energy);
+      assert.equal(Number(jobs[0].parts_reward), recipe.parts);
+      assertSerial(jobs, [recipe.seconds]);
+      assert.deepEqual(await balances(fixture.userId), { ore: before.ore - recipe.ore, energy: before.energy - recipe.energy, parts: 0 });
+    }
+  });
+
+  await t.test('mixed recipe queues retain serial prepaid snapshots and durable duplicate receipts after completion', async () => {
+    const fixture = await productionFixture({ activeNeighbors: true, completed: ['thermal_recovery', 'precision_casting', 'industrial_casting'] });
+    const precision = await startFoundry({ buildingId: fixture.low.id, recipe: 'precision_casting', mode: 'standard', link: 'ore', cycles: 1 });
+    assert.equal(precision.status, 200, JSON.stringify(precision.data));
+    const industrialOrder = { buildingId: fixture.low.id, recipe: 'industrial_casting', mode: 'rush', link: 'energy', cycles: 1, requestId: crypto.randomUUID() };
+    const duplicates = await Promise.all([startFoundry(industrialOrder), startFoundry(industrialOrder)]);
+    for (const duplicate of duplicates) assert.equal(duplicate.status, 200, JSON.stringify(duplicate.data));
+    assert.equal((await foundryJobs(fixture.userId)).length, 2);
+    assert.deepEqual(await balances(fixture.userId), { ore: 1700, energy: 1026, parts: 0 });
+    const standard = await startFoundry({ buildingId: fixture.low.id, recipe: 'standard_alloy', mode: 'economy', link: 'ore', cycles: 1 });
+    assert.equal(standard.status, 200, JSON.stringify(standard.data));
+    const independent = await startFoundry({ buildingId: fixture.high.id, recipe: 'industrial_casting', mode: 'standard', link: 'none', cycles: 1 });
+    assert.equal(independent.status, 200, JSON.stringify(independent.data));
+    let jobs = await foundryJobs(fixture.userId);
+    const queue = jobs.filter((job) => job.building_id === fixture.low.id);
+    assertSerial(queue, [420, 300, 600]);
+    assert.deepEqual(queue.map((job) => ({ recipe: job.recipe_key, ore: Number(job.ore_spent), energy: Number(job.energy_spent), parts: Number(job.parts_reward) })), [
+      { recipe: 'precision_casting', ore: 60, energy: 90, parts: 38 },
+      { recipe: 'industrial_casting', ore: 240, energy: 84, parts: 77 },
+      { recipe: 'standard_alloy', ore: 85, energy: 25, parts: 38 },
+    ]);
+    const other = jobs.find((job) => job.building_id === fixture.high.id);
+    assert.equal(other.recipe_key, 'industrial_casting');
+    assert.equal(other.completes_at - other.started_at, 375_000);
+    assert.equal(Number(other.parts_reward), 107);
+    assert.ok(other.started_at < queue[0].completes_at, 'A different foundry must not wait for the mixed queue');
+    assert.deepEqual(await balances(fixture.userId), { ore: 1375, energy: 941, parts: 0 });
+    const snapshots = JSON.stringify(jobs);
+    await sql`UPDATE buildings SET x=0,y=0 WHERE id=${fixture.mine.id}`;
+    await sql`UPDATE buildings SET level=10 WHERE id=${fixture.low.id}`;
+    const changed = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(changed.status, 200, JSON.stringify(changed.data));
+    assert.equal(JSON.stringify(await foundryJobs(fixture.userId)), snapshots, 'Changing the city must not reprice, reschedule or change the purchased recipe');
+    await sql`
+      UPDATE foundry_jobs SET started_at=now()-interval '2 hours',completes_at=now()-interval '1 hour'
+      WHERE user_id=${fixture.userId}
+    `;
+    const finished = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(finished.status, 200, JSON.stringify(finished.data));
+    assert.equal(Number(finished.data.state.parts), 260);
+    assert.equal(finished.data.activeJobs.length, 0);
+    const settled = JSON.stringify(await foundryJobs(fixture.userId));
+    const beforeRetry = await balances(fixture.userId);
+    const retry = await startFoundry(industrialOrder);
+    assert.equal(retry.status, 200, JSON.stringify(retry.data));
+    assert.equal(retry.data.result.alreadyStarted, true);
+    assert.deepEqual(await balances(fixture.userId), beforeRetry, 'Retrying an already collected batch must not pay or grant output twice');
+    jobs = await foundryJobs(fixture.userId);
+    assert.equal(jobs.length, 4);
+    assert.ok(jobs.every((job) => job.claimed_at !== null));
+    assert.equal(JSON.stringify(jobs), settled);
+  });
+
+  await t.test('an older database keeps standard production playable until the recipe migration is applied', async () => {
+    const fixture = await productionFixture({ completed: ['thermal_recovery', 'precision_casting'] });
+    let renamed = false;
+    try {
+      // This suite only runs against the guarded local colony_ci/colony_test database.
+      // A reversible rename simulates its pre-migration schema without deleting jobs.
+      await sql`ALTER TABLE public.foundry_jobs RENAME COLUMN recipe_key TO recipe_key_pending`;
+      renamed = true;
+      const ready = await request('/api/ready');
+      assert.equal(ready.status, 503, JSON.stringify(ready.data));
+      assert.equal(ready.data.checks.schema, 'error');
+      const session = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+      assert.equal(session.status, 200, JSON.stringify(session.data));
+      assert.equal(session.data.production.recipesEnabled, false);
+      assert.deepEqual(session.data.production.unlockedRecipes, ['standard_alloy']);
+      const legacy = await startFoundry({ buildingId: fixture.low.id });
+      assert.equal(legacy.status, 200, JSON.stringify(legacy.data));
+      const jobs = await foundryJobs(fixture.userId);
+      assert.equal(jobs.length, 1);
+      assert.equal(jobs[0].recipe_key, undefined);
+      assert.equal(jobs[0].recipe_key_pending, 'standard_alloy');
+      assert.equal(Number(jobs[0].ore_spent), 100);
+      assert.equal(Number(jobs[0].energy_spent), 40);
+      assert.equal(Number(jobs[0].parts_reward), 38);
+      assertSerial(jobs, [300]);
+      assert.deepEqual(await balances(fixture.userId), { ore: 1900, energy: 1160, parts: 0 });
+      const before = await balances(fixture.userId);
+      const advanced = await startFoundry({ buildingId: fixture.low.id, recipe: 'precision_casting' });
+      assert.equal(advanced.status, 400, JSON.stringify(advanced.data));
+      assert.deepEqual(await balances(fixture.userId), before, 'A pending migration must block advanced recipes before charging resources');
+      assert.equal((await foundryJobs(fixture.userId)).length, 1);
+    } finally {
+      if (renamed) await sql`ALTER TABLE public.foundry_jobs RENAME COLUMN recipe_key_pending TO recipe_key`;
+    }
+    const restored = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(restored.status, 200, JSON.stringify(restored.data));
+    assert.equal(restored.data.production.recipesEnabled, true);
+    assert.ok(restored.data.production.unlockedRecipes.includes('precision_casting'));
+    const advanced = await startFoundry({ buildingId: fixture.low.id, recipe: 'precision_casting' });
+    assert.equal(advanced.status, 200, JSON.stringify(advanced.data));
+    const jobs = await foundryJobs(fixture.userId);
+    assert.equal(jobs.length, 2);
+    assert.deepEqual(jobs.map((job) => job.recipe_key), ['standard_alloy', 'precision_casting']);
+    assert.equal(Number(jobs[1].ore_spent), 70);
+    assert.equal(Number(jobs[1].energy_spent), 90);
+    assert.equal(Number(jobs[1].parts_reward), 38);
+    assertSerial(jobs, [300, 420]);
+    assert.deepEqual(await balances(fixture.userId), { ore: 1830, energy: 1070, parts: 0 });
+    assert.equal((await request('/api/ready')).status, 200, 'Readiness must recover after the migration becomes visible');
   });
 
   async function researchFixture({ hqLevel = 3, labLevel = 2, labStatus = 'active', completed = [], active,

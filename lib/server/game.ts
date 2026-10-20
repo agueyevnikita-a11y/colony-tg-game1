@@ -20,7 +20,8 @@ import { getFeatureFlags } from '@/lib/server/feature-flags';
 import { assertRateLimitTx } from '@/lib/server/rate-limit';
 import { getAccessState } from '@/lib/server/access';
 import { accrueIncome } from '@/lib/server/passive-income';
-import { collectableFoundryJobs } from '@/lib/game/foundry';
+import { availableFoundryRecipes, collectableFoundryJobs } from '@/lib/game/foundry';
+import { recipeSchemaReady } from '@/lib/server/production-schema';
 
 export async function ensurePlayer(tg: {
   id: number;
@@ -191,6 +192,7 @@ export async function reconcilePlayer(userId: string) {
     `;
     const premium = !!state.premium_until && new Date(state.premium_until) > new Date();
     const researchKeys = await completedResearchKeys(tx, userId);
+    const recipesEnabled = await recipeSchemaReady(tx);
     const researchEffects = productionMultipliers(researchKeys);
     const capHours = offlineCapHours(premium, researchKeys);
     const incomeSegments = calculateResearchIncomeSegments({
@@ -231,7 +233,7 @@ export async function reconcilePlayer(userId: string) {
       parts: Math.max(0, caps.parts - escrow.parts),
     };
     const finishedJobs = await tx<any[]>`
-      SELECT * FROM foundry_jobs
+      SELECT id,parts_reward FROM foundry_jobs
       WHERE user_id=${userId} AND claimed_at IS NULL AND completes_at <= now()
       ORDER BY completes_at ASC, id ASC
       FOR UPDATE
@@ -275,8 +277,11 @@ export async function reconcilePlayer(userId: string) {
 
     await qualifyReferralIfNeeded(tx, userId, hqLevel);
 
+    // Keep the result shape stable while a running server sees recipe_key added.
     const activeJobs = await tx<any[]>`
-      SELECT * FROM foundry_jobs WHERE user_id=${userId} AND claimed_at IS NULL ORDER BY completes_at ASC
+      SELECT id,user_id,building_id,ore_spent,energy_spent,parts_reward,started_at,completes_at,claimed_at,
+             COALESCE(to_jsonb(foundry_jobs)->>'recipe_key', 'standard_alloy') AS recipe_key
+      FROM foundry_jobs WHERE user_id=${userId} AND claimed_at IS NULL ORDER BY completes_at ASC
     `;
     const contracts = await ensureNpcContracts(tx, userId, hqLevel, buildings);
     const dailyQuests = await tx<any[]>`
@@ -354,7 +359,11 @@ export async function reconcilePlayer(userId: string) {
       decor,
       decorCatalog: Object.entries(DECOR_CATALOG).map(([type, cfg]) => ({ type, ...cfg })),
       activeJobs,
-      production: { partsMultiplier: researchEffects.foundryParts },
+      production: {
+        partsMultiplier: researchEffects.foundryParts,
+        recipesEnabled,
+        unlockedRecipes: recipesEnabled ? availableFoundryRecipes(researchKeys).map((recipe) => recipe.id) : ['standard_alloy'],
+      },
       caps,
       escrow,
       contracts,

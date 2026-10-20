@@ -7,6 +7,25 @@
 .productionSelect select { width:100%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 9px; background:var(--panel2); color:var(--text); font:inherit; font-size:13px; }
 .productionField { min-width:0; padding:0; margin:0 0 15px; border:0; }
 .productionField legend { margin:0 0 8px; padding:0; font-size:12px; font-weight:700; }
+.productionRecipes { display:flex; flex-direction:column; gap:7px; }
+.productionRecipe { border:1px solid var(--line); border-radius:12px; background:var(--panel2); overflow:hidden; }
+.productionRecipe.isSelected { border-color:var(--accent); background:rgba(114,228,173,.08); box-shadow:inset 0 0 0 1px rgba(114,228,173,.15); }
+.productionRecipeChoice { display:flex; align-items:flex-start; gap:8px; padding:11px 10px; cursor:pointer; }
+.productionRecipeChoice input { flex-shrink:0; margin:2px 0 0; accent-color:var(--accent); }
+.productionRecipeBody { display:flex; flex:1; min-width:0; flex-direction:column; gap:5px; }
+.productionRecipeHeading { display:flex; align-items:center; justify-content:space-between; gap:7px; }
+.productionRecipeHeading strong { font-size:12px; }
+.productionRecipeHeading small { flex-shrink:0; color:var(--muted); font-size:10px; }
+.productionRecipeHint { color:var(--muted); font-size:11px; line-height:1.45; }
+.productionRecipeCost { font-size:10px; line-height:1.6; }
+.productionRecipe.isLocked .productionRecipeChoice { cursor:default; }
+.productionRecipe.isLocked .productionRecipeCost { color:var(--muted); }
+.productionRecipeUnlock { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:7px; border-top:1px solid var(--line); padding:8px 10px; }
+.productionRecipeUnlock > span { color:var(--muted); font-size:10px; line-height:1.5; }
+.productionRecipeUnlock .miniButton { font-size:10px; }
+.productionRecipe:has(input:focus-visible) { outline:2px solid var(--accent); outline-offset:3px; }
+.productionField:disabled .productionRecipe { opacity:.55; }
+.productionField:disabled .productionRecipeChoice { cursor:default; }
 .productionModes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
 .productionMode, .productionLink { position:relative; border:1px solid var(--line); border-radius:12px; background:var(--panel2); cursor:pointer; }
 .productionMode { display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:10px 7px; min-width:0; }
@@ -47,6 +66,7 @@
 .productionJobTop, .productionJobBottom { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 .productionJobTop strong { font-size:11px; }
 .productionJobTop > span { color:var(--accent); font-size:10px; }
+.productionJobRecipe { margin-top:5px; color:var(--text); font-size:10px; }
 .productionJob.isQueued .productionJobTop > span { color:var(--muted); }
 .productionJobBottom { margin-top:6px; color:var(--muted); font-size:10px; }
 .productionJobBottom > span:last-child { text-align:right; }

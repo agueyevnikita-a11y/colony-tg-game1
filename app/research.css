@@ -39,6 +39,7 @@
 .technologyCard { min-width:0; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--panel2); }
 .technologyCard.isAvailable { border-color:rgba(128,170,255,.28); }
 .technologyCard.isResearching { border-color:rgba(128,170,255,.45); }
+.technologyCard.isFocused { outline:2px solid #a3bcff; outline-offset:2px; scroll-margin-block:20px; }
 .technologyCard.isCompleted { border-color:rgba(114,228,173,.23); background:rgba(114,228,173,.035); }
 .technologyTitle { display:flex; align-items:flex-start; gap:9px; }
 .technologyTitle > span { flex-shrink:0; font-size:24px; line-height:1.2; }

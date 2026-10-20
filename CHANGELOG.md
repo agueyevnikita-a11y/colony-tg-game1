@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0-beta.1 — Production Recipes
+- Added research-gated precision and industrial casting recipes, trading ore, energy, time and queue capacity.
+- Combined recipe choice with existing smelting modes, adjacency discounts, research output and batch previews.
+- Added direct navigation between locked recipes, their technologies and unlocked production choices.
+- Stored the recipe on each paid job; preserved existing costs, rewards and completion times.
+- Added migration `012_v1_4_recipes.sql` and readiness validation for `foundry_jobs.recipe_key`; apply the schema before deploying v1.4.
+
 ## 1.3.0-beta.1 — Research and Blueprints
 - Made the technology tree visible before a laboratory is built, with named prerequisites, branches, active effects and feedback beside each action.
 - Added deep drilling and photovoltaic arrays, unlocking advanced ore and energy buildings through server-checked blueprints.

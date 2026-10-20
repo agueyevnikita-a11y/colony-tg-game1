@@ -14,6 +14,7 @@ registerHooks({
 const { RESEARCH_TREE, productionMultipliers } = await import('../lib/game/research.ts');
 const { BUILDINGS } = await import('../lib/game/config.ts');
 const { calculatePassiveGain } = await import('../lib/game/economy.ts');
+const { FOUNDRY_RECIPES } = await import('../lib/game/foundry.ts');
 
 test('every technology and building blueprint has an obtainable, acyclic prerequisite path', () => {
   const keys = new Set(RESEARCH_TREE.map(item => item.key));
@@ -31,9 +32,15 @@ test('every technology and building blueprint has an obtainable, acyclic prerequ
       assert.equal(BUILDINGS[technology.unlockBuilding].unlockResearch, technology.key);
       assert.ok(BUILDINGS[technology.unlockBuilding].unlockHq >= technology.unlockHq);
     }
+    if (technology.unlockRecipe) {
+      assert.equal(FOUNDRY_RECIPES.find(recipe => recipe.id === technology.unlockRecipe)?.requiredResearch, technology.key);
+    }
   }
   for (const config of Object.values(BUILDINGS)) {
     if (config.unlockResearch) assert.ok(keys.has(config.unlockResearch));
+  }
+  for (const recipe of FOUNDRY_RECIPES) {
+    if (recipe.requiredResearch) assert.ok(RESEARCH_TREE.some(item => item.key === recipe.requiredResearch && item.unlockRecipe === recipe.id));
   }
 });
 
