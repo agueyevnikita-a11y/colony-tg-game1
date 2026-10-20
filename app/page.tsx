@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { ProductionPanel } from '@/components/ProductionPanel';
+import { ResearchPanel } from '@/components/ResearchPanel';
 import type { FoundryLink, FoundryMode } from '@/lib/game/foundry';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
@@ -570,13 +571,16 @@ export default function Home() {
       </>}
 
       {tab === 'build' && <>
-        <section className="card">
+        <nav className="developmentNavigation" aria-label="Разделы развития"><a href="#colony-research">🧪 Исследования и чертежи</a><a href="#colony-buildings">🏗️ Постройки</a></nav>
+        <section className="card" id="colony-buildings">
           <h2>🏗️ Строительство</h2><p>Выбираешь объект здесь, а место — прямо на карте. Free: 2 параллельные стройки, Premium: 3.</p>
           <div className="catalog">
             {available.map((item: any) => <div className="catalogItem" key={item.type}>
               <div style={{fontSize:24}}>{item.emoji}</div><b>{item.name}</b>
+              {item.description && <p>{item.description}</p>}
               <small>{costText(item.baseBuildCost)} · {durationText(item.baseBuildTimeSec)}</small>
-              <button className="action secondary" disabled={busy} onClick={() => beginPlacement(item.type, item.name)}>Выбрать место</button>
+              <button className="action secondary" disabled={busy || item.unlockedByResearch === false} onClick={() => beginPlacement(item.type, item.name)}>{item.unlockedByResearch === false ? 'Нужна технология' : 'Выбрать место'}</button>
+              {item.unlockedByResearch === false && <small className="buildingResearchRequirement">Изучи «{item.researchRequirementName ?? item.unlockResearch}» в исследованиях.</small>}
               <ResourceShortage cost={item.baseBuildCost} resources={s} />
             </div>)}
           </div>
@@ -589,14 +593,21 @@ export default function Home() {
           {constructionNotice('hq')}
         </section>
 
-        <section className="card scienceCard">
-          <div className="cardTitleRow"><div><h2>🧪 Исследования</h2><p>Исследовательский центр производит 🧠 науку офлайн. Исследования нельзя ускорить Stars.</p></div><span className="pill">+{n(game.scienceRate ?? 0)} 🧠/ч</span></div>
-          {!game.research?.enabled ? <><p>Построй исследовательский центр с HQ2, чтобы открыть технологическое дерево.</p><button className="action secondary" onClick={()=>beginPlacement('research_lab','Исследовательский центр')}>Построить центр</button></> : <>
-            {game.research.active && <div className="activeResearch"><span>🔬 Сейчас исследуется</span><b>{game.research.catalog.find((x:any)=>x.key===game.research.active.research_key)?.name ?? game.research.active.research_key}</b><small>Осталось {countdown(game.research.active.completes_at)}</small></div>}
-            <div className="researchTree">{game.research.catalog.map((r:any)=>{const completed=r.status==='completed';const researching=r.status==='researching';const available=r.unlockedByHq&&r.unlockedByLab&&r.prereqsMet&&!game.research.active&&!completed;return <div className={`researchNode ${completed?'completed':researching?'researching':available?'available':'locked'}`} key={r.key}><div className="researchTop"><span>{r.emoji}</span><div><b>{r.name}</b><small>{r.effectText}</small></div></div><p>{r.description}</p><div className="researchMeta"><span>🧠 {n(r.science)} · {costText(r.cost)}</span><span>{durationText(r.timeSec)}</span></div><button className="miniButton" disabled={busy||!available} onClick={()=>api('/api/game/research/start',{researchKey:r.key}).then(()=>setMessage(`Исследование «${r.name}» запущено`)).catch(()=>{})}>{completed?'✓ Завершено':researching?'Идёт…':!r.unlockedByHq?`HQ${r.unlockHq}`:!r.unlockedByLab?`Лаб. ур. ${r.labLevel}`:!r.prereqsMet?'Нужна предыдущая технология':game.research.active?'Занят исследовательский слот':'Исследовать'}</button></div>})}</div>
-          </>}
-          <p className="finePrint">Текущий лимит офлайн-накопления: {n(game.offlineCapHours)} ч. Premium и технология архива увеличивают лимит, но не дают эксклюзивных исследований.</p>
-        </section>
+        {game.research && <div id="colony-research"><ResearchPanel
+          research={game.research}
+          resources={s}
+          hqLevel={Number(s.hq_level)}
+          scienceRate={Number(game.scienceRate ?? 0)}
+          offlineCapHours={Number(game.offlineCapHours ?? 8)}
+          busy={busy}
+          onStart={async (researchKey) => {
+            try { await api('/api/game/research/start', { researchKey }); }
+            catch (error) { setMessage(''); throw error; }
+          }}
+          onBuildLab={() => beginPlacement('research_lab', 'Исследовательский центр')}
+          onBuild={beginPlacement}
+          onRefresh={() => { void refresh(); }}
+        /></div>}
 
         <section className="card expeditionCard">{game.flags?.expeditions===false&&<div className="notice">🚧 Экспедиции временно отключены feature flag.</div>}
           <div className="cardTitleRow"><div><h2>🚀 Экспедиции</h2><p>Отправляй аппараты за ресурсами, научными данными и редкими артефактами.</p></div><span className="pill">{game.expeditions?.activeCount ?? 0}/{game.expeditions?.slots ?? 1}</span></div>

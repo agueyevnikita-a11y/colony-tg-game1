@@ -6,7 +6,7 @@ import { enqueueNotification } from './notifications';
 export async function reconcileResearch(tx: Transaction, userId: string) {
   const finished = await tx<any[]>`
     UPDATE user_research
-    SET status='completed', completed_at=now()
+    SET status='completed', completed_at=completes_at
     WHERE user_id=${userId} AND status='researching' AND completes_at <= now()
     RETURNING research_key
   `;
@@ -23,6 +23,8 @@ export async function completedResearchKeys(tx: Transaction, userId: string): Pr
 
 export async function getResearchState(tx: Transaction, userId: string, hqLevel: number, buildings: any[]) {
   const lab = buildings.filter((b) => b.type === 'research_lab' && b.status === 'active').sort((a,b)=>Number(b.level)-Number(a.level))[0] ?? null;
+  const pendingLab = buildings.filter((b) => b.type === 'research_lab').sort((a,b)=>Number(b.level)-Number(a.level))[0] ?? null;
+  const labStatus = lab ? 'active' : pendingLab?.status === 'upgrading' ? 'upgrading' : pendingLab ? 'building' : 'missing';
   const rows = await tx<any[]>`
     SELECT research_key,status,started_at,completes_at,completed_at
     FROM user_research WHERE user_id=${userId}
@@ -37,16 +39,16 @@ export async function getResearchState(tx: Transaction, userId: string, hqLevel:
     prereqsMet: cfg.prereqs.every((key) => completed.has(key)),
     status: rows.find((x) => x.research_key === cfg.key)?.status ?? 'locked',
   }));
-  return { enabled: !!lab, labLevel: Number(lab?.level ?? 0), active, completed: [...completed], catalog };
+  return { enabled: !!lab, labStatus, labLevel: Number(lab?.level ?? pendingLab?.level ?? 0), active, completed: [...completed], catalog };
 }
 
 export async function startResearch(userId: string, researchKey: string) {
   const cfg = researchByKey(researchKey);
   if (!cfg) throw new Error('Исследование не найдено');
   return sql.begin(async (tx) => {
-    await reconcileResearch(tx, userId);
     const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
     if (!state) throw new Error('Игровой профиль не найден');
+    await reconcileResearch(tx, userId);
     const lab = (await tx<any[]>`
       SELECT * FROM buildings WHERE user_id=${userId} AND type='research_lab' AND status='active'
       ORDER BY level DESC LIMIT 1

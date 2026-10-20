@@ -1,9 +1,11 @@
-import { DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, type ResourceCost } from './config';
+import { DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, type BuildingType, type ResourceCost } from './config';
 
 export type ResearchKey =
   | 'basic_theory'
   | 'extraction_ai'
   | 'solar_lattice'
+  | 'deep_drilling'
+  | 'photovoltaic_arrays'
   | 'compact_storage'
   | 'thermal_recovery'
   | 'deep_navigation'
@@ -14,6 +16,8 @@ export type ResearchKey =
 
 export type ResearchConfig = {
   key: ResearchKey;
+  branch: 'foundation' | 'resources' | 'production' | 'exploration';
+  unlockBuilding?: BuildingType;
   name: string;
   emoji: string;
   description: string;
@@ -28,61 +32,73 @@ export type ResearchConfig = {
 
 export const RESEARCH_TREE: ResearchConfig[] = [
   {
-    key: 'basic_theory', name: 'Прикладная ксенология', emoji: '🧬',
+    key: 'basic_theory', branch: 'foundation', name: 'Прикладная ксенология', emoji: '🧬',
     description: 'Базовые методы анализа неизвестных сигналов и материалов.',
-    unlockHq: 2, labLevel: 1, science: 80, cost: { credits: 600 }, timeSec: 600, prereqs: [],
+    unlockHq: 2, labLevel: 1, science: 20, cost: { credits: 300 }, timeSec: 300, prereqs: [],
     effectText: '+10% к генерации очков науки',
   },
   {
-    key: 'extraction_ai', name: 'Адаптивная добыча', emoji: '⛏️',
+    key: 'extraction_ai', branch: 'resources', name: 'Адаптивная добыча', emoji: '⛏️',
     description: 'Алгоритмы распределения буровых циклов по наиболее перспективным зонам.',
     unlockHq: 2, labLevel: 1, science: 160, cost: { credits: 1200, parts: 40 }, timeSec: 1200, prereqs: ['basic_theory'],
     effectText: '+7% к производству руды',
   },
   {
-    key: 'solar_lattice', name: 'Солнечная решётка', emoji: '☀️',
+    key: 'solar_lattice', branch: 'resources', name: 'Солнечная решётка', emoji: '☀️',
     description: 'Синхронизация энергетических модулей и снижение потерь преобразования.',
     unlockHq: 2, labLevel: 1, science: 160, cost: { credits: 1200, parts: 40 }, timeSec: 1200, prereqs: ['basic_theory'],
     effectText: '+7% к производству энергии',
   },
   {
-    key: 'compact_storage', name: 'Компактное хранение', emoji: '📦',
+    key: 'deep_drilling', branch: 'resources', name: 'Глубокое бурение', emoji: '🛢️',
+    description: 'Освой глубокие залежи. Новая шахта дороже обычной, зато добывает больше с одной клетки.',
+    unlockHq: 3, labLevel: 2, science: 360, cost: { credits: 2800, parts: 160 }, timeSec: 3600, prereqs: ['extraction_ai'],
+    effectText: 'Открывает глубинную шахту: базово 300 руды/ч', unlockBuilding: 'deep_mine',
+  },
+  {
+    key: 'photovoltaic_arrays', branch: 'resources', name: 'Фотоэлектрические массивы', emoji: '🌞',
+    description: 'Объедини панели в мощную установку. Более дорогая энергетика экономит место в городе.',
+    unlockHq: 3, labLevel: 2, science: 360, cost: { credits: 2800, parts: 160 }, timeSec: 3600, prereqs: ['solar_lattice'],
+    effectText: 'Открывает солнечный массив: базово 250 энергии/ч', unlockBuilding: 'solar_array',
+  },
+  {
+    key: 'compact_storage', branch: 'production', name: 'Компактное хранение', emoji: '📦',
     description: 'Новая компоновка складских ячеек и автоматизированная укладка грузов.',
     unlockHq: 3, labLevel: 2, science: 220, cost: { credits: 1600, parts: 80 }, timeSec: 1800, prereqs: ['basic_theory'],
     effectText: '+10% ко вместимости складов',
   },
   {
-    key: 'thermal_recovery', name: 'Рекуперация расплава', emoji: '🔥',
+    key: 'thermal_recovery', branch: 'production', name: 'Рекуперация расплава', emoji: '🔥',
     description: 'Возврат тепла и вторичная переработка отходов литейного цикла.',
     unlockHq: 3, labLevel: 2, science: 260, cost: { credits: 2200, parts: 120 }, timeSec: 2700, prereqs: ['basic_theory'],
     effectText: '+10% к выходу деталей из плавки',
   },
   {
-    key: 'deep_navigation', name: 'Глубокая навигация', emoji: '🧭',
+    key: 'deep_navigation', branch: 'exploration', name: 'Глубокая навигация', emoji: '🧭',
     description: 'Расчёт безопасных маршрутов за пределы локальной орбиты колонии.',
     unlockHq: 3, labLevel: 2, science: 300, cost: { credits: 2500, parts: 120 }, timeSec: 3600, prereqs: ['basic_theory'],
     effectText: 'Открывает экспедицию «Орбитальные руины»',
   },
   {
-    key: 'signal_analysis', name: 'Спектральный анализ', emoji: '📡',
+    key: 'signal_analysis', branch: 'exploration', name: 'Спектральный анализ', emoji: '📡',
     description: 'Выделение слабых закономерностей в шуме и неизвестных передачах.',
     unlockHq: 4, labLevel: 3, science: 450, cost: { credits: 4200, parts: 180 }, timeSec: 5400, prereqs: ['basic_theory'],
     effectText: '+15% науки из экспедиций',
   },
   {
-    key: 'autonomous_drones', name: 'Автономные дроны', emoji: '🤖',
+    key: 'autonomous_drones', branch: 'exploration', name: 'Автономные дроны', emoji: '🤖',
     description: 'Независимые исследовательские аппараты для параллельных вылетов.',
     unlockHq: 4, labLevel: 3, science: 520, cost: { credits: 5500, parts: 260 }, timeSec: 7200, prereqs: ['deep_navigation'],
     effectText: '+1 слот экспедиций',
   },
   {
-    key: 'archive_network', name: 'Распределённый архив', emoji: '🗄️',
+    key: 'archive_network', branch: 'production', name: 'Распределённый архив', emoji: '🗄️',
     description: 'Сеть автономных архивов продолжает сбор данных во время отсутствия оператора.',
     unlockHq: 4, labLevel: 3, science: 600, cost: { credits: 5000, parts: 240 }, timeSec: 7200, prereqs: ['compact_storage'],
     effectText: '+2 часа к лимиту офлайн-производства',
   },
   {
-    key: 'deep_space_protocol', name: 'Протокол дальнего сигнала', emoji: '🌌',
+    key: 'deep_space_protocol', branch: 'exploration', name: 'Протокол дальнего сигнала', emoji: '🌌',
     description: 'Комплекс навигации и дешифрования для работы с глубоким космосом.',
     unlockHq: 5, labLevel: 4, science: 900, cost: { credits: 9000, parts: 500 }, timeSec: 14400, prereqs: ['deep_navigation', 'signal_analysis'],
     effectText: 'Открывает экспедицию «Дальний сигнал»',
@@ -95,7 +111,8 @@ export function researchByKey(key: string) {
 
 export function sciencePerHour(labLevels: number[], completed: Set<string>) {
   const base = labLevels.reduce((sum, level) => sum + Math.floor(18 * Math.pow(1.38, Math.max(0, level - 1))), 0);
-  return Math.floor(base * (completed.has('basic_theory') ? 1.10 : 1));
+  // Fractional science is retained by the server's passive carry.
+  return base * (completed.has('basic_theory') ? 1.10 : 1);
 }
 
 export function offlineCapHours(premium: boolean, completed: Set<string>) {

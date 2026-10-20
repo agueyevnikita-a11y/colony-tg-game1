@@ -1,7 +1,7 @@
 import { sql } from './db';
 import { BUILDINGS, HQ_UPGRADES, cityGridSize, type BuildingType } from '@/lib/game/config';
 import { ACHIEVEMENTS, DAILY_QUESTS, WEEKLY_QUESTS } from '@/lib/game/progression';
-import { buildTimeSec, calculatePassiveGain, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
+import { buildTimeSec, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
 import { ensureProgressionRows, recordProgressEvent } from '@/lib/server/progression';
 import { getMarketState, reconcileExpiredMarketOrders } from '@/lib/server/market';
 import { getSeasonState } from '@/lib/server/season';
@@ -10,7 +10,8 @@ import { cityScore } from '@/lib/game/city-score';
 import { DECOR_CATALOG } from '@/lib/game/decor';
 import { completedResearchKeys, getResearchState, reconcileResearch } from '@/lib/server/research';
 import { getExpeditionState, reconcileExpeditions } from '@/lib/server/expeditions';
-import { offlineCapHours, productionMultipliers, sciencePerHour } from '@/lib/game/research';
+import { offlineCapHours, productionMultipliers, researchByKey, sciencePerHour } from '@/lib/game/research';
+import { calculateResearchIncomeSegments } from '@/lib/game/research-income';
 import { getTutorialStateFromRows } from '@/lib/server/tutorial';
 import { getNotificationPreferences } from '@/lib/server/notifications';
 import { ensureDailyLogin, getDailyLoginState } from '@/lib/server/daily-login';
@@ -159,6 +160,20 @@ export async function reconcilePlayer(userId: string) {
     await ensureDailyLogin(tx, userId);
     await ensureWelcomeInbox(tx, userId);
     await reconcileExpiredMarketOrders(tx, userId);
+
+    // Daily login and market already lock their rows before game_states. Keep
+    // that order, then serialize research completion/progression on this state.
+    const stateRows = await tx<any[]>`
+      SELECT *, now() AS reconciled_at FROM game_states WHERE user_id = ${userId} FOR UPDATE
+    `;
+    const state = stateRows[0];
+    if (!state) throw new Error('Missing game state');
+    const incomeBuildings = await tx<any[]>`
+      SELECT type,level,status,target_level,completes_at,created_at FROM buildings WHERE user_id=${userId}
+    `;
+    const incomeResearch = await tx<any[]>`
+      SELECT research_key,status,completes_at,completed_at FROM user_research WHERE user_id=${userId}
+    `;
     await reconcileResearch(tx, userId);
     await reconcileExpeditions(tx, userId);
 
@@ -171,30 +186,27 @@ export async function reconcilePlayer(userId: string) {
         AND completes_at <= now()
     `;
 
-    const stateRows = await tx<any[]>`
-      SELECT * FROM game_states WHERE user_id = ${userId} FOR UPDATE
-    `;
-    const state = stateRows[0];
-    if (!state) throw new Error('Missing game state');
-
     const buildings = await tx<any[]>`
       SELECT * FROM buildings WHERE user_id = ${userId} ORDER BY created_at ASC
     `;
     const premium = !!state.premium_until && new Date(state.premium_until) > new Date();
-    const elapsedHours = (Date.now() - new Date(state.last_tick_at).getTime()) / 3_600_000;
     const researchKeys = await completedResearchKeys(tx, userId);
     const researchEffects = productionMultipliers(researchKeys);
     const capHours = offlineCapHours(premium, researchKeys);
-    const gain = calculatePassiveGain({
-      buildings: buildings.map((b) => ({ type: b.type as BuildingType, level: b.level, status: b.status })),
-      hoursElapsed: elapsedHours,
+    const incomeSegments = calculateResearchIncomeSegments({
+      buildings: incomeBuildings.map((building) => ({ ...building, level: Number(building.level), target_level: building.target_level == null ? null : Number(building.target_level) })),
+      research: incomeResearch.filter((entry) => entry.status === 'completed' || (entry.status === 'researching' && new Date(entry.completes_at) <= new Date(state.reconciled_at)))
+        .map((entry) => ({ key: entry.research_key, completedAt: entry.completes_at ?? entry.completed_at ?? null })),
+      from: state.last_tick_at,
+      to: state.reconciled_at,
       premium,
-      offlineCapBonusHours: researchKeys.has('archive_network') ? 2 : 0,
-      resourceMultipliers: { ore: researchEffects.ore, energy: researchEffects.energy },
     });
+    const gain = incomeSegments.reduce((sum, segment) => ({
+      credits: sum.credits + segment.credits,
+      science: sum.science + segment.science,
+    }), { credits: 0, science: 0 });
     const labLevels = buildings.filter((b) => b.type === 'research_lab' && b.status === 'active').map((b) => Number(b.level));
     const scienceRate = sciencePerHour(labLevels, researchKeys);
-    const scienceGain = scienceRate * Math.max(0, Math.min(elapsedHours, capHours));
     const whLevels = buildings.filter((b) => b.type === 'warehouse' && b.status === 'active').map((b) => b.level);
     const baseCaps = storageCaps(whLevels);
     const caps = {
@@ -231,10 +243,19 @@ export async function reconcilePlayer(userId: string) {
     }
 
     const carry = state.passive_carry ?? {};
-    const oreIncome = accrueIncome({ current: Number(state.ore), gain: gain.ore, carry: Number(carry.ore ?? 0), capacity: liquidCaps.ore });
-    const energyIncome = accrueIncome({ current: Number(state.energy), gain: gain.energy, carry: Number(carry.energy ?? 0), capacity: liquidCaps.energy });
+    let oreIncome = { amount: Number(state.ore), carry: Number(carry.ore ?? 0) };
+    let energyIncome = { amount: Number(state.energy), carry: Number(carry.energy ?? 0) };
+    // A warehouse or storage research completed later cannot hold earlier
+    // overflow. Existing stock survives a temporary capacity drop on upgrades.
+    for (const segment of incomeSegments) {
+      const segmentCaps = storageCaps(segment.warehouseLevels);
+      const oreCapacity = Math.max(0, Math.floor(segmentCaps.ore * segment.storageMultiplier) - escrow.ore);
+      const energyCapacity = Math.max(0, Math.floor(segmentCaps.energy * segment.storageMultiplier) - escrow.energy);
+      oreIncome = accrueIncome({ current: oreIncome.amount, carry: oreIncome.carry, gain: segment.ore, capacity: Math.max(oreIncome.amount, oreCapacity) });
+      energyIncome = accrueIncome({ current: energyIncome.amount, carry: energyIncome.carry, gain: segment.energy, capacity: Math.max(energyIncome.amount, energyCapacity) });
+    }
     const creditIncome = accrueIncome({ current: Number(state.credits), gain: gain.credits, carry: Number(carry.credits ?? 0) });
-    const scienceIncome = accrueIncome({ current: Number(state.science ?? 0), gain: scienceGain, carry: Number(carry.science ?? 0) });
+    const scienceIncome = accrueIncome({ current: Number(state.science ?? 0), gain: gain.science, carry: Number(carry.science ?? 0) });
     const ore = oreIncome.amount;
     const energy = energyIncome.amount;
     const parts = Number(state.parts) + partsFromJobs;
@@ -248,7 +269,7 @@ export async function reconcilePlayer(userId: string) {
       UPDATE game_states SET
         hq_level=${hqLevel}, city_score=${score}, ore=${ore}, energy=${energy}, parts=${parts}, credits=${credits}, science=${science},
         passive_carry=${tx.json({ ore: oreIncome.carry, energy: energyIncome.carry, credits: creditIncome.carry, science: scienceIncome.carry })},
-        last_tick_at=now(), updated_at=now()
+        last_tick_at=GREATEST(last_tick_at, ${state.reconciled_at}), updated_at=now()
       WHERE user_id=${userId}
     `;
 
@@ -360,7 +381,12 @@ export async function reconcilePlayer(userId: string) {
       flags,
       profile,
       offlineCapHours: capHours,
-      catalog: Object.entries(BUILDINGS).map(([type, cfg]) => ({ type, ...cfg })),
+      catalog: Object.entries(BUILDINGS).map(([type, cfg]) => ({
+        type,
+        ...cfg,
+        unlockedByResearch: !cfg.unlockResearch || researchKeys.has(cfg.unlockResearch),
+        researchRequirementName: cfg.unlockResearch ? researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch : null,
+      })),
     };
   });
 }

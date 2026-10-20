@@ -1,10 +1,12 @@
-# COLONY v1.2 Beta
+# COLONY v1.3 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
 v1.1 adds Telegram entry and recovery screens, safer session refresh, bot commands, deployment validation and a production readiness endpoint. The beta operations from v1.0 remain: maintenance mode, invite codes, rate limits, feedback and Stars purchase recovery.
 
 v1.2 makes city planning affect production: select a foundry, choose a smelting mode and one neighboring supplier bonus, and queue several cycles with an exact cost/time/output preview. The city map and production controls come first on the home screen. Existing jobs keep their stored costs, output and completion times; completed output waits in the workshop when the warehouse is full. No additional database migration is required from v1.1. See [production rules and verification](docs/PRODUCTION_v1.2.md).
+
+v1.3 connects research to city development. Three branches show requirements, running work and applied effects before a laboratory is available. Deep drilling and photovoltaic arrays unlock advanced resource buildings, while existing technologies retain their bonuses. New effects begin at their actual completion time. No migration is required from v1.2. See [research rules and blueprints](docs/RESEARCH_v1.3.md).
 
 ## Stack
 - Next.js 16 / React 19 / TypeScript

@@ -1,0 +1,181 @@
+'use client';
+
+import { useEffect, useId, useRef, useState } from 'react';
+import { BUILDINGS } from '@/lib/game/config';
+import type { ResearchConfig } from '@/lib/game/research';
+import { ResourceShortage } from '@/components/ResourceShortage';
+import '@/app/research.css';
+
+type ResearchItem = ResearchConfig & {
+  unlockedByHq: boolean;
+  unlockedByLab: boolean;
+  prereqsMet: boolean;
+  status: string;
+};
+
+type Props = {
+  research: {
+    enabled: boolean;
+    labLevel: number;
+    labStatus: 'missing' | 'building' | 'upgrading' | 'active';
+    active: { research_key: string; started_at: string; completes_at: string } | null;
+    completed: string[];
+    catalog: ResearchItem[];
+  };
+  resources: Record<string, unknown>;
+  hqLevel: number;
+  scienceRate: number;
+  offlineCapHours: number;
+  busy: boolean;
+  onStart: (key: string) => Promise<void>;
+  onBuildLab: () => void;
+  onBuild: (type: string, name: string) => void;
+  onRefresh: () => void;
+};
+
+const BRANCHES = [
+  { key: 'resources', name: 'Ресурсы', title: 'Ресурсы', emoji: '⛏️', description: 'Больше руды и энергии. Новые технологии открывают мощные добывающие здания.' },
+  { key: 'production', name: 'Производство', title: 'Производство и хранение', emoji: '🏭', description: 'Повышай выход деталей, расширяй склад и продлевай автономную работу колонии.' },
+  { key: 'exploration', name: 'Экспедиции', title: 'Экспедиции', emoji: '🧭', description: 'Открывай маршруты, получай больше научных данных и отправляй аппараты параллельно.' },
+] as const;
+type Branch = typeof BRANCHES[number]['key'];
+
+function number(value: unknown) { return Number(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
+function duration(seconds: number) {
+  const minutes = Math.max(1, Math.ceil(Math.max(0, seconds) / 60));
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
+}
+function costText(cost: Record<string, number | undefined>) {
+  const icons: Record<string, string> = { science: '🧠', credits: '💰', parts: '⚙️', ore: '⛏', energy: '⚡' };
+  return Object.entries(cost).filter(([, amount]) => Number(amount) > 0)
+    .map(([resource, amount]) => `${icons[resource] ?? resource} ${number(amount)}`).join(' · ');
+}
+
+export function ResearchPanel(props: Props) {
+  const panelId = useId();
+  const [branch, setBranch] = useState<Branch>('resources');
+  const [submittingKey, setSubmittingKey] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ key: string; text: string; error: boolean } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const submitGuard = useRef(false);
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const { research } = props;
+  const completed = new Set(research.completed);
+  const locked = props.busy || submittingKey !== null;
+  const activeConfig = research.catalog.find((item) => item.key === research.active?.research_key);
+  const activeEndsAt = research.active ? new Date(research.active.completes_at).getTime() : 0;
+  const activeStartsAt = research.active ? new Date(research.active.started_at).getTime() : 0;
+  const activeReady = !!research.active && now >= activeEndsAt;
+  const progress = research.active ? Math.max(0, Math.min(100, (now - activeStartsAt) / Math.max(1, activeEndsAt - activeStartsAt) * 100)) : 0;
+  const selectedBranch = BRANCHES.find((item) => item.key === branch)!;
+
+  useEffect(() => {
+    if (!research.active) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [research.active?.research_key, research.active?.completes_at]);
+
+  useEffect(() => {
+    if (feedback?.error) feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [feedback]);
+
+  function isCompleted(item: ResearchItem) { return completed.has(item.key) || item.status === 'completed'; }
+  function researchCost(item: ResearchItem): Record<string, number> {
+    return { science: item.science, ...Object.fromEntries(Object.entries(item.cost).map(([key, value]) => [key, Number(value)])) };
+  }
+  function canAfford(item: ResearchItem) {
+    return Object.entries(researchCost(item)).every(([resource, required]) => Number(props.resources[resource] ?? 0) >= required);
+  }
+  function canStart(item: ResearchItem) {
+    return !locked && research.enabled && research.labStatus === 'active' && !research.active && !isCompleted(item)
+      && item.status !== 'researching' && item.unlockedByHq && item.unlockedByLab && item.prereqsMet && canAfford(item);
+  }
+
+  async function start(item: ResearchItem) {
+    if (submitGuard.current || !canStart(item)) return;
+    submitGuard.current = true;
+    setSubmittingKey(item.key);
+    setFeedback(null);
+    try {
+      await props.onStart(item.key);
+      setFeedback({ key: item.key, text: `«${item.name}» запущено. Исследование продолжится, когда игра закрыта.`, error: false });
+    } catch (error) {
+      setFeedback({ key: item.key, text: error instanceof Error ? error.message : 'Не удалось начать исследование. Попробуй ещё раз.', error: true });
+    } finally {
+      submitGuard.current = false;
+      setSubmittingKey(null);
+    }
+  }
+
+  function renderTechnology(item: ResearchItem) {
+    const done = isCompleted(item);
+    const researching = item.status === 'researching' || research.active?.research_key === item.key;
+    const unlockedBuilding = item.unlockBuilding ? BUILDINGS[item.unlockBuilding] : undefined;
+    const requirements = [
+      { label: `HQ${item.unlockHq}`, met: item.unlockedByHq },
+      { label: `Центр ур. ${item.labLevel}`, met: item.unlockedByLab },
+      ...item.prereqs.map((key) => ({ label: research.catalog.find((other) => other.key === key)?.name ?? key, met: completed.has(key) })),
+    ];
+    const available = item.unlockedByHq && item.unlockedByLab && item.prereqsMet && research.enabled && !research.active;
+    const reason = researching ? 'Исследуется' : !item.unlockedByHq ? `Нужен HQ${item.unlockHq}`
+      : research.labStatus === 'missing' ? 'Нужен исследовательский центр'
+      : research.labStatus === 'building' ? 'Центр строится'
+      : research.labStatus === 'upgrading' ? 'Центр улучшается'
+      : !item.unlockedByLab ? `Нужен центр ур. ${item.labLevel}`
+      : !item.prereqsMet ? 'Нужны предыдущие технологии'
+      : research.active ? 'Дождись текущего исследования'
+      : !canAfford(item) ? 'Не хватает ресурсов' : 'Исследовать';
+
+    return <article key={item.key} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
+      <div className="technologyTitle"><span aria-hidden="true">{item.emoji}</span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : ''}`}>{done ? '✓ Изучено' : researching ? 'В работе' : available ? 'Требования выполнены' : 'Предстоит открыть'}</span></div></div>
+      <p className="technologyEffect">{item.effectText}</p>
+      {!done && <>
+        <p className="technologyDescription">{item.description}</p>
+        <ul className="technologyRequirements" aria-label="Требования исследования">{requirements.map((requirement) => <li key={requirement.label} className={requirement.met ? 'isMet' : ''}><span aria-hidden="true">{requirement.met ? '✓' : '○'}</span> {requirement.label}<span className="researchSrOnly">{requirement.met ? ' — выполнено' : ' — требуется'}</span></li>)}</ul>
+        {!researching && <>
+          <div className="technologyCost"><span>{costText(researchCost(item))}</span><span>⏱ {duration(item.timeSec)}</span></div>
+          <button type="button" className={`action ${canStart(item) ? 'researchStart' : 'secondary'}`} disabled={!canStart(item)} onClick={() => void start(item)}>{submittingKey === item.key ? 'Запускаем…' : reason}</button>
+          <div aria-live="polite"><ResourceShortage cost={researchCost(item)} resources={props.resources} /></div>
+          {Number(props.resources.science ?? 0) < item.science && props.scienceRate > 0 && <p className="technologyScienceWait">При текущей выработке нужная наука накопится за {duration((item.science - Number(props.resources.science ?? 0)) / props.scienceRate * 3600)} активного накопления.</p>}
+        </>}
+      </>}
+      {done && unlockedBuilding && item.unlockBuilding && <button type="button" className="action secondary technologyBuild" disabled={locked || props.hqLevel < unlockedBuilding.unlockHq} onClick={() => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? `Для постройки нужен HQ${unlockedBuilding.unlockHq}` : `Построить: ${unlockedBuilding.name}`}</button>}
+      {feedback?.key === item.key && <div ref={feedbackRef} className={`notice researchFeedback ${feedback.error ? 'error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
+    </article>;
+  }
+
+  return <section className="card researchPanel" aria-labelledby={`${panelId}-heading`}>
+    <div className="researchPanelHeading"><div><h2 id={`${panelId}-heading`}>🧪 Исследования</h2><p>Усиливай базу и открывай новые возможности.</p></div><span className="researchScienceRate">+{number(props.scienceRate)} 🧠/ч</span></div>
+    <div className="researchOverview"><span>Наука: <strong>🧠 {number(props.resources.science)}</strong></span><span>Изучено: <strong>{research.catalog.filter(isCompleted).length} / {research.catalog.length}</strong></span></div>
+    {research.catalog.some(isCompleted) && <details className="researchApplied"><summary>Что уже работает в колонии</summary><ul>{research.catalog.filter(isCompleted).map((item) => <li key={item.key}><strong>{item.emoji} {item.name}</strong><span>{item.effectText}</span></li>)}</ul></details>}
+
+    {research.active && <div className="researchCurrent" aria-labelledby={`${panelId}-current`}>
+      <span className="researchCurrentLabel">{activeReady ? 'Исследование готово' : 'Сейчас исследуется'}</span>
+      <h3 id={`${panelId}-current`}>{activeConfig?.emoji} {activeConfig?.name ?? research.active.research_key}</h3>
+      {activeConfig && <p>{activeConfig.effectText}</p>}
+      <div className="researchCurrentFoot"><span>{activeReady ? 'Обнови результат, чтобы применить технологию.' : `Осталось ${duration((activeEndsAt - now) / 1000)}`}</span>{activeReady && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить</button>}</div>
+      <div className="researchProgress" role="progressbar" aria-label="Прогресс исследования" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><i style={{ width: `${progress}%` }} /></div>
+    </div>}
+
+    {research.labStatus !== 'active' && <div className="researchLabNotice" role="status">
+      <strong>{research.labStatus === 'missing' ? 'Нужен исследовательский центр' : research.labStatus === 'building' ? 'Исследовательский центр строится' : 'Исследовательский центр улучшается'}</strong>
+      <p>{research.labStatus === 'missing' ? 'С HQ2 центр производит науку и позволяет изучать технологии. Дерево уже доступно для планирования.' : research.labStatus === 'building' ? 'После завершения центр начнёт производить науку. Пока выбери следующую технологию.' : 'Новые исследования станут доступны после улучшения. Уже запущенное исследование продолжается.'}</p>
+      {research.labStatus === 'missing' && <button type="button" className="action secondary" disabled={locked || props.hqLevel < 2} onClick={props.onBuildLab}>{props.hqLevel < 2 ? 'Откроется на HQ2' : 'Построить исследовательский центр'}</button>}
+    </div>}
+
+    <div className="researchFoundation"><h3>Основа развития</h3>{research.catalog.filter((item) => item.branch === 'foundation').map(renderTechnology)}</div>
+    <div className="researchBranchPicker" role="group" aria-label="Ветки исследований">
+      {BRANCHES.map((item) => {
+        const technologies = research.catalog.filter((technology) => technology.branch === item.key);
+        return <button type="button" key={item.key} className={branch === item.key ? 'isSelected' : ''} disabled={submittingKey !== null} aria-pressed={branch === item.key} onClick={() => setBranch(item.key)}><span aria-hidden="true">{item.emoji}</span><strong>{item.name}</strong><small>{technologies.filter(isCompleted).length} / {technologies.length}</small></button>;
+      })}
+    </div>
+    <div className="researchBranch" aria-labelledby={`${panelId}-branch`}>
+      <h3 id={`${panelId}-branch`}>{selectedBranch.title}</h3><p className="researchBranchDescription">{selectedBranch.description}</p>
+      <div className="technologyList">{research.catalog.filter((item) => item.branch === branch).map(renderTechnology)}</div>
+    </div>
+    <p className="researchFootnote">Наука копится и без открытой игры, до {number(props.offlineCapHours)} ч. за одно отсутствие. Одновременно выполняется одно исследование.</p>
+  </section>;
+}

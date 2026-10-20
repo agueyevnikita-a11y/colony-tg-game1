@@ -1,0 +1,69 @@
+.researchPanel { border-color:rgba(128,170,255,.18); scroll-margin-top:12px; }
+.researchPanelHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.researchPanelHeading > div { min-width:0; }
+.researchScienceRate { flex-shrink:0; border:1px solid rgba(128,170,255,.25); border-radius:10px; padding:7px 8px; font-size:11px; color:#bdd0ff; background:rgba(128,170,255,.05); }
+.researchOverview { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin:4px 0 14px; font-size:11px; color:var(--muted); }
+.researchOverview strong { color:var(--text); font-weight:600; }
+.researchApplied { border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:13px; font-size:11px; }
+.researchApplied summary { cursor:pointer; color:#b2ddc8; }
+.researchApplied ul { list-style:none; padding:0; margin:10px 0 0; display:grid; gap:9px; }
+.researchApplied li { display:grid; gap:3px; }
+.researchApplied li span { color:var(--muted); line-height:1.4; }
+.buildingResearchRequirement { color:#bdd0ff; line-height:1.5; }
+.developmentNavigation { display:flex; gap:8px; margin-bottom:12px; }
+.developmentNavigation a { flex:1; padding:12px 8px; border:1px solid var(--line); border-radius:12px; background:var(--panel2); color:var(--text); text-decoration:none; text-align:center; font-size:12px; }
+#colony-research, #colony-buildings { scroll-margin-top:12px; }
+.researchCurrent { border:1px solid rgba(128,170,255,.35); border-radius:14px; padding:12px; margin-bottom:13px; background:rgba(95,125,255,.07); }
+.researchCurrentLabel { display:block; color:#bdd0ff; font-size:10px; margin-bottom:6px; }
+.researchCurrent h3 { margin:0 0 6px; font-size:14px; }
+.researchPanel .researchCurrent p { color:var(--text); font-size:12px; margin:0 0 10px; }
+.researchCurrentFoot { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:11px; }
+.researchCurrentFoot > span { min-width:0; }
+.researchProgress { height:5px; margin-top:11px; border-radius:5px; background:var(--panel2); overflow:hidden; }
+.researchProgress i { display:block; height:100%; background:#a3bcff; }
+.researchLabNotice { border:1px solid var(--line); border-radius:13px; padding:11px; margin-bottom:14px; background:rgba(255,255,255,.025); }
+.researchLabNotice > strong { font-size:12px; }
+.researchPanel .researchLabNotice p { font-size:11px; margin:6px 0 10px; }
+.researchLabNotice > .action { font-size:12px; }
+.researchFoundation > h3, .researchBranch > h3 { margin:0 0 9px; font-size:13px; }
+.researchFoundation { margin-bottom:15px; }
+.researchBranchPicker { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:17px 0 15px; }
+.researchBranchPicker button { min-width:0; border:1px solid var(--line); border-radius:12px; padding:9px 5px; background:var(--panel2); color:var(--muted); cursor:pointer; }
+.researchBranchPicker button > span { display:block; font-size:17px; margin-bottom:5px; }
+.researchBranchPicker button strong { display:block; font-size:11px; overflow-wrap:anywhere; }
+.researchBranchPicker button small { display:block; font-size:10px; margin-top:5px; }
+.researchBranchPicker button.isSelected { border-color:#a3bcff; background:rgba(128,170,255,.1); color:var(--text); }
+.researchBranchPicker button:focus-visible { outline:2px solid #a3bcff; outline-offset:3px; }
+.researchPanel .researchBranchDescription { font-size:11px; line-height:1.5; margin:0 0 11px; }
+.technologyList { display:flex; flex-direction:column; gap:9px; }
+.technologyCard { min-width:0; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--panel2); }
+.technologyCard.isAvailable { border-color:rgba(128,170,255,.28); }
+.technologyCard.isResearching { border-color:rgba(128,170,255,.45); }
+.technologyCard.isCompleted { border-color:rgba(114,228,173,.23); background:rgba(114,228,173,.035); }
+.technologyTitle { display:flex; align-items:flex-start; gap:9px; }
+.technologyTitle > span { flex-shrink:0; font-size:24px; line-height:1.2; }
+.technologyTitle > div { min-width:0; }
+.technologyTitle h4 { margin:0; font-size:13px; line-height:1.35; }
+.technologyStatus { display:block; color:var(--muted); font-size:10px; margin-top:4px; }
+.technologyStatus.isCompleted { color:var(--accent); }
+.researchPanel .technologyEffect { font-size:12px; line-height:1.45; font-weight:600; color:#c9d8ff; margin:9px 0; }
+.researchPanel .technologyCard.isCompleted .technologyEffect { color:var(--accent); margin-bottom:0; }
+.researchPanel .technologyDescription { font-size:11px; margin:0 0 9px; line-height:1.45; }
+.technologyRequirements { display:flex; flex-wrap:wrap; gap:5px; list-style:none; margin:0 0 11px; padding:0; }
+.technologyRequirements li { max-width:100%; overflow-wrap:anywhere; padding:5px 6px; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:10px; line-height:1.4; }
+.technologyRequirements li.isMet { color:#b2ddc8; background:rgba(114,228,173,.035); }
+.technologyCost { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 10px; color:var(--text); font-size:11px; margin-bottom:9px; line-height:1.5; }
+.technologyCost > span:last-child { color:var(--muted); }
+.technologyCard .action { font-size:12px; line-height:1.4; }
+.technologyCard .researchStart { background:#c2d3ff; }
+.researchPanel .technologyScienceWait { margin:7px 0 0; font-size:10px; line-height:1.45; }
+.technologyBuild { margin-top:11px; }
+.researchFeedback { margin:10px 0 0; line-height:1.45; scroll-margin-bottom:calc(100px + env(safe-area-inset-bottom,0px)); }
+.researchPanel .researchFootnote { font-size:10px; line-height:1.5; margin:14px 0 0; }
+.researchSrOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+@media (max-width:360px) {
+  .researchPanelHeading { flex-wrap:wrap; }
+  .researchScienceRate { margin-bottom:10px; }
+  .researchBranchPicker button strong { font-size:10px; }
+  .technologyCard { padding:10px; }
+}

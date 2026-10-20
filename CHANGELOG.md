@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0-beta.1 — Research and Blueprints
+- Made the technology tree visible before a laboratory is built, with named prerequisites, branches, active effects and feedback beside each action.
+- Added deep drilling and photovoltaic arrays, unlocking advanced ore and energy buildings through server-checked blueprints.
+- Reduced the introductory technology to 20 science, 300 credits and five minutes; retained fractional science income.
+- Applied new technology and laboratory income only after their actual completion, with regression coverage for offline intervals.
+- Preserved existing technologies, buildings, stored jobs and research achievement progress; no database migration is required.
+
 ## 1.2.0-beta.1 — City Production
 - Added individual foundry controls, economy/standard/rush modes, and serial batches that run offline.
 - Added one selectable adjacency bonus: an active mine saves 15% ore or an active solar plant saves 20% energy. Map placement previews eligible cells.

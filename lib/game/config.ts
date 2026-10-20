@@ -9,6 +9,8 @@ export type BuildingType =
   | 'hq'
   | 'mine'
   | 'solar'
+  | 'deep_mine'
+  | 'solar_array'
   | 'warehouse'
   | 'foundry'
   | 'habitat'
@@ -23,6 +25,8 @@ export type BuildingConfig = {
   name: string;
   emoji: string;
   unlockHq: number;
+  unlockResearch?: string;
+  description?: string;
   baseBuildCost: ResourceCost;
   baseBuildTimeSec: number;
   maxLevel: number;
@@ -43,6 +47,18 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
     name: 'Электростанция', emoji: '⚡', unlockHq: 1,
     baseBuildCost: { ore: 100, credits: 80 }, baseBuildTimeSec: 15, maxLevel: 20,
     passive: { resource: 'energy', perHour: 100 },
+  },
+  deep_mine: {
+    name: 'Глубинная шахта', emoji: '🛢️', unlockHq: 3, unlockResearch: 'deep_drilling',
+    description: '300 руды/ч на первом уровне — в 2,5 раза больше обычной шахты с одной клетки. Даёт связь литейному цеху.',
+    baseBuildCost: { ore: 900, parts: 180, credits: 1600 }, baseBuildTimeSec: 600, maxLevel: 12,
+    passive: { resource: 'ore', perHour: 300 },
+  },
+  solar_array: {
+    name: 'Солнечный массив', emoji: '🌞', unlockHq: 3, unlockResearch: 'photovoltaic_arrays',
+    description: '250 энергии/ч на первом уровне — в 2,5 раза больше обычной электростанции с одной клетки. Даёт связь литейному цеху.',
+    baseBuildCost: { ore: 800, parts: 160, credits: 1400 }, baseBuildTimeSec: 600, maxLevel: 12,
+    passive: { resource: 'energy', perHour: 250 },
   },
   warehouse: {
     name: 'Склад', emoji: '📦', unlockHq: 1,

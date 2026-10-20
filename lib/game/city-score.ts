@@ -4,6 +4,8 @@ const BUILDING_SCORE_WEIGHT: Record<BuildingType, number> = {
   hq: 0,
   mine: 80,
   solar: 80,
+  deep_mine: 240,
+  solar_array: 240,
   warehouse: 90,
   foundry: 120,
   habitat: 100,

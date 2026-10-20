@@ -22,8 +22,8 @@ export function availableFoundryLinks(building: FoundryBuilding, buildings: Foun
   if (building.type !== 'foundry') return links;
   const neighbors = buildings.filter((other) => other.id !== building.id && other.status === 'active'
     && Math.abs(Number(other.x) - Number(building.x)) + Math.abs(Number(other.y) - Number(building.y)) === 1);
-  if (neighbors.some((other) => other.type === 'mine')) links.push('ore');
-  if (neighbors.some((other) => other.type === 'solar')) links.push('energy');
+  if (neighbors.some((other) => other.type === 'mine' || other.type === 'deep_mine')) links.push('ore');
+  if (neighbors.some((other) => other.type === 'solar' || other.type === 'solar_array')) links.push('energy');
   return links;
 }
 

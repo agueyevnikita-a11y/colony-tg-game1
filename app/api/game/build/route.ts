@@ -6,6 +6,8 @@ import { BUILDINGS, HQ_UPGRADES, cityGridSize, type BuildingType, type ResourceC
 import { buildTimeSec } from '@/lib/game/economy';
 import { recordProgressEvent } from '@/lib/server/progression';
 import { enqueueNotification } from '@/lib/server/notifications';
+import { completedResearchKeys } from '@/lib/server/research';
+import { researchByKey } from '@/lib/game/research';
 
 export const runtime = 'nodejs';
 
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
     const userId = await ensurePlayer(auth.user, auth.startParam);
     await reconcilePlayer(userId);
     const body = (await request.json()) as Body;
-    const cfg = BUILDINGS[body.type];
+    const cfg = Object.hasOwn(BUILDINGS, body.type) ? BUILDINGS[body.type] : undefined;
     if (!cfg) return NextResponse.json({ ok: false, error: 'Unknown building' }, { status: 400 });
 
     const result = await sql.begin(async (tx) => {
@@ -69,6 +71,9 @@ export async function POST(request: Request) {
       }
 
       if (state.hq_level < cfg.unlockHq) throw new Error(`Requires HQ level ${cfg.unlockHq}`);
+      if (cfg.unlockResearch && !(await completedResearchKeys(tx, userId)).has(cfg.unlockResearch)) {
+        throw new Error(`Сначала изучи «${researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch}»`);
+      }
       if (!canPay(state, cfg.baseBuildCost)) throw new Error('Не хватает ресурсов');
       const buildings = await tx<any[]>`SELECT x, y FROM buildings WHERE user_id=${userId}`;
       const decor = await tx<any[]>`SELECT x, y FROM city_decor WHERE user_id=${userId}`;

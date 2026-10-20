@@ -47,7 +47,7 @@ export const ACHIEVEMENTS = [
   { key: 'market_250', title: 'Мастер биржи', description: 'Совершить 250 покупок на P2P-рынке', stat: 'market_trades_bought', target: 250, reward: { cosmeticId: 'frame_exchange' } },
 
   { key: 'research_3', title: 'Научный метод', description: 'Заверши 3 исследования', stat: 'research_completed', target: 3, reward: { crystals: 30 } },
-  { key: 'research_10', title: 'Главный исследователь', description: 'Заверши все 10 исследований', stat: 'research_completed', target: 10, reward: { cosmeticId: 'frame_researcher' } },
+  { key: 'research_10', title: 'Главный исследователь', description: 'Заверши 10 исследований', stat: 'research_completed', target: 10, reward: { cosmeticId: 'frame_researcher' } },
   { key: 'expedition_5', title: 'Разведчик', description: 'Заверши 5 экспедиций', stat: 'expeditions_completed', target: 5, reward: { crystals: 25 } },
   { key: 'expedition_25', title: 'За горизонтом', description: 'Заверши 25 экспедиций', stat: 'expeditions_completed', target: 25, reward: { cosmeticId: 'weather_aurora', cosmeticDays: 7 } },
   { key: 'expedition_100', title: 'Пилигрим', description: 'Заверши 100 экспедиций', stat: 'expeditions_completed', target: 100, reward: { cosmeticId: 'weather_aurora' } },

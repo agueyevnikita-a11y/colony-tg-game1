@@ -24,6 +24,7 @@ test('only active cardinal suppliers create a link; multiple suppliers do not st
   assert.equal(quote({ link: 'energy' }).ore, 100);
   assert.equal(quote({ link: 'energy' }).energy, 32);
   assert.deepEqual(availableFoundryLinks(supplier('mine', 2, 2), city), ['none']);
+  assert.deepEqual(availableFoundryLinks(foundry, [foundry, supplier('deep_mine', 1, 2), supplier('solar_array', 2, 1)]), ['none', 'ore', 'energy']);
 });
 
 test('batch costs, duration and research output equal the sum of rounded individual cycles', () => {
