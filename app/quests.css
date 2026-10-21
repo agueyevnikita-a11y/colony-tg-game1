@@ -31,7 +31,7 @@
 .questProgressText { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 10px; margin:6px 0 13px; color:var(--muted); font-size:10px; line-height:1.5; }
 .questEntryFoot { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .questReward { display:flex; align-items:center; flex-wrap:wrap; gap:7px 13px; font-size:12px; }
-.questPanel button { min-height:44px; }
+.colonyApp .questPanel button { min-height:44px; }
 .questPanel .miniButton { min-height:44px; font-size:11px; }
 .questClaim { border-color:rgba(128,209,171,.4); color:#c6ecd5; }
 .questNavigate { display:inline-flex; align-items:center; justify-content:center; gap:5px; }

@@ -51,7 +51,7 @@
 .alliancePanel .missionHead,.alliancePanel .missionFoot { flex-wrap:wrap; gap:9px; }
 .alliancePanel .missionHead>div:first-child { min-width:0; }
 .alliancePanel .missionRewards { flex-wrap:wrap; }
-.alliancePanel .miniButton,.alliancePanel .action { min-height:44px; white-space:normal; }
+.colonyApp .alliancePanel .miniButton,.colonyApp .alliancePanel .action { min-height:44px; white-space:normal; }
 .alliancePanel input,.alliancePanel select { min-height:44px; }
 .alliancePanel .projectComplete>b { display:flex; align-items:center; gap:7px; }
 @media(max-width:360px) {

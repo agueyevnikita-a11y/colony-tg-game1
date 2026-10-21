@@ -1,5 +1,5 @@
 .seasonPanel { min-width:0; }
-.seasonPanel button,.seasonPanel summary { min-height:44px; }
+.colonyApp .seasonPanel button,.colonyApp .seasonPanel summary { min-height:44px; }
 .seasonPanel .cardTitleRow { align-items:flex-start; gap:10px; }
 .seasonPanel .cardTitleRow > div:first-child { min-width:0; }
 .seasonPanel h2 { overflow-wrap:anywhere; }
