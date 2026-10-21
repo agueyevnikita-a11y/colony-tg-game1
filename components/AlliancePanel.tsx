@@ -72,6 +72,8 @@ type Props = {
 
 type Feedback = { text: string; error: boolean };
 type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; telegramId: string | number; name: string };
+type AllianceSection = 'project' | 'goals' | 'members';
+const MEMBERS_PER_PAGE = 5;
 const RESOURCES: AllianceResource[] = ['ore', 'energy', 'parts'];
 const RESOURCE_LABELS = { ore: 'руды', energy: 'энергии', parts: 'деталей' };
 const RESOURCE_COLUMNS = { ore: 'ore_contributed', energy: 'energy_contributed', parts: 'parts_contributed' } as const;
@@ -94,7 +96,9 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [membershipFeedback, setMembershipFeedback] = useState<Feedback | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const [memberFeedbackTarget, setMemberFeedbackTarget] = useState<string | number | null>(null);
+  const [section, setSection] = useState<AllianceSection>('project');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberPage, setMemberPage] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const submittingRef = useRef(false);
   useEffect(() => { setCode(initialCode); }, [initialCode]);
@@ -113,6 +117,13 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   const group = alliance?.alliance;
   const project = alliance?.project;
   const members = group?.members ?? [];
+  const normalizedSearch = memberSearch.trim().toLocaleLowerCase('ru-RU').replace(/^@/, '');
+  const matchingMembers = members.filter((member) => !normalizedSearch || [member.colony_name, member.first_name, member.username, member.telegram_id].some((value) => String(value ?? '').toLocaleLowerCase('ru-RU').includes(normalizedSearch)));
+  const memberPages = Math.max(1, Math.ceil(matchingMembers.length / MEMBERS_PER_PAGE));
+  const currentMemberPage = Math.min(memberPage, memberPages - 1);
+  const visibleMembers = matchingMembers.slice(currentMemberPage * MEMBERS_PER_PAGE, (currentMemberPage + 1) * MEMBERS_PER_PAGE);
+  const dailyGoals = alliance?.dailyGoals ?? [];
+  const readyGoals = dailyGoals.filter((goal) => goal.completed_at && !goal.my_claimed_at && Number(goal.my_contribution ?? 0) > 0).length;
   const myRole = alliance?.membership?.role;
   const hasMembership = !!alliance?.membership && !!group;
   const ownerMustTransfer = myRole === 'owner' && members.length > 1;
@@ -136,6 +147,21 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   const createIssue = hqLevel < createLevel ? `Для создания нужен центр колонии ур. ${createLevel}. Сейчас ур. ${hqLevel}.`
     : createDeficit > 0 ? `Нужно ${n(createCost)} кредитов, в наличии ${n(resources.credits)}. Не хватает ${n(createDeficit)}.` : nameIssue;
   const restartWaiting = !!project?.restartAvailableAt && new Date(project.restartAvailableAt).getTime() > now;
+  const hiddenMemberFeedback = Object.keys(feedback).filter((key) => key.startsWith('member-') && !visibleMembers.some((member) => key === `member-${member.telegram_id}`));
+  const hiddenSectionFeedback = Object.keys(feedback).filter((key) =>
+    ((key === 'contribute' || key === 'restart') && (section !== 'project' || !project)) ||
+    (key.startsWith('daily-') && section !== 'goals') ||
+    (key.startsWith('member-') && section !== 'members'));
+
+  function cancelMemberConfirmation() {
+    setConfirmation((previous) => previous?.kind === 'leave' ? previous : null);
+  }
+
+  function changeSection(next: AllianceSection) {
+    if (next === section) return;
+    cancelMemberConfirmation();
+    setSection(next);
+  }
 
   function status(key: string) {
     const item = feedback[key];
@@ -180,7 +206,6 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
     if (!current || isMe) { setConfirmation(null); return; }
     const canKick = (myRole === 'owner' && current.role !== 'owner') || (myRole === 'officer' && current.role === 'member');
     if (target.kind === 'kick' ? !canKick : myRole !== 'owner') { setConfirmation(null); return; }
-    setMemberFeedbackTarget(target.telegramId);
     void act(`member-${target.telegramId}`, `/api/alliance/manage/${target.kind}`, { telegramId: target.telegramId }, () => target.kind === 'kick' ? `«${target.name}» исключён из альянса.` : `Руководство передано игроку «${target.name}». Ты теперь обычный участник.`);
   }
 
@@ -200,20 +225,27 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
       <section className="card allianceHero">
         <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{group.name}</h2><p>Код: <b>{group.code}</b> · {members.length}/{group.memberLimit} участников · престиж {n(group.prestige)}</p></div><div className="seasonPoints">{n(group.seasonPoints)}<span>AP</span></div></div>
         <div className="allianceHeroActions"><button type="button" className="action" disabled={locked} onClick={onShare}><GameIcon name="share" size={15} />Пригласить</button><button type="button" className="action secondary" disabled={locked || ownerMustTransfer} onClick={() => { setConfirmation({ kind: 'leave' }); setFeedback((previous) => { const next = { ...previous }; delete next.leave; return next; }); }}>Выйти</button></div>
-        {ownerMustTransfer && <p className="finePrint">Чтобы выйти, сначала передай руководство одному из участников ниже.</p>}
+        {ownerMustTransfer && <p className="finePrint">Чтобы выйти, сначала передай руководство в разделе «Участники».</p>}
         {confirmation?.kind === 'leave' && confirmationBox(confirmation)}
         {status('leave')}
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}
+        {hiddenSectionFeedback.map((key) => <div key={key}>{status(key)}</div>)}
       </section>
 
-      <section className="card allianceDaily"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><div className="stack">{(alliance?.dailyGoals ?? []).map((goal) => {
+      <nav className="allianceSections" aria-label="Разделы альянса">
+        <button type="button" aria-pressed={section === 'project'} aria-controls="alliance-project-section" onClick={() => changeSection('project')}>Проект</button>
+        <button type="button" aria-pressed={section === 'goals'} aria-controls="alliance-goals-section" onClick={() => changeSection('goals')}>Цели <span className="allianceSectionBadge" aria-label={`Готовых наград: ${readyGoals}`}>{readyGoals}</span></button>
+        <button type="button" aria-pressed={section === 'members'} aria-controls="alliance-members-section" onClick={() => changeSection('members')}>Участники <span className="allianceSectionBadge" aria-label={`Участников: ${members.length}`}>{members.length}</span></button>
+      </nav>
+
+      {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><div className="stack">{dailyGoals.map((goal) => {
         const done = !!goal.completed_at;
         const contributed = Number(goal.my_contribution ?? 0) > 0;
         const key = `daily-${goal.goal_key}`;
         return <div className="mission" key={goal.goal_key}><div className="missionHead"><div><strong>{goal.title ?? goal.goal_key}</strong><small>{goal.description?.replace('NPC-контрактов', 'контрактов с колонией')}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(goal.reward_crystals)}</GameAmount><GameAmount resource="credits">{n(goal.reward_credits)}</GameAmount></span></div><div className="progress"><i style={{ width: `${pct(goal.progress, goal.target)}%` }} /></div><div className="missionFoot"><span>{n(goal.progress)}/{n(goal.target)} · твой вклад {n(goal.my_contribution)}</span><button type="button" className="miniButton" disabled={locked || !done || !contributed || !!goal.my_claimed_at} onClick={() => { void act(key, '/api/alliance/daily/claim', { goalKey: goal.goal_key }, (data) => `Награда получена: ${n(data.result?.credits ?? goal.reward_credits)} кредитов и ${n(data.result?.crystals ?? goal.reward_crystals)} кристаллов.`); }}>{pendingKey === key ? 'Получаем…' : goal.my_claimed_at ? 'Получено' : done ? contributed ? 'Забрать' : 'Нет вклада' : 'В процессе'}</button></div>{done && !contributed && <p className="finePrint">В эту цель нужно было внести вклад до её завершения. Участвуй в следующих целях.</p>}{status(key)}</div>;
-      })}</div></section>
+      })}</div>{!dailyGoals.length && <p className="finePrint">Командные цели появятся здесь после обновления дня.</p>}</section>}
 
-      {project && <section className="card allianceProject">
+      {section === 'project' && (project ? <section className="card allianceProject" id="alliance-project-section">
         <div className="cardTitleRow"><div><h2><GameIcon name="signal" />{project.title}</h2><p>{project.description}</p></div><div className="projectStage">{project.status === 'completed' ? `Цикл ${project.cycle} готов` : `Цикл ${project.cycle} · этап ${project.stage}/3`}</div></div>
         {project.status === 'active' ? <>
           <h3>{project.stageConfig.title}</h3><p>{project.stageConfig.description}</p>
@@ -240,17 +272,18 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
         </> : <div className="projectComplete"><b><GameIcon name="check" size={16} />Цикл {project.cycle} завершён</b><span>Каждый новый цикл добавляет к требованиям 35% ресурсов первого цикла, повышает пожизненный престиж альянса и продлевает ветеранский визуальный эффект.</span>{project.canRestart && <><button type="button" className="action" disabled={locked || restartWaiting} onClick={() => { void act('restart', '/api/alliance/project/restart', undefined, () => 'Новый цикл мегапроекта запущен.'); }}><GameIcon name="refresh" size={15} />{pendingKey === 'restart' ? 'Запускаем…' : 'Запустить следующий цикл'}</button>{restartWaiting && <p className="finePrint">Можно запустить через {timeRemaining(project.restartAvailableAt, now)}.</p>}</>}{!project.canRestart && <p className="finePrint">Следующий цикл запускает владелец или офицер альянса после перерыва {rules?.restartCooldownHours ?? 6} ч.</p>}</div>}
         {status('contribute')}
         {status('restart')}
-      </section>}
+      </section> : <section className="card allianceProject" id="alliance-project-section"><h2><GameIcon name="signal" />Проект альянса</h2><p>Данные проекта появятся после обновления альянса.</p></section>)}
 
-      <section className="card allianceMembers"><h2><GameIcon name="social" />Участники альянса</h2><p className="finePrint">Владелец назначает до {rules?.officerLimit ?? 5} офицеров. Офицеры могут исключать обычных участников и запускать следующий цикл.</p>
-        {memberFeedbackTarget !== null && !members.some((member) => String(member.telegram_id) === String(memberFeedbackTarget)) && status(`member-${memberFeedbackTarget}`)}
-        <div className="stack">{members.map((member, index) => {
+      {section === 'members' && <section className="card allianceMembers" id="alliance-members-section"><h2><GameIcon name="social" />Участники альянса</h2><p className="finePrint">Владелец назначает до {rules?.officerLimit ?? 5} офицеров. Офицеры могут исключать обычных участников и запускать следующий цикл.</p>
+        <label className="allianceMemberSearch" htmlFor="alliance-member-search">Поиск участников<input id="alliance-member-search" type="search" autoComplete="off" placeholder="Имя, @username или ID" value={memberSearch} onChange={(event) => { cancelMemberConfirmation(); setMemberSearch(event.target.value); setMemberPage(0); }} /></label>
+        <p className="allianceMemberCount">{normalizedSearch ? `Найдено: ${matchingMembers.length} из ${members.length}` : `Всего: ${members.length} из ${group.memberLimit}`} · по {MEMBERS_PER_PAGE} на странице</p>
+        {hiddenMemberFeedback.map((key) => <div key={key}>{status(key)}</div>)}
+        <div className="stack">{visibleMembers.map((member, index) => {
           const isMe = String(member.telegram_id) === String(telegramId);
           const canKick = (myRole === 'owner' && !isMe && member.role !== 'owner') || (myRole === 'officer' && !isMe && member.role === 'member');
           const key = `member-${member.telegram_id}`;
           const officerLimitReached = member.role !== 'officer' && Number(group.officerCount ?? members.filter((entry) => entry.role === 'officer').length) >= Number(rules?.officerLimit ?? 5);
-          return <div className="memberCard" key={member.telegram_id}><div><strong>{index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · вклад {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(Number(member.telegram_id))}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
-            setMemberFeedbackTarget(member.telegram_id);
+          return <div className="memberCard" data-alliance-member={String(member.telegram_id)} key={member.telegram_id}><div><strong>{currentMemberPage * MEMBERS_PER_PAGE + index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · вклад {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(Number(member.telegram_id))}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
             void act(key, '/api/alliance/manage/role', { telegramId: member.telegram_id, role: member.role === 'officer' ? 'member' : 'officer' }, () => member.role === 'officer' ? `«${memberName(member)}» теперь обычный участник.` : `«${memberName(member)}» назначен офицером.`);
           }}>{member.role === 'officer' ? 'Снять офицера' : 'Офицер'}</button>}{myRole === 'owner' && !isMe && <button type="button" className="miniButton" disabled={locked} onClick={() => setConfirmation({ kind: 'transfer', telegramId: member.telegram_id, name: memberName(member) })}>Передать</button>}{canKick && <button type="button" className="miniButton dangerMini" disabled={locked} onClick={() => setConfirmation({ kind: 'kick', telegramId: member.telegram_id, name: memberName(member) })}>Исключить</button>}</div>
             {myRole === 'owner' && !isMe && officerLimitReached && <p className="finePrint allianceMemberNote">Все места офицеров заняты. Сначала сними роль с одного из действующих офицеров.</p>}
@@ -258,7 +291,9 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
             <div className="allianceMemberFeedback">{status(key)}</div>
           </div>;
         })}</div>
-      </section>
+        {!matchingMembers.length && <p className="allianceMemberEmpty">Никого не нашли. Попробуй другое имя, username или ID.</p>}
+        <div className="allianceMemberPagination" aria-label="Страницы участников"><button type="button" className="miniButton" disabled={currentMemberPage === 0} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage - 1); }}>Назад</button><span aria-live="polite">{currentMemberPage + 1}/{memberPages}</span><button type="button" className="miniButton" disabled={currentMemberPage + 1 >= memberPages} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage + 1); }}>Далее</button></div>
+      </section>}
     </> : <>
       <section className="card allianceEntry"><h2><GameIcon name="shield" />Альянсы</h2><p>Объединяйтесь, чтобы строить мегапроекты и получать командные награды. Вступление — с центра ур. {joinLevel}, создание — с ур. {createLevel}. Stars здесь ничего не ускоряют.</p>
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}

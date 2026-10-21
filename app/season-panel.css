@@ -1,0 +1,56 @@
+.seasonPanel { min-width:0; }
+.seasonPanel button,.seasonPanel summary { min-height:44px; }
+.seasonPanel .cardTitleRow { align-items:flex-start; gap:10px; }
+.seasonPanel .cardTitleRow > div:first-child { min-width:0; }
+.seasonPanel h2 { overflow-wrap:anywhere; }
+.seasonPanel .seasonPoints { min-width:75px; padding-top:2px; font-size:22px; flex-shrink:0; }
+.seasonPanel .seasonPoints span { margin-top:4px; font-size:8px; letter-spacing:.03em; }
+.colonyApp .seasonPanel .seasonDeadline { margin-bottom:8px; font-size:11px; color:var(--muted); }
+.seasonOverview { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:11px; margin:6px 0 10px; }
+.seasonOverview b { color:var(--text); }
+.seasonNext { display:flex; flex-direction:column; gap:5px; padding:12px; border:1px solid rgba(114,228,173,.24); border-radius:13px; background:rgba(114,228,173,.045); }
+.seasonNext > span:first-child { color:var(--muted); font-size:10px; }
+.seasonNext > strong { font-size:14px; line-height:1.45; }
+.seasonNext > small { font-size:10px; line-height:1.5; color:var(--muted); }
+.seasonNext .progress { margin-top:3px; }
+.seasonRewardValue { display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center; line-height:1.5; font-size:11px; }
+.seasonRewardValue > span { display:inline-flex; align-items:center; gap:4px; }
+.seasonComplete { display:flex; align-items:center; gap:8px; padding:12px; color:#b7dcc5; font-size:12px; }
+.seasonPanel .seasonBulkClaim { margin-top:10px; font-size:12px; }
+.seasonFeedback { display:flex; flex-direction:column; gap:7px; margin-top:10px; font-size:12px; overflow-wrap:anywhere; }
+.seasonFeedback.error { align-items:flex-start; }
+.seasonReceipt { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.seasonReceipt > .miniButton { display:inline-flex; align-items:center; gap:5px; white-space:normal; text-align:left; }
+.seasonFilters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:5px; margin:14px 0 9px; }
+.seasonFilters button { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:4px; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:10px; padding:6px 3px; background:var(--panel2); color:var(--muted); font-size:10px; cursor:pointer; }
+.seasonFilters button.active { color:var(--text); background:rgba(114,228,173,.10); border-color:rgba(114,228,173,.38); }
+.seasonFilters button > span { font-size:9px; opacity:.8; }
+.seasonRewardList { display:flex; flex-direction:column; gap:7px; }
+.seasonEntry { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:8px; padding:10px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.018); }
+.seasonEntry.is-ready { border-color:rgba(114,228,173,.30); }
+.seasonEntry.is-claimed { opacity:.65; }
+.seasonEntryLevel { display:grid; place-items:center; width:28px; height:28px; background:var(--panel2); border-radius:9px; font-size:11px; font-weight:800; }
+.seasonEntry.is-ready .seasonEntryLevel { color:var(--accent); }
+.seasonEntryBody { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.seasonEntryBody > strong { font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+.seasonEntryBody > small { color:var(--muted); font-size:9px; }
+.seasonEntry .seasonRewardValue { font-size:10px; }
+.seasonEntryStatus { color:var(--muted); font-size:9px; line-height:1.5; }
+.seasonEntry.is-ready .seasonEntryStatus { color:#b7dcc5; }
+.seasonEntry > .gameIcon { color:var(--muted); }
+.seasonPagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; }
+.seasonPagination > span { color:var(--muted); font-size:11px; }
+.colonyApp .seasonFilteredEmpty { margin:7px 0; font-size:12px; line-height:1.55; }
+.seasonPointSources { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.seasonPointSources > summary { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:11px; cursor:pointer; }
+.seasonPointSources > summary::after { content:'+'; margin-left:auto; font-size:16px; }
+.seasonPointSources[open] > summary::after { content:'−'; }
+.colonyApp .seasonPointSources > p { font-size:11px; line-height:1.6; margin:9px 0; }
+.seasonPointSource { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--line); }
+.seasonPointSource > span { font-size:10px; line-height:1.5; min-width:0; }
+.seasonPointSource b { display:block; margin-top:2px; color:#b7dcc5; font-size:10px; }
+.seasonPointSource .miniButton { font-size:9px; flex-shrink:0; padding:7px; }
+.seasonEmptyActions { display:flex; flex-wrap:wrap; gap:8px; }
+.seasonRefresh { margin-bottom:8px; }
+.seasonPanel button:focus-visible,.seasonPanel summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:360px) { .seasonEntry { gap:6px; padding:9px 7px; grid-template-columns:25px minmax(0,1fr) auto; } .seasonEntryLevel { width:25px; height:25px; } .seasonEntry > .miniButton { padding:7px; font-size:10px; } .seasonPanel .seasonPoints { min-width:64px; font-size:19px; } }

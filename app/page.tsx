@@ -23,6 +23,8 @@ import { ColonyGuide } from '@/components/ColonyGuide';
 import { ColonyEventCard } from '@/components/ColonyEventCard';
 import { ContractsPanel } from '@/components/ContractsPanel';
 import { DailyLoginPanel } from '@/components/DailyLoginPanel';
+import { QuestPanel } from '@/components/QuestPanel';
+import { SeasonPanel } from '@/components/SeasonPanel';
 import { ExpeditionsPanel } from '@/components/ExpeditionsPanel';
 import { MarketPanel } from '@/components/MarketPanel';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -83,10 +85,6 @@ function n(value: unknown) {
   }).format(Number(value ?? 0));
 }
 
-function pct(progress: number, target: number) {
-  return Math.max(0, Math.min(100, Math.round((Number(progress || 0) / Math.max(1, Number(target || 1))) * 100)));
-}
-
 function costDisplay(cost?: Record<string, number> | null) {
   if (!cost) return 'Максимальный уровень';
   return <span className="resourceCostInline">{Object.entries(cost).filter(([, value]) => Number(value) > 0).map(([resource, value]) => <GameAmount key={resource} resource={resource}>{n(value)}</GameAmount>)}</span>;
@@ -98,7 +96,6 @@ function productionText(p?: { resource: string; perHour: number } | null, type?:
   if (!p) return 'не производит ресурс напрямую';
   return <GameAmount resource={p.resource}>{n(p.perHour)}/ч</GameAmount>;
 }
-function timeLeft(value?: string | null) { if(!value) return ''; const ms=Math.max(0,new Date(value).getTime()-Date.now()); const d=Math.floor(ms/86400000); const h=Math.floor((ms%86400000)/3600000); return d>0?`${d} дн. ${h} ч.`:`${h} ч.`; }
 function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(1,Math.ceil(Number(seconds)))} сек.`; const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
 
 export default function Home() {
@@ -460,6 +457,17 @@ export default function Home() {
     return (game?.achievementCatalog ?? []).map((a: any) => ({ ...a, status: unlocked.get(a.key), progress: Number(game?.stats?.[a.stat] ?? 0) }));
   }, [game]);
   const readyAchievementCount = achievementRows.filter((achievement: any) => achievement.status && !achievement.status.claimed_at).length;
+  const readyQuests = (quests: any[]) => quests.filter(quest => !quest.claimed_at && Number(quest.target) > 0 && Number(quest.progress) >= Number(quest.target)).length;
+  const claimedSeasonLevels = new Set((game?.season?.claims ?? []).map((claim: any) => Number(claim.level)));
+  const seasonEnd = new Date(game?.season?.ends_at ?? '').getTime();
+  const seasonStart = game?.season?.starts_at ? new Date(game.season.starts_at).getTime() : 0;
+  const seasonOpen = seasonStart <= Date.now() && seasonEnd > Date.now();
+  const readyMissionCounts: Record<string, number> = {
+    daily: readyQuests(game?.dailyQuests ?? []) + (game?.dailyLogin?.today && !game.dailyLogin.today.claimed_at ? 1 : 0),
+    weekly: readyQuests(game?.weeklyQuests ?? []),
+    achievements: readyAchievementCount,
+    season: seasonOpen ? (game?.season?.rewards ?? []).filter((reward: any) => Number(game.season.points) >= Number(reward.points) && !claimedSeasonLevels.has(Number(reward.level))).length : 0,
+  };
 
   const selectedBuilding = useMemo(
     () => (game?.buildings ?? []).find((b: any) => b.id === selectedBuildingId) ?? null,
@@ -751,7 +759,7 @@ export default function Home() {
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       <SectionTabs key={tab} label={`Подразделы: ${SECTION_TITLES[tab].title}`}
-        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' && item.key === 'achievements' ? readyAchievementCount : undefined }))}
+        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key] : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
       {tab === 'city' && subsections.city === 'map' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
@@ -992,37 +1000,17 @@ export default function Home() {
 
       {tab === 'missions' && <>
         {subsections.missions === 'daily' && <div data-section-panel="missions-daily">
-<DailyLoginPanel key={planOwner} dailyLogin={game.dailyLogin} busy={busy}
-          onClaim={async () => {
-            try { return await api('/api/game/daily-login/claim'); }
-            catch (error) { setMessage(''); throw error; }
-          }}
-          onRefresh={() => { void refresh(); }}
-        />
-        <section className="card"><h2>Ежедневные задания</h2><p>За полный набор заданий: <GameAmount resource="crystals">{n((game.dailyQuests ?? []).reduce((sum: number, quest: any) => sum + Number(quest.crystal_reward ?? 0), 0))}</GameAmount>. Награды нужно забрать вручную.</p><div className="stack">
-          {(game.dailyQuests ?? []).map((q: any) => {
-            const cfg = game.dailyQuestCatalog.find((x: any) => x.key === q.quest_key);
-            const done = Number(q.progress) >= Number(q.target);
-            return <div className="mission" key={q.id}>
-              <div className="missionHead"><div><strong>{cfg?.title ?? q.quest_key}</strong><small>{cfg?.description}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(q.crystal_reward)}</GameAmount></span></div>
-              <div className="progress"><i style={{width:`${pct(q.progress,q.target)}%`}} /></div>
-              <div className="missionFoot"><span>{q.progress}/{q.target} · <GameAmount resource="credits">{n(q.credit_reward)}</GameAmount></span><button className="miniButton" disabled={busy || !done || !!q.claimed_at} onClick={() => api('/api/game/quests/claim', { period:'daily', questKey:q.quest_key }).then(() => setMessage('Награда получена')).catch(()=>{})}>{q.claimed_at ? 'Получено' : done ? 'Забрать' : 'В процессе'}</button></div>
-            </div>;
-          })}
-        </div></section>
+          <DailyLoginPanel key={planOwner} dailyLogin={game.dailyLogin} busy={busy}
+            onClaim={async () => { try { return await api('/api/game/daily-login/claim'); } catch (error) { setMessage(''); throw error; } }}
+            onRefresh={() => { void refresh(); }} />
+          <QuestPanel key={planOwner + ':daily'} period="daily" quests={game.dailyQuests ?? []} catalog={game.dailyQuestCatalog ?? []} busy={busy}
+            onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
+            onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'weekly' && <div data-section-panel="missions-weekly">
-<section className="card"><h2>Недельные задания</h2><p>Полный недельный набор даёт <GameAmount resource="crystals">{n((game.weeklyQuests ?? []).reduce((sum: number, quest: any) => sum + Number(quest.crystal_reward ?? 0), 0))}</GameAmount> плюс кредиты.</p><div className="stack">
-          {(game.weeklyQuests ?? []).map((q: any) => {
-            const cfg = game.weeklyQuestCatalog.find((x: any) => x.key === q.quest_key);
-            const done = Number(q.progress) >= Number(q.target);
-            return <div className="mission" key={q.id}>
-              <div className="missionHead"><div><strong>{cfg?.title ?? q.quest_key}</strong><small>{cfg?.description}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(q.crystal_reward)}</GameAmount></span></div>
-              <div className="progress"><i style={{width:`${pct(q.progress,q.target)}%`}} /></div>
-              <div className="missionFoot"><span>{q.progress}/{q.target}</span><button className="miniButton" disabled={busy || !done || !!q.claimed_at} onClick={() => api('/api/game/quests/claim', { period:'weekly', questKey:q.quest_key }).then(() => setMessage('Награда получена')).catch(()=>{})}>{q.claimed_at ? 'Получено' : done ? 'Забрать' : 'В процессе'}</button></div>
-            </div>;
-          })}
-        </div></section>
+          <QuestPanel key={planOwner + ':weekly'} period="weekly" quests={game.weeklyQuests ?? []} catalog={game.weeklyQuestCatalog ?? []} busy={busy}
+            onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
+            onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'achievements' && <div data-section-panel="missions-achievements">
           <AchievementsPanel key={planOwner} rows={achievementRows} busy={busy} focusCategory={achievementFocus.category} focusRequestId={achievementFocus.requestId}
@@ -1030,12 +1018,10 @@ export default function Home() {
             onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}
         {subsections.missions === 'season' && <div data-section-panel="missions-season">
-{!game.season && <section className="card"><h2>Новый сезон готовится</h2><p>Пока можно выполнять ежедневные и недельные задания. Следующий сезон появится здесь.</p></section>}
-{game.season&&<section className="card seasonCard"><div className="cardTitleRow"><div><h2><GameIcon name="missions" />Сезон I · {game.season.title}</h2><p>{game.season.subtitle} · осталось {timeLeft(game.season.ends_at)}</p></div><div className="seasonPoints">{n(game.season.points)}<span>SP</span></div></div><div className="seasonTrack">{game.season.rewards.map((r:any)=>{
-  const claimed=(game.season.claims??[]).some((c:any)=>Number(c.level)===Number(r.level));
-  const reached=Number(game.season.points)>=Number(r.points);
-  return <div className={`seasonReward ${reached?'reached':''}`} key={r.level}><div className="seasonLevel">{r.level}</div><div className="seasonRewardBody"><strong>{r.title}</strong><small>{r.points} SP · {r.cosmeticId ? <span className="achievementRewardAppearance"><GameIcon name="palette" size={12} />{r.cosmeticDays ? `${r.cosmeticDays} дн.` : 'навсегда'}</span> : r.crystals ? <GameAmount resource="crystals">{n(r.crystals)}</GameAmount> : <GameAmount resource="credits">{n(r.credits)}</GameAmount>}</small><div className="progress"><i style={{width:`${Math.min(100,Math.round(Number(game.season.points)/Number(r.points)*100))}%`}}/></div></div><button className="miniButton" aria-label={claimed ? 'Награда получена' : reached ? 'Забрать награду' : 'Уровень ещё не открыт'} disabled={busy||!reached||claimed} onClick={()=>api('/api/season/claim',{level:r.level}).then(()=>setMessage('Сезонная награда получена')).catch(()=>{})}>{claimed ? <GameIcon name="check" size={15} /> : reached ? 'Забрать' : <GameIcon name="lock" size={15} />}</button></div>;
-})}</div><p className="finePrint">Платной дорожки в первом сезоне нет.</p></section>}
+          <SeasonPanel key={planOwner + ':' + (game.season?.id ?? 'none')} season={game.season} busy={busy}
+            onClaim={async (selection) => { try { const data = await api('/api/season/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
+            onNavigate={(nextTab, section) => { openSection(nextTab); showSection(nextTab, section); }}
+            onRefresh={() => { void refresh(); }} />
         </div>}
       </>}
 

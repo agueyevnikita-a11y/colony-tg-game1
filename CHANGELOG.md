@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.3-beta.1 — A Smoother Reward Loop
+- Added local results and errors for daily, weekly and season rewards, with direct links from unfinished quests to their activity.
+- Added explicit atomic collection of ready rewards for one quest period or the active season; repeated and simultaneous claims cannot duplicate payouts.
+- Showed the next season reward, missing points, ready rewards and compact reward pages instead of a long track.
+- Split alliance work into project, goals and members, with local member search and five members per page.
+- Preserved existing reward values, progress, project costs and time rules; no database migration is required from v1.10.
+
 ## 1.10.2-beta.1 — Rewards and Messages Within Reach
 - Split achievements into ready, in-progress and claimed views with five cards per page; comfort and referral links open the relevant reward topic.
 - Added a direct link from earned cosmetics to the owned collection and a ready-achievement badge.

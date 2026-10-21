@@ -23,7 +23,7 @@ export const DAILY_QUESTS = [
 export const WEEKLY_QUESTS = [
   { key: 'weekly_build', title: 'Большая стройка', description: 'Начни 7 строительств', event: 'build_started' as const, target: 7, crystals: 25, credits: 1200 },
   { key: 'weekly_smelt', title: 'Промышленная неделя', description: 'Запусти 10 плавок', event: 'foundry_started' as const, target: 10, crystals: 25, credits: 900 },
-  { key: 'weekly_contracts', title: 'Деловые связи', description: 'Выполни 3 NPC-контракта', event: 'contract_completed' as const, target: 3, crystals: 25, credits: 1500 },
+  { key: 'weekly_contracts', title: 'Деловые связи', description: 'Выполни 3 контракта', event: 'contract_completed' as const, target: 3, crystals: 25, credits: 1500 },
   { key: 'weekly_expeditions', title: 'Исследовательская программа', description: 'Заверши 5 экспедиций', event: 'expedition_completed' as const, target: 5, crystals: 15, credits: 1000 },
 ] as const;
 
@@ -43,11 +43,11 @@ export const ACHIEVEMENTS = [
   { key: 'smelter_25', title: 'Металлург', description: 'Запусти 25 плавок', stat: 'foundry_jobs_started', target: 25, reward: { crystals: 40 } },
   { key: 'trader_10', title: 'Контрактник', description: 'Выполни 10 контрактов', stat: 'contracts_completed', target: 10, reward: { cosmeticId: 'frame_orbit', cosmeticDays: 14 } },
   { key: 'trader_100', title: 'Торговый магнат', description: 'Выполни 100 контрактов', stat: 'contracts_completed', target: 100, reward: { cosmeticId: 'frame_orbit' } },
-  { key: 'network_1', title: 'Первый сигнал', description: 'Пригласи 1 игрока, который достигнет HQ3', stat: 'qualified_referrals', target: 1, reward: { cosmeticId: 'effect_signal', cosmeticDays: 7 } },
-  { key: 'network_5', title: 'Связной', description: '5 квалифицированных приглашённых', stat: 'qualified_referrals', target: 5, reward: { cosmeticId: 'title_connector' } },
-  { key: 'network_50', title: 'Архитектор сети', description: '50 квалифицированных приглашённых', stat: 'qualified_referrals', target: 50, reward: { cosmeticId: 'frame_connector' } },
-  { key: 'market_25', title: 'Биржевик', description: 'Совершить 25 покупок на P2P-рынке', stat: 'market_trades_bought', target: 25, reward: { cosmeticId: 'frame_exchange', cosmeticDays: 7 } },
-  { key: 'market_250', title: 'Мастер биржи', description: 'Совершить 250 покупок на P2P-рынке', stat: 'market_trades_bought', target: 250, reward: { cosmeticId: 'frame_exchange' } },
+  { key: 'network_1', title: 'Первый сигнал', description: 'Пригласи друга, который улучшит центр колонии до уровня 3', stat: 'qualified_referrals', target: 1, reward: { cosmeticId: 'effect_signal', cosmeticDays: 7 } },
+  { key: 'network_5', title: 'Связной', description: 'Пригласи 5 друзей, которые улучшат центр колонии до уровня 3', stat: 'qualified_referrals', target: 5, reward: { cosmeticId: 'title_connector' } },
+  { key: 'network_50', title: 'Архитектор сети', description: 'Пригласи 50 друзей, которые улучшат центр колонии до уровня 3', stat: 'qualified_referrals', target: 50, reward: { cosmeticId: 'frame_connector' } },
+  { key: 'market_25', title: 'Биржевик', description: 'Соверши 25 покупок на рынке игроков', stat: 'market_trades_bought', target: 25, reward: { cosmeticId: 'frame_exchange', cosmeticDays: 7 } },
+  { key: 'market_250', title: 'Мастер биржи', description: 'Соверши 250 покупок на рынке игроков', stat: 'market_trades_bought', target: 250, reward: { cosmeticId: 'frame_exchange' } },
 
   { key: 'research_3', title: 'Научный метод', description: 'Заверши 3 исследования', stat: 'research_completed', target: 3, reward: { crystals: 30 } },
   { key: 'research_10', title: 'Главный исследователь', description: 'Заверши 10 исследований', stat: 'research_completed', target: 10, reward: { cosmeticId: 'frame_researcher' } },

@@ -1,0 +1,43 @@
+.questPanel { min-width:0; }
+.questPanelHeading { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:7px; }
+.questPanelHeading h2 { margin:0; }
+.questPeriod { padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; white-space:nowrap; }
+.questCounts { display:flex; flex-wrap:wrap; gap:6px 14px; margin:13px 0; color:var(--muted); font-size:11px; line-height:1.7; }
+.questCounts > span { display:inline-flex; gap:6px; }
+.questCounts strong { color:var(--text); }
+.questReadyCount,.questReadyCount strong { color:#b6e6cc; }
+.questBulk { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:10px; margin:12px 0; padding:12px; border:1px solid rgba(128,209,171,.32); border-radius:12px; background:rgba(80,151,116,.10); }
+.questBulk > div { display:flex; flex-direction:column; gap:7px; }
+.questBulk strong { font-size:12px; }
+.questBulk > div > span,.questFeedback > strong { display:flex; align-items:center; flex-wrap:wrap; gap:12px; font-size:12px; }
+.questPanel .questBulk > .action { width:auto; margin:0; padding:10px 14px; font-size:12px; }
+.questFilters { display:flex; flex-wrap:wrap; gap:7px; margin:13px 0; }
+.questFilters > button { min-height:44px; padding:7px 12px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--muted); font:inherit; font-size:11px; cursor:pointer; }
+.questFilters > button.active { background:rgba(112,196,173,.13); border-color:rgba(125,210,181,.4); color:#c4e6dc; }
+.questList { display:flex; flex-direction:column; gap:10px; }
+.questEntry { min-width:0; padding:13px; border:1px solid var(--line); border-radius:13px; background:rgba(10,24,33,.23); }
+.questEntry.isReady { border-color:rgba(128,209,171,.32); background:rgba(60,113,89,.08); }
+.questEntry.isClaimed { background:rgba(10,24,33,.12); }
+.questEntryHeading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 10px; }
+.questEntryHeading h3 { margin:0; font-size:13px; line-height:1.5; }
+.questStatus { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; }
+.isReady .questStatus { color:#b6e6cc; }
+.isClaimed .questStatus { color:#a2bdad; }
+.colonyApp .questEntry > p { margin:7px 0 10px; font-size:12px; line-height:1.55; }
+.questProgress { height:5px; overflow:hidden; border-radius:99px; background:rgba(140,179,189,.12); margin-top:10px; }
+.questProgress > i { display:block; height:100%; border-radius:inherit; background:#71bdb6; }
+.isReady .questProgress > i { background:#92d3aa; }
+.isClaimed .questProgress > i { background:#637f73; }
+.questProgressText { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 10px; margin:6px 0 13px; color:var(--muted); font-size:10px; line-height:1.5; }
+.questEntryFoot { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.questReward { display:flex; align-items:center; flex-wrap:wrap; gap:7px 13px; font-size:12px; }
+.questPanel button { min-height:44px; }
+.questPanel .miniButton { min-height:44px; font-size:11px; }
+.questClaim { border-color:rgba(128,209,171,.4); color:#c6ecd5; }
+.questNavigate { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+.questReceived { display:inline-flex; align-items:center; gap:5px; color:#a2bdad; font-size:11px; }
+.questFeedback { display:flex; flex-wrap:wrap; gap:9px; margin:12px 0; overflow-wrap:anywhere; font-size:12px; }
+.questFeedback > span { flex:1; min-width:130px; }
+.questEmpty { display:flex; align-items:flex-start; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--line); border-radius:12px; color:var(--muted); font-size:12px; line-height:1.6; }
+.questPanel button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:360px) { .questEntry { padding:11px; } .questPanel .questBulk > .action { width:100%; } .questEntryFoot > .miniButton { width:100%; } .questCounts { gap:5px 11px; } }

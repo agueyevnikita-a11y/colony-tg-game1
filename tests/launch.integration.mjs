@@ -12,6 +12,8 @@ import { runDecorIntegration } from './decor.integration.mjs';
 import { runReferralsIntegration } from './referrals.integration.mjs';
 import { runUnlocksIntegration } from './unlocks.integration.mjs';
 import { runInboxIntegration } from './inbox.integration.mjs';
+import { runQuestRewardsIntegration } from './quest-rewards.integration.mjs';
+import { runSeasonRewardsIntegration } from './season-rewards.integration.mjs';
 
 test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
@@ -1428,6 +1430,8 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runReferralsIntegration({ t, sql, request, initData, playerId, adminId });
   await runUnlocksIntegration({ t, sql, request, initData, playerId, adminId });
   await runInboxIntegration({ t, sql, request, initData, playerId, adminId });
+  await runQuestRewardsIntegration({ t, sql, request, initData, playerId, adminId });
+  await runSeasonRewardsIntegration({ t, sql, request, initData, playerId, adminId });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;
