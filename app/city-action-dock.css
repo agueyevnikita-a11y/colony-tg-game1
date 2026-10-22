@@ -1,0 +1,34 @@
+.cityActionDock { min-width:0; margin-top:12px; }
+.cityDockGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.cityDockAction { position:relative; display:flex; align-items:center; gap:8px; min-width:0; min-height:64px; padding:10px; border:1px solid var(--line); border-radius:12px; color:var(--text); background:linear-gradient(135deg,rgba(116,168,181,.08),rgba(10,25,35,.4)); text-align:left; font:inherit; cursor:pointer; }
+.cityDockActionIcon { display:grid; place-items:center; flex:0 0 30px; width:30px; height:32px; }
+.cityDockActionIcon > .gameIcon { width:30px; height:30px; }
+.cityDockActionCopy { display:flex; flex-direction:column; gap:4px; min-width:0; flex:1; }
+.cityDockActionCopy > strong { font-size:12px; line-height:1.35; overflow-wrap:anywhere; }
+.cityDockActionCopy > span { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; color:var(--muted); font-size:10px; line-height:1.4; overflow-wrap:anywhere; }
+.cityDockAction.hasAttention { border-color:rgba(133,221,191,.44); background:linear-gradient(135deg,rgba(98,182,157,.14),rgba(17,41,45,.38)); }
+.cityDockAction.hasAttention .cityDockActionCopy > strong { color:#b8ecd7; }
+.cityDockActionBadge { position:absolute; top:3px; left:28px; display:grid; place-items:center; min-width:17px; height:17px; padding:0 4px; border:1px solid rgba(174,220,204,.35); border-radius:6px; color:#c7f1dd; background:#1b3b3c; font-size:9px; line-height:1; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; }
+.cityDockAction:disabled { opacity:.55; cursor:default; }
+.cityDockAction:not(:disabled):hover { border-color:rgba(143,191,190,.44); background-color:rgba(114,171,176,.05); }
+.cityDockAction:focus-visible,.cityDockMore:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.cityDockAction,.cityDockMore { scroll-margin-bottom:110px; }
+.cityDockMore { display:flex; align-items:center; justify-content:center; gap:7px; min-width:86px; min-height:44px; margin:2px 0 0 auto; padding:7px 4px 7px 10px; border:0; border-radius:9px; background:transparent; color:var(--muted); font:inherit; font-size:11px; cursor:pointer; }
+.cityDockMore > .gameIcon { transform:rotate(90deg); }
+.cityDockMore[aria-expanded="true"] > .gameIcon { transform:rotate(-90deg); }
+.cityDockMoreAttention { display:block; flex-shrink:0; width:7px; height:7px; border-radius:50%; background:#a3e8cc; box-shadow:0 0 0 2px rgba(132,213,181,.12); }
+.cityDockExtra { margin-top:2px; }
+.cityDockExtra[hidden] { display:none; }
+.cityDockExtra > :last-child:nth-child(odd) { grid-column:1/-1; }
+@media(max-width:360px) {
+  .cityDockAction { min-height:62px; gap:7px; padding:8px; }
+  .cityDockActionIcon { flex-basis:26px; width:26px; height:30px; }
+  .cityDockActionIcon > .gameIcon { width:26px; height:26px; }
+  .cityDockActionCopy > strong { font-size:10.5px; letter-spacing:-.015em; }
+  .cityDockActionCopy > span { font-size:9px; }
+  .cityDockActionBadge { left:23px; }
+}
+@media(prefers-contrast:more) {
+  .cityDockAction { border-color:#668493; background:#13232e; }
+  .cityDockAction.hasAttention { border-color:#91ddbe; background:#18332f; }
+}

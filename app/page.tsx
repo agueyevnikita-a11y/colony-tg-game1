@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CityGrid } from '@/components/CityGrid';
+import { CityActionDock } from '@/components/CityActionDock';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { BuildingCatalog, type BuildingCategory } from '@/components/BuildingCatalog';
 import { DecorPanel } from '@/components/DecorPanel';
@@ -40,6 +41,7 @@ import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
 import { PRODUCTS } from '@/lib/game/config';
 import { calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
+import { cityActionItems } from '@/lib/game/city-actions';
 import { permanentProductOwned } from '@/lib/game/product-ownership';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
@@ -816,10 +818,9 @@ export default function Home() {
             badge={equippedBadge}
             onCell={handleCityCell}
           />
-          {!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId && <div className="cityMapActions">
-            <button type="button" className="action" disabled={busy} onClick={() => navigateGuide('build')}><GameIcon name="build" size={17} /> Построить</button>
-            <button type="button" className="action secondary" onClick={shareCity}><GameIcon name="share" size={17} /> Поделиться</button>
-          </div>}
+          {!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId && <CityActionDock
+            items={cityActionItems({ ...game, comfort })} busy={busy}
+            onAction={action => action === 'share' ? shareCity() : navigateGuide(action)} />}
           <div className="mapFeedback" ref={mapFeedbackRef}>
             {constructionNotice('map')}
             {placementType && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}

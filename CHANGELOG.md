@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.1-beta.1 — City Actions at a Glance
+- Replaced the map's two generic actions with a compact illustrated dock for construction, foundries, research and events. Decor, contracts and the existing public-city share action remain under More.
+- Added snapshot-based status hints and quiet attention markers for work worth checking, active events and affordable valid contracts. Expired jobs and research request verification rather than promising a new reward; storage hints respect market escrow.
+- Collapsed the foundry recipe catalog into an always-visible current recipe with an on-demand selector. Added a clearer prepaid ingredients → output → completion summary beside the start action, preserving parameters, requirements, queue behaviour, errors and server validation.
+- Preserved all costs, rewards, research gates, saved cities and payments. No migration, dependency or new gameplay API is required.
+
 ## 1.12.0-beta.1 — A Lunar Visual Identity
 - Added 24 original rendered lunar icons: six resources, six main sections and twelve activities. One shared renderer keeps resource/crystal artwork consistent in prices, rewards, navigation and help; utility controls retain clear vector glyphs.
 - Gave map, foundry, contracts, events and decor distinct symbols, enlarged primary navigation artwork and retained labels. Locked market/expedition entries show their recognisable icon with a small lock and research explanation.

@@ -66,6 +66,8 @@ export function ProductionPanel(props: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
   const submittingRef = useRef(false);
+  const recipePickerRef = useRef<HTMLDetailsElement>(null);
+  const recipeSummaryRef = useRef<HTMLElement>(null);
   const selected = foundries.find((building) => building.id === selectedId)
     ?? foundries.find((building) => building.status === 'active') ?? foundries[0];
   const requestedFoundryId = foundries.find((building) => building.id === props.selectedBuildingId)?.id;
@@ -97,6 +99,7 @@ export function ProductionPanel(props: Props) {
   const unlockedRecipes = props.unlockedRecipes ?? ['standard_alloy'];
   const recipeUnlocked = (key: FoundryRecipeKey) => key === 'standard_alloy' || (props.recipesEnabled !== false && unlockedRecipes.includes(key));
   const effectiveRecipe = recipeUnlocked(recipe) ? recipe : 'standard_alloy';
+  const selectedRecipe = FOUNDRY_RECIPES.find((item) => item.id === effectiveRecipe) ?? FOUNDRY_RECIPES[0];
   const quote = quoteFoundry({ level: selectedLevel, recipe: effectiveRecipe, mode, link: effectiveLink, cycles: effectiveCycles, partsMultiplier: props.partsMultiplier });
   const insufficient = Number(props.resources.ore ?? 0) < quote.ore || Number(props.resources.energy ?? 0) < quote.energy;
   const queueEnd = Math.max(now, ...selectedJobs.map((job) => new Date(job.completes_at).getTime()));
@@ -156,13 +159,23 @@ export function ProductionPanel(props: Props) {
         <fieldset className="productionField" disabled={locked}>
           <legend>Рецепт</legend>
           {props.recipesEnabled === false && <p className="notice productionStatus" role="status">Новые рецепты временно недоступны. Стандартный сплав работает.</p>}
+          <details className="productionRecipePicker" ref={recipePickerRef}>
+            <summary ref={recipeSummaryRef}>
+              <GameIcon name="foundry" size={30} />
+              <span className="productionRecipeSummaryBody"><strong>{selectedRecipe.name}</strong><small><GameAmount resource="parts">{number(quote.cycleParts)}</GameAmount> за цикл <span>·</span><GameIcon name="clock" size={13} />{duration(quote.cycleSeconds)}</small></span>
+              <span className="productionRecipeChange">Сменить<GameIcon name="arrow" size={13} /></span>
+            </summary>
           <div className="productionRecipes">
             {FOUNDRY_RECIPES.map((item) => {
               const unlocked = recipeUnlocked(item.id);
               const recipeQuote = quoteFoundry({ level: selectedLevel, recipe: item.id, mode, link: effectiveLink, cycles: 1, partsMultiplier: props.partsMultiplier });
               return <div key={item.id} className={`productionRecipe ${effectiveRecipe === item.id ? 'isSelected' : ''} ${!unlocked ? 'isLocked' : ''}`}>
                 <label className="productionRecipeChoice">
-                  <input type="radio" name={`${panelId}-recipe`} value={item.id} checked={effectiveRecipe === item.id} disabled={!unlocked} onChange={() => { setRecipe(item.id); clearFeedback(); }} />
+                  <input type="radio" name={`${panelId}-recipe`} value={item.id} checked={effectiveRecipe === item.id} disabled={!unlocked} onChange={() => {
+                    setRecipe(item.id); clearFeedback();
+                    if (recipePickerRef.current) recipePickerRef.current.open = false;
+                    recipeSummaryRef.current?.focus({ preventScroll: true });
+                  }} />
                   <span className="productionRecipeBody">
                     <span className="productionRecipeHeading"><strong>{item.name}</strong>{!unlocked && <small>Закрыт</small>}</span>
                     <span className="productionRecipeHint">{RECIPE_HINT[item.id]}</span>
@@ -176,7 +189,8 @@ export function ProductionPanel(props: Props) {
               </div>;
             })}
           </div>
-          <p className="productionHint">Расход и выпуск за один цикл с выбранными режимом и связью.</p>
+          </details>
+          <p className="productionHint">{selectedRecipe.description}.</p>
         </fieldset>
 
         <fieldset className="productionField" disabled={locked}>
@@ -216,12 +230,15 @@ export function ProductionPanel(props: Props) {
         </div>
 
         {freeSlots > 0 ? <>
+          <div className="productionOrder">
+          <div className="productionOrderHeading"><strong>Партия · {effectiveCycles} {effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}</strong><span>{FOUNDRY_MODES.find((item) => item.id === mode)?.name}</span></div>
           <div className="productionQuote" aria-live="polite">
-            <div><span>Потратишь сразу</span><strong><GameAmount resource="ore">{number(quote.ore)}</GameAmount> <i>+</i> <GameAmount resource="energy">{number(quote.energy)}</GameAmount></strong></div>
+            <div><span>Потратишь сразу</span><strong className="productionIngredients"><GameAmount resource="ore" size={21}>{number(quote.ore)}</GameAmount> <i>+</i> <GameAmount resource="energy" size={21}>{number(quote.energy)}</GameAmount></strong></div>
             <span className="productionArrow" aria-hidden="true"><GameIcon name="arrow" size={16} /></span>
-            <div><span>Получишь</span><strong><GameAmount resource="parts">{number(quote.parts)}</GameAmount> деталей</strong></div>
+            <div><span>Получишь</span><strong><GameAmount resource="parts" size={25}>{number(quote.parts)}</GameAmount> <small>деталей</small></strong></div>
           </div>
-          <p className="productionTiming">{duration(quote.seconds)} работы · готово примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</p>
+          <p className="productionTiming"><GameIcon name="clock" size={16} /><span><strong>{duration(quote.seconds)} работы</strong><small>Готово примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</small></span></p>
+          </div>
           {storageWillOverflow && <p className="productionStorage isBlocked">С учётом очередей всех цехов места на складе не хватит. Лишние готовые циклы останутся в цехе — детали не пропадут.</p>}
           <button type="button" className="action productionStart" disabled={locked || insufficient} onClick={() => void start()}>
             {submitting ? 'Запускаем…' : selectedJobs.length > 0 ? `Добавить в очередь · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}` : `Запустить · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}`}
