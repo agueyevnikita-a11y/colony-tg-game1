@@ -95,3 +95,28 @@
 @media (max-width:600px) { .cosmeticOfferGrid { grid-template-columns:1fr; } .cosmeticOffer { display:grid; grid-template-columns:1fr; } .shopCosmeticArt { min-height:170px; } .cosmeticOfferBody { padding:15px; } .founderContents { grid-template-columns:1fr 1fr; } .founderCosmeticArt { min-height:120px; } }
 @media (max-width:440px) { .collectionGrid { grid-template-columns:1fr; } .collectionCosmeticArt { min-height:140px; } .premiumPurchaseOptions { grid-template-columns:1fr; } .cosmeticsPreviewDialog { width:calc(100% - 16px); border-radius:19px; } .cosmeticsPreviewBody { padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px)); } .cosmeticsComparison { gap:8px; } .cosmeticsComparison > div > strong { font-size:12px; padding:9px; } }
 @media (max-width:340px) { .premiumBenefits { grid-template-columns:1fr; } .founderContents { gap:7px; } .founderPreview strong { font-size:12px; } .cosmeticsComparison { grid-template-columns:1fr; } }
+
+.themeObjectBrowser { padding:11px; margin:14px 0; border:1px solid rgba(148,193,212,.2); border-radius:13px; background:rgba(8,21,29,.3); }
+.themeCoverage { display:flex; align-items:center; gap:9px; color:#9ec9d7; font-size:11px; line-height:1.5; }
+.themeCoverage > span { min-width:0; }.themeCoverage strong { display:block; color:#cbe4ec; font-size:12px; }
+.themeObjectKinds { display:flex; gap:7px; margin:12px 0 9px; }
+.themeObjectKinds button { flex:1; min-height:44px; padding:6px 8px; border:1px solid var(--line); border-radius:10px; background:#142a35; color:#a3bdca; font:inherit; font-size:12px; cursor:pointer; }
+.themeObjectKinds button.isSelected { border-color:rgba(121,215,187,.5); color:#b5e5d7; background:rgba(92,166,147,.12); }
+.themeObjectChoices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.themeObjectChoices > button { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:4px; min-width:0; min-height:76px; padding:6px 4px; border:1px solid var(--line); border-radius:10px; background:rgba(24,48,60,.4); color:#abc3d0; font:inherit; text-align:center; cursor:pointer; }
+.themeObjectChoices > button.isSelected { border-color:#8bcac5; color:#d2e9e4; background:rgba(88,155,151,.15); }
+.themeObjectChoices > button > span { display:block; width:32px; height:32px; flex:0 0 auto; }
+.themeObjectChoices strong { max-width:100%; font-size:9px; font-weight:500; line-height:1.35; overflow-wrap:anywhere; }
+.cosmeticPager { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; }
+.cosmeticPager button { min-width:72px; min-height:44px; padding:7px 10px; border:1px solid var(--line); border-radius:10px; background:#172e39; color:#bdd4df; font:inherit; font-size:12px; cursor:pointer; }
+.cosmeticPager button:disabled { opacity:.4; cursor:default; }.cosmeticPager > span { color:#9bb8c7; font-size:11px; white-space:nowrap; }
+.themeObjectBrowser .themeUnlockNote { margin:9px 0 0; color:#8faab8; font-size:10px; line-height:1.5; }
+.themeComparedObject { margin:15px 0 0; font-size:14px; line-height:1.5; color:#c1d7e1; overflow-wrap:anywhere; }
+.isThemeComparison { margin-top:8px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.isThemeComparison .cosmeticPreviewSurface { --cosmetic-preview-height:142px; }
+.isThemeComparison .cosmeticPreviewName { display:none; }
+.isThemeComparison .cosmeticPreviewBuildings { inset:6px 7px; }
+.isThemeComparison .cosmeticPreviewBuildings > .buildingArt,.isThemeComparison .cosmeticPreviewBuildings > .decorArt { width:min(100%,calc(var(--cosmetic-preview-height) - 16px)); }
+.isThemeComparison > div > strong { font-size:11px; padding:8px; }
+.cosmeticsShop .collectionCategories button { min-height:44px; }
+@media(max-width:340px) { .themeObjectBrowser { padding:9px; }.themeObjectChoices { gap:5px; }.themeObjectChoices strong { font-size:8.5px; }.isThemeComparison { grid-template-columns:repeat(2,minmax(0,1fr)); }.isThemeComparison .cosmeticPreviewSurface { --cosmetic-preview-height:112px; }.cosmeticPager button { min-width:64px; } }

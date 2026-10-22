@@ -77,7 +77,7 @@ export const RESEARCH_TREE: ResearchConfig[] = [
     effectText: '+7% к производству руды',
   },
   {
-    key: 'solar_lattice', branch: 'resources', name: 'Солнечная решётка', emoji: '☀️',
+    key: 'solar_lattice', branch: 'resources', name: 'Энергетическая решётка', emoji: '☀️',
     description: 'Синхронизация энергетических модулей и снижение потерь преобразования.',
     unlockHq: 2, labLevel: 1, science: 160, cost: { credits: 1200, parts: 40 }, timeSec: 1200, prereqs: ['basic_theory'],
     effectText: '+7% к производству энергии',

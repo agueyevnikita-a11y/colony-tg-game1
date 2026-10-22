@@ -32,6 +32,8 @@ import { SectionTabs } from '@/components/SectionTabs';
 import { MechanicsHelp } from '@/components/MechanicsHelp';
 import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
+import { AudioSettings, useColonyMedia } from '@/components/AudioSettings';
+import { primeColonyAudioFromGesture, playColonySound } from '@/lib/client/colony-audio';
 import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
 import { PRODUCTS } from '@/lib/game/config';
@@ -101,6 +103,7 @@ function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(
 
 export default function Home() {
   const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
+  const media = useColonyMedia();
   const [tab, setTab] = useState<Tab>('city');
   const [subsections, setSubsections] = useState(DEFAULT_SUBSECTIONS);
   const [catalogCategory, setCatalogCategory] = useState<BuildingCategory>('resources');
@@ -745,7 +748,12 @@ export default function Home() {
   const totalCells = Number(game.gridSize ?? 6) ** 2;
 
   return (
-    <main className="app colonyApp">
+    <main className="app colonyApp" data-city-motion={media.motionActive ? 'on' : 'off'} onClickCapture={(event) => {
+      if (event.target instanceof Element && event.target.closest('button,summary,a,[role="button"]')) {
+        primeColonyAudioFromGesture();
+        playColonySound('tap');
+      }
+    }}>
       {!game.profile?.profile_completed_at && <ColonyWelcome colonyName={profileName} onNameChange={setProfileName} bio={profileBio} onBioChange={setProfileBio} busy={busy} onSubmit={async () => {
         try { await api('/api/profile/update', { colonyName: profileName, bio: profileBio }); }
         catch (error) { setMessage(''); throw error; }
@@ -1086,6 +1094,7 @@ export default function Home() {
             onRead={async (ids) => { try { const data = await api('/api/inbox/read', { ids }); return data.inbox ?? data.inboxCounts; } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'settings' && <div data-section-panel="social-settings">
+        <AudioSettings />
 <section className="card notificationCard">
           <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
           <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>

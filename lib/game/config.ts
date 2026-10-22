@@ -47,7 +47,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
   solar: {
     name: 'Электростанция', emoji: '⚡', unlockHq: 1,
-    description: 'Производит энергию для плавки и экспедиций. Соседний литейный цех может выбрать связь для экономии энергии.',
+    description: 'Компактный реактор: базово 100 энергии/ч для плавки и экспедиций. Топливо отдельно не расходуется. Соседний литейный цех может выбрать связь для экономии энергии.',
     baseBuildCost: { ore: 100, credits: 80 }, baseBuildTimeSec: 15, maxLevel: 20,
     passive: { resource: 'energy', perHour: 100 },
   },
@@ -59,13 +59,13 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
   solar_array: {
     name: 'Солнечный массив', emoji: '🌞', unlockHq: 3, unlockResearch: 'photovoltaic_arrays',
-    description: '250 энергии/ч на первом уровне — в 2,5 раза больше обычной электростанции с одной клетки. Даёт связь литейному цеху.',
+    description: 'Четыре солнечных трекера: базово 250 энергии/ч — в 2,5 раза больше компактного реактора с одной клетки. Открывается исследованием и даёт связь литейному цеху.',
     baseBuildCost: { ore: 800, parts: 160, credits: 1400 }, baseBuildTimeSec: 600, maxLevel: 12,
     passive: { resource: 'energy', perHour: 250 },
   },
   warehouse: {
     name: 'Склад', emoji: '📦', unlockHq: 1,
-    description: 'Увеличивает запас руды, энергии и деталей. Строй и улучшай склады, когда ресурсы перестают помещаться.',
+    description: 'Грузовые ячейки в защищённом корпусе увеличивают запас руды, энергии и деталей. Строй и улучшай склады, когда ресурсы перестают помещаться.',
     baseBuildCost: { ore: 150, credits: 100 }, baseBuildTimeSec: 20, maxLevel: 15,
   },
   foundry: {
@@ -81,7 +81,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
   trade_hub: {
     name: 'Торговый узел', emoji: '📈', unlockHq: 1,
-    description: 'Открывает контракты и рынок игроков. Обменивай излишки ресурсов на кредиты для развития.',
+    description: 'Посадочная площадка грузовых челноков для контрактов и рынка игроков. Обменивай излишки ресурсов на кредиты для развития.',
     baseBuildCost: { ore: 220, parts: 20, credits: 180 }, baseBuildTimeSec: 45, maxLevel: 15,
   },
   research_lab: {
@@ -91,7 +91,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
   logistics: {
     name: 'Логистический центр', emoji: '🚚', unlockHq: 3,
-    description: 'Развивает облик и рейтинг города. Отдельного бонуса к производству пока нет.',
+    description: 'Диспетчерский пункт грузовых роверов развивает облик и рейтинг города. Отдельного бонуса к производству пока нет.',
     baseBuildCost: { ore: 600, parts: 120, credits: 800 }, baseBuildTimeSec: 600, maxLevel: 12,
   },
   expedition_center: {

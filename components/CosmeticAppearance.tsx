@@ -1,10 +1,11 @@
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
 import { DecorArt } from '@/components/DecorArt';
+import { cityStyleClass, type AppearanceObject } from '@/lib/game/appearance';
 import '@/app/cosmetics.css';
 
 const LABELS: Record<string, string> = {
-  theme_neon: 'Неоновый город', weather_aurora: 'Северное сияние', frame_orbit: 'Орбитальная рамка',
+  theme_neon: 'Неоновый город', theme_first_signal: 'Тема Первого сигнала', weather_aurora: 'Северное сияние', frame_orbit: 'Орбитальная рамка',
   founder_pack: 'Набор основателя', founder_badge: 'Знак основателя', founder_monument: 'Монумент основателя',
   founder_frame: 'Рамка основателя', founder_sky: 'Небо основателя',
   monument_network: 'Монумент сети', relay_legend: 'Маяк легенды', frame_garden: 'Рамка живого города',
@@ -68,22 +69,24 @@ export function CosmeticBadge({ id, label, decorative = false }: { id: string; l
   </span>;
 }
 
-export function CosmeticPreview({ cosmeticId, category, label, className = '' }: {
-  cosmeticId: string; category?: string; label?: string; className?: string;
+export function CosmeticPreview({ cosmeticId, category, label, className = '', subject }: {
+  cosmeticId: string; category?: string; label?: string; className?: string; subject?: AppearanceObject;
 }) {
   const founderPack = cosmeticId === 'founder_pack';
-  const theme = cosmeticId === 'theme_neon' || cosmeticId === 'theme_first_signal' ? cosmeticId : '';
+  const theme = cityStyleClass(cosmeticId);
   const weather = founderPack ? 'founder_sky' : cosmeticId === 'weather_aurora' || cosmeticId === 'founder_sky' || cosmeticId === 'weather_signal_storm' ? cosmeticId : '';
   const frame = founderPack ? 'founder_frame' : category === 'frame' || FRAME_IDS.has(cosmeticId) ? cosmeticId : '';
   const monument = founderPack || ['founder_monument', 'monument_network', 'relay_legend'].includes(cosmeticId) || category === 'building_skin';
   const badge = founderPack || cosmeticId === 'founder_badge' ? 'founder_badge' : category === 'badge' ? cosmeticId : '';
   const title = label ?? LABELS[cosmeticId] ?? (cosmeticId ? 'Оформление колонии' : 'Базовое оформление');
-  return <figure className={`cosmeticPreview ${className}`.trim()} aria-label={title}>
+  return <figure className={`cosmeticPreview ${className}`.trim()} aria-label={subject ? `${subject.name} · ${title}` : title} data-preview-subject={subject?.key}>
     <div className={`cosmeticPreviewSurface cosmeticSurface cityMap cityArtMap ${theme} ${cosmeticFrameClass(frame)}`}>
       <CosmeticAtmosphere weather={weather} effect={category === 'effect' ? cosmeticId : ''} />
       <div className="cosmeticPreviewName"><div><span>COLONY</span>{category === 'title' && cosmeticId && <small className="cosmeticPreviewTitle">{label?.replace(/^Титул:\s*/i, '') ?? 'Титул колонии'}</small>}</div>{badge && <CosmeticBadge id={badge} decorative />}</div>
-      <div className="cosmeticPreviewBuildings" aria-hidden="true">
-        <BuildingArt type="mine" /><BuildingArt type="hq" />{monument ? <CosmeticMonument id={founderPack ? 'founder_monument' : cosmeticId} /> : <BuildingArt type="foundry" />}
+      <div className={`cosmeticPreviewBuildings${subject ? ' isObjectPreview' : ''}`} aria-hidden="true">
+        {subject ? subject.kind === 'building' ? <BuildingArt type={subject.type} /> : <DecorArt type={subject.type} /> : <>
+          <BuildingArt type={theme ? 'solar' : 'mine'} /><BuildingArt type="hq" />{monument ? <CosmeticMonument id={founderPack ? 'founder_monument' : cosmeticId} /> : theme ? <DecorArt type="park" /> : <BuildingArt type="foundry" />}
+        </>}
       </div>
     </div>
     <figcaption>{title}</figcaption>

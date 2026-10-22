@@ -3,6 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CosmeticPreview } from '@/components/CosmeticAppearance';
 import { GameIcon } from '@/components/GameIcon';
+import { BuildingArt } from '@/components/BuildingArt';
+import { DecorArt } from '@/components/DecorArt';
+import { APPEARANCE_OBJECTS, APPEARANCE_PAGE_SIZE, appearancePage, type AppearanceKind } from '@/lib/game/appearance';
 import { PRODUCTS, CRYSTAL_PREMIUM_PRICE, DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, PREMIUM_PRODUCTION_MULTIPLIER, PREMIUM_BUILD_SPEED_MULTIPLIER } from '@/lib/game/config';
 import '@/app/shop.css';
 
@@ -28,7 +31,7 @@ type Feedback = { text: string; error: boolean };
 type ProductId = keyof typeof PRODUCTS;
 
 const CATEGORIES: Record<string, { name: string; where: string; icon: string }> = {
-  theme: { name: 'Темы города', where: 'Меняет цвета и оформление карты города.', icon: 'city' },
+  theme: { name: 'Стили колонии', where: 'Единое оформление всех зданий, декора, настилов и входов. Новые объекты получают его автоматически.', icon: 'city' },
   weather: { name: 'Небо', where: 'Видно над картой твоего города и при его просмотре.', icon: 'star' },
   frame: { name: 'Рамки', where: 'Обрамляет карту города и профиль колонии.', icon: 'social' },
   badge: { name: 'Знаки', where: 'Знак рядом с названием колонии.', icon: 'star' },
@@ -41,7 +44,7 @@ const COSMETIC_PRODUCTS = (Object.entries(PRODUCTS) as [ProductId, typeof PRODUC
   .filter((entry): entry is [ProductId, Extract<typeof PRODUCTS[ProductId], { kind: 'cosmetic' }>] => entry[1].kind === 'cosmetic');
 
 const DESCRIPTIONS: Record<string, { name: string; category: string; text: string }> = {
-  theme_neon: { name: 'Неоновый город', category: 'theme', text: 'Холодный неон, светящиеся линии и новый характер твоего города.' },
+  theme_neon: { name: 'Неоновый город', category: 'theme', text: 'Неоновая палитра, световые контуры платформ и отделка панелей для всей колонии. Одна покупка — все типы объектов.' },
   weather_aurora: { name: 'Северное сияние', category: 'weather', text: 'Мягкие переливы северного сияния над колонией.' },
   frame_orbit: { name: 'Орбитальная рамка', category: 'frame', text: 'Орбитальное обрамление эмблемы колонии.' },
 };
@@ -63,7 +66,11 @@ function categoryInfo(category: string) { return CATEGORIES[category] ?? { name:
 export function CosmeticsShop(props: Props) {
   const id = useId();
   const [category, setCategory] = useState('all');
+  const [collectionPage, setCollectionPage] = useState(0);
   const [preview, setPreview] = useState<PreviewItem | null>(null);
+  const [previewKind, setPreviewKind] = useState<AppearanceKind>('building');
+  const [previewPage, setPreviewPage] = useState(0);
+  const [previewObjectIndex, setPreviewObjectIndex] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const inFlight = useRef(false);
@@ -93,9 +100,17 @@ export function CosmeticsShop(props: Props) {
   const categories = [...new Set(collection.map((item) => item.category))];
   const selectedCategory = categories.includes(category) ? category : 'all';
   const shownItems = selectedCategory === 'all' ? collection : collection.filter((item) => item.category === selectedCategory);
+  const collectionPages = Math.max(1, Math.ceil(shownItems.length / APPEARANCE_PAGE_SIZE));
+  const selectedCollectionPage = Math.min(collectionPage, collectionPages - 1);
+  const visibleItems = shownItems.slice(selectedCollectionPage * APPEARANCE_PAGE_SIZE, (selectedCollectionPage + 1) * APPEARANCE_PAGE_SIZE);
   const founderPermanent = FOUNDER_ITEMS.filter((item) => owned.get(item.id)?.expiresAt === null).length;
   const founderOwned = FOUNDER_ITEMS.filter((item) => owned.has(item.id)).length;
   const currentPreview = preview ? collection.find((item) => item.category === preview.category && item.equipped) : null;
+  const themePreview = preview?.category === 'theme';
+  const objects = appearancePage(previewKind, previewPage);
+  const previewSubject = objects.items[previewObjectIndex] ?? objects.items[0];
+  const buildingCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'building').length;
+  const decorCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'decor').length;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -148,8 +163,14 @@ export function CosmeticsShop(props: Props) {
   function status(item?: Item) {
     return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />Надето</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span></div>;
   }
+  function openPreview(item: PreviewItem) {
+    setPreviewKind('building');
+    setPreviewPage(0);
+    setPreviewObjectIndex(0);
+    setPreview(item);
+  }
   function previewButton(item: PreviewItem) {
-    return <button className="action secondary cosmeticPreviewButton" type="button" aria-haspopup="dialog" onClick={() => setPreview(item)}><GameIcon name="info" size={17} />Предпросмотр</button>;
+    return <button className="action secondary cosmeticPreviewButton" type="button" aria-haspopup="dialog" onClick={() => openPreview(item)}><GameIcon name="info" size={17} />Предпросмотр</button>;
   }
   function awaitingPurchase(productId: ProductId, permanent: boolean) {
     if (permanent || !awaiting.has(productId)) return null;
@@ -160,7 +181,7 @@ export function CosmeticsShop(props: Props) {
 
   return <div className="cosmeticsShop">
     {props.view !== 'collection' && <>
-    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Посмотри, как предмет выглядит в игре, затем выбери оформление для своей колонии. Применение — отдельной кнопкой в коллекции.</p>{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Stars и восстановление временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
+    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Тема оформляет все здания и декор одной покупкой. В предпросмотре можно проверить каждый объект. Применение — отдельной кнопкой в коллекции.</p>{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Stars и восстановление временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
 
     <section className="shopOffers" aria-labelledby={`${id}-offers`}><div className="shopSectionHeading"><h2 id={`${id}-offers`}>Витрина</h2><span>Постоянное оформление</span></div><div className="cosmeticOfferGrid">{COSMETIC_PRODUCTS.map(([productId, product]) => {
       const description = DESCRIPTIONS[product.cosmeticId];
@@ -174,7 +195,7 @@ export function CosmeticsShop(props: Props) {
     <section className="card founderOffer" data-product-id="founder_pack" aria-labelledby={`${id}-founder`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Набор основателя</span><h2 id={`${id}-founder`}>{PRODUCTS.founder_pack.title}</h2></div><span className="cosmeticPermanent">4 предмета навсегда</span></div><p>Знак, монумент, рамка и небо основателя составляют единый образ колонии.</p><div className="founderCombinedPreview" data-cosmetic-id="founder_pack"><CosmeticPreview cosmeticId="founder_pack" label="Образ основателя" /></div><div className="founderContents">{FOUNDER_ITEMS.map((base) => {
       const item = { ...base, name: catalog.get(base.id)?.name || base.name };
       const inventory = owned.get(item.id);
-      return <button className="founderPreview" type="button" key={item.id} data-cosmetic-id={item.id} aria-haspopup="dialog" aria-label={`Предпросмотр: ${item.name}`} onClick={() => setPreview(item)}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="founderCosmeticArt" /><strong>{item.name}</strong><span>{inventory?.expiresAt === null ? 'Есть навсегда' : 'Посмотреть'}</span></button>;
+      return <button className="founderPreview" type="button" key={item.id} data-cosmetic-id={item.id} aria-haspopup="dialog" aria-label={`Предпросмотр: ${item.name}`} onClick={() => openPreview(item)}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="founderCosmeticArt" /><strong>{item.name}</strong><span>{inventory?.expiresAt === null ? 'Есть навсегда' : 'Посмотреть'}</span></button>;
     })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">В твоей коллекции {founderOwned} из {FOUNDER_ITEMS.length} предметов набора. Цена полная, без скидки за уже полученные предметы.</p>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="star" size={17} />{PRODUCTS.founder_pack.stars} Stars</span></>}</button>{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
 
     <section className="card premiumOffer" data-product-id="premium_30d" aria-labelledby={`${id}-premium`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${props.premium ? ' isActive' : ''}`}>{props.premium ? 'Активен' : `${PRODUCTS.premium_30d.days} дней`}</span></div>{props.premium && <p className="premiumUntil">{dateText(props.premiumUntil) ? `Действует до ${dateText(props.premiumUntil)}` : 'Premium активен в твоей колонии.'}</p>}<ul className="premiumBenefits"><li><GameIcon name="ore" size={20} /><span><strong>+{Math.round((PREMIUM_PRODUCTION_MULTIPLIER - 1) * 100)}% к добыче</strong>Руда, энергия и кредиты</span></li><li><GameIcon name="clock" size={20} /><span><strong>−{Math.round((1 - PREMIUM_BUILD_SPEED_MULTIPLIER) * 100)}% времени</strong>Строительство и улучшения зданий</span></li><li><GameIcon name="build" size={20} /><span><strong>2 → 3 стройки</strong>Больше работ одновременно</span></li><li><GameIcon name="city" size={20} /><span><strong>{DEFAULT_OFFLINE_CAP_HOURS} → {PREMIUM_OFFLINE_CAP_HOURS} часов</strong>Базовый лимит добычи без открытой игры</span></li></ul><p className="premiumExplanation">Каждая покупка добавляет {PRODUCTS.premium_30d.days} дней к действующему сроку Premium.</p><div className="premiumPurchaseOptions"><div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : <>{props.premium ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="star" size={17} />{PRODUCTS.premium_30d.stars} Stars</span></>}</button>{notice('buy:premium_30d')}</div><div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</>}</button>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div></div></section>
@@ -182,12 +203,48 @@ export function CosmeticsShop(props: Props) {
     </>}
 
     {props.view !== 'offers' && <>
-    <section className="card cosmeticCollection" aria-labelledby={`${id}-collection`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Полученные предметы</span><h2 id={`${id}-collection`}>Моя коллекция</h2></div><span>{collection.length}</span></div><p>Выбери по одному оформлению каждого вида. Надетый предмет можно снять.</p>{collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span></div> : <><div className="collectionCategories" role="group" aria-label="Виды оформления"><button type="button" className={selectedCategory === 'all' ? 'isSelected' : ''} aria-pressed={selectedCategory === 'all'} onClick={() => setCategory('all')}>Все · {collection.length}</button>{categories.map((value) => <button key={value} type="button" className={selectedCategory === value ? 'isSelected' : ''} aria-pressed={selectedCategory === value} onClick={() => setCategory(value)}>{categoryInfo(value).name} · {collection.filter((item) => item.category === value).length}</button>)}</div><div className="collectionGrid">{shownItems.map((item) => <article key={item.id} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} aria-labelledby={`${id}-owned-${item.id}`}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" /><div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}<div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Применяем…' : item.equipped ? 'Снять' : 'Надеть'}</button></div>{notice(`equip:${item.id}`)}</div></article>)}</div></>}</section>
+    <section className="card cosmeticCollection" aria-labelledby={`${id}-collection`}>
+      <div className="shopSectionHeading"><div><span className="shopEyebrow">Полученные предметы</span><h2 id={`${id}-collection`}>Моя коллекция</h2></div><span>{collection.length}</span></div>
+      <p>Выбери по одному оформлению каждого вида. Стиль колонии применяется ко всем объектам сразу.</p>
+      {collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span></div> : <>
+        <div className="collectionCategories" role="group" aria-label="Виды оформления">
+          <button type="button" className={selectedCategory === 'all' ? 'isSelected' : ''} aria-pressed={selectedCategory === 'all'} onClick={() => { setCategory('all'); setCollectionPage(0); }}>Все · {collection.length}</button>
+          {categories.map(value => <button key={value} type="button" className={selectedCategory === value ? 'isSelected' : ''} aria-pressed={selectedCategory === value} onClick={() => { setCategory(value); setCollectionPage(0); }}>{categoryInfo(value).name} · {collection.filter(item => item.category === value).length}</button>)}
+        </div>
+        <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
+          <CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" />
+          <div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}
+            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Применяем…' : item.equipped ? 'Снять' : 'Надеть'}</button></div>{notice(`equip:${item.id}`)}
+          </div>
+        </article>)}</div>
+        {collectionPages > 1 && <nav className="cosmeticPager" aria-label="Страницы коллекции"><button type="button" disabled={selectedCollectionPage === 0} onClick={() => setCollectionPage(selectedCollectionPage - 1)}>Назад</button><span aria-live="polite">{selectedCollectionPage + 1} / {collectionPages}</span><button type="button" disabled={selectedCollectionPage + 1 === collectionPages} onClick={() => setCollectionPage(selectedCollectionPage + 1)}>Дальше</button></nav>}
+      </>}
+    </section>
 
     </>}
 
     <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Покупки проверены. Коллекция и Premium обновлены.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{notice('recover')}</section>
 
-    <dialog ref={dialogRef} className="cosmeticsPreviewDialog" aria-modal="true" aria-labelledby={`${id}-preview-title`} aria-describedby={`${id}-preview-description`} onCancel={(event) => { event.preventDefault(); setPreview(null); }} onClick={(event) => { if (event.target === event.currentTarget) setPreview(null); }}>{preview && <div className="cosmeticsPreviewBody"><header><div><span className="shopEyebrow">Предпросмотр</span><h2 id={`${id}-preview-title`}>{preview.name}</h2></div><button ref={closeRef} className="cosmeticsPreviewClose" type="button" aria-label="Закрыть предпросмотр" onClick={() => setPreview(null)}><GameIcon name="close" size={21} /></button></header><p id={`${id}-preview-description`}>{categoryInfo(preview.category).where} Это пример для сравнения; применение доступно в коллекции.</p><div className="cosmeticsComparison"><div><span>Сейчас</span><CosmeticPreview cosmeticId={currentPreview?.id ?? ''} category={preview.category} label={currentPreview?.name ?? 'Базовое оформление'} /><strong>{currentPreview?.name ?? 'Базовое оформление'}</strong></div><div><span>Выбранный предмет</span><CosmeticPreview cosmeticId={preview.id} category={preview.category} label={preview.name} /><strong>{preview.name}</strong></div></div><button className="action secondary" type="button" onClick={() => setPreview(null)}>Вернуться к выбору</button></div>}</dialog>
+    <dialog ref={dialogRef} className="cosmeticsPreviewDialog" aria-modal="true" aria-labelledby={`${id}-preview-title`} aria-describedby={`${id}-preview-description`} onCancel={event => { event.preventDefault(); setPreview(null); }} onClick={event => { if (event.target === event.currentTarget) setPreview(null); }}>
+      {preview && <div className="cosmeticsPreviewBody">
+        <header><div><span className="shopEyebrow">Предпросмотр</span><h2 id={`${id}-preview-title`}>{preview.name}</h2></div><button ref={closeRef} className="cosmeticsPreviewClose" type="button" aria-label="Закрыть предпросмотр" onClick={() => setPreview(null)}><GameIcon name="close" size={21} /></button></header>
+        <p id={`${id}-preview-description`}>{categoryInfo(preview.category).where} Применение доступно в коллекции.</p>
+        {themePreview && <section className="themeObjectBrowser" data-theme-object-browser aria-label="Покрытие стиля колонии">
+          <div className="themeCoverage"><GameIcon name="palette" size={18} /><span><strong>Весь город в одном стиле</strong>{buildingCount} типов зданий · {decorCount} видов декора</span></div>
+          <div className="themeObjectKinds" role="group" aria-label="Объекты для предпросмотра">{(['building', 'decor'] as const).map(kind => <button key={kind} type="button" aria-pressed={previewKind === kind} className={previewKind === kind ? 'isSelected' : ''} onClick={() => { setPreviewKind(kind); setPreviewPage(0); setPreviewObjectIndex(0); }}>{kind === 'building' ? 'Здания' : 'Декор'} · {kind === 'building' ? buildingCount : decorCount}</button>)}</div>
+          <div className="themeObjectChoices">{objects.items.map((item, index) => <button type="button" key={item.key} className={previewSubject?.key === item.key ? 'isSelected' : ''} aria-pressed={previewSubject?.key === item.key} aria-label={`Предпросмотр: ${item.name}`} data-theme-object={item.key} onClick={() => setPreviewObjectIndex(index)}>
+            <span aria-hidden="true">{item.kind === 'building' ? <BuildingArt type={item.type} /> : <DecorArt type={item.type} />}</span><strong>{item.name}</strong>
+          </button>)}</div>
+          {objects.pages > 1 && <nav className="cosmeticPager" aria-label="Страницы объектов стиля"><button type="button" disabled={objects.page === 0} onClick={() => { setPreviewPage(objects.page - 1); setPreviewObjectIndex(0); }}>Назад</button><span aria-live="polite">{objects.page + 1} / {objects.pages}</span><button type="button" disabled={objects.page + 1 === objects.pages} onClick={() => { setPreviewPage(objects.page + 1); setPreviewObjectIndex(0); }}>Дальше</button></nav>}
+          <p className="themeUnlockNote">Открытие построек по-прежнему зависит от уровня базы и исследований.</p>
+        </section>}
+        {themePreview && previewSubject && <h3 className="themeComparedObject" data-theme-compared-object={previewSubject.key}>{previewSubject.name}</h3>}
+        <div className={`cosmeticsComparison${themePreview ? ' isThemeComparison' : ''}`}>
+          <div><span>Сейчас</span><CosmeticPreview cosmeticId={currentPreview?.id ?? ''} category={preview.category} label={currentPreview?.name ?? 'Базовое оформление'} subject={themePreview ? previewSubject : undefined} /><strong>{currentPreview?.name ?? 'Базовое оформление'}</strong></div>
+          <div><span>{themePreview ? 'Выбранный стиль' : 'Выбранный предмет'}</span><CosmeticPreview cosmeticId={preview.id} category={preview.category} label={preview.name} subject={themePreview ? previewSubject : undefined} /><strong>{preview.name}</strong></div>
+        </div>
+        <button className="action secondary" type="button" onClick={() => setPreview(null)}>Вернуться к выбору</button>
+      </div>}
+    </dialog>
   </div>;
 }

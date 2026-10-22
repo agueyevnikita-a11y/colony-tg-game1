@@ -4,6 +4,9 @@ import { availableFoundryLinks } from '@/lib/game/foundry';
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
 import { DecorArt } from '@/components/DecorArt';
+import { CityConnections } from '@/components/CityConnections';
+import { CityActivity } from '@/components/CityActivity';
+import { createCityConnections, connectedCityDirections } from '@/lib/game/city-connections';
 import { CosmeticAtmosphere, CosmeticBadge, CosmeticMonument, cosmeticFrameClass } from '@/components/CosmeticAppearance';
 import '@/app/production.css';
 import '@/app/city-art.css';
@@ -46,6 +49,7 @@ export function CityGrid(props: {
 }) {
   const byCell = new Map(props.buildings.map((b) => [`${b.x}:${b.y}`, b]));
   const decorByCell = new Map((props.decor ?? []).map((d) => [`${d.x}:${d.y}`, d]));
+  const connections = createCityConnections(props.buildings, props.decor ?? [], props.gridSize);
   const movingBuilding = props.buildings.find((building) => building.id === props.movingBuildingId);
   const planningFoundry = (props.placementMode && props.planningType === 'foundry')
     || (props.moveMode && movingBuilding?.type === 'foundry');
@@ -59,7 +63,9 @@ export function CityGrid(props: {
       const occupied = !!b || !!d;
       const selected = Boolean((b && b.id === props.selectedId) || (d && d.id === props.selectedDecorId));
       const constructing = b && b.status !== 'active';
-      const connectsRoad = (dx: number, dy: number) => ['road', 'plaza'].includes(decorByCell.get(`${x + dx}:${y + dy}`)?.type ?? '');
+      const roadConnections = connections.road(x, y);
+      const arrivalConnections = b ? connections.building(x, y) : d?.type === 'plaza' ? roadConnections : {};
+      const arrivalCount = connectedCityDirections(arrivalConnections).length;
       const links = planningFoundry && !occupied ? availableFoundryLinks({
         id: props.movingBuildingId ?? 'placement-preview', type: 'foundry', status: 'active',
         level: 1, x, y,
@@ -75,12 +81,19 @@ export function CityGrid(props: {
           aria-pressed={occupied && props.onCell ? selected : undefined}
           aria-label={b ? `${cfg?.name ?? b.type}, уровень ${b.level}${constructing ? ', строительство' : ''}` : d ? `${decorCfg?.name ?? d.type}` : `Пустая клетка ${x + 1}, ${y + 1}${linkDescription ? `; ${linkDescription}` : ''}`}
           title={linkDescription || undefined}
+          data-connected-road-count={b || d?.type === 'plaza' ? arrivalCount : undefined}
+          aria-description={arrivalCount ? 'Настил автоматически соединён с модулем. Это оформление, производство не меняется.' : undefined}
         >
           {b ? <>
+            <CityConnections connections={arrivalConnections} active={b.status === 'active'} />
             <BuildingArt type={b.type} className="cityBuildingArt" />
-            {constructing ? <span className="cityConstruction" aria-hidden="true" /> : <span className={`cityActivityLight ${b.type === 'foundry' ? 'isFoundry' : ''}`} aria-hidden="true" />}
+            {constructing ? <span className="cityConstruction" aria-hidden="true" /> : <CityActivity type={b.type} active={b.status === 'active'} />}
             <span className="cityLevel" aria-hidden="true">{b.status === 'active' ? `L${b.level}` : <GameIcon name="clock" size={9} />}</span>
-          </> : d ? <DecorArt type={d.type} className="cityDecorArt" connections={{ north: connectsRoad(0, -1), east: connectsRoad(1, 0), south: connectsRoad(0, 1), west: connectsRoad(-1, 0) }} />
+          </> : d ? <>
+            {d.type === 'plaza' && <CityConnections connections={arrivalConnections} />}
+            <DecorArt type={d.type} className="cityDecorArt" connections={roadConnections} />
+            {d.type !== 'road' && <CityActivity type={d.type} kind="decor" />}
+          </>
             : (props.placementMode || props.decorPlacementMode || props.moveMode) ? <span className="cityPlus" aria-hidden="true" /> : null}
           {links.length > 0 && <span className="cellLinkMarkers" aria-hidden="true">{links.map((link) => <span key={link}><GameIcon name={link === 'ore' ? 'ore' : 'energy'} size={16} /></span>)}</span>}
         </button>,

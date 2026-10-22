@@ -2,12 +2,12 @@
 .cosmeticSurface.theme_neon { background:radial-gradient(ellipse at 15% 15%,rgba(179,74,245,.36),transparent 62%),radial-gradient(ellipse at 85% 70%,rgba(22,195,221,.23),transparent 58%),linear-gradient(145deg,#1d1236,#0b1631 65%,#06232b); border-color:rgba(128,125,255,.75); box-shadow:inset 0 0 27px rgba(139,69,225,.15),0 0 18px rgba(78,179,224,.1); }
 .cosmeticSurface.theme_neon .cityCell.occupied { border-color:rgba(115,203,244,.45); background:linear-gradient(135deg,rgba(187,86,240,.2),rgba(23,149,180,.16)); box-shadow:inset 0 -2px 0 rgba(79,211,240,.24); }
 .cosmeticSurface.theme_neon .cityCell.empty { background:rgba(108,74,181,.06); border-color:rgba(144,127,216,.17); }
-.cosmeticSurface.theme_neon .buildingArt { filter:saturate(1.2) drop-shadow(0 0 3px rgba(92,223,241,.32)); }
+.cosmeticSurface.theme_neon .buildingArt image,.cosmeticSurface.theme_neon .decorArt image { filter:brightness(1.04) contrast(1.06) saturate(.88) sepia(.12) hue-rotate(156deg) drop-shadow(0 0 1px rgba(146,210,255,.35)); }
 .cosmeticSurface.theme_neon .cityCell.selected { border-color:#9bfaff; box-shadow:inset 0 0 0 1px rgba(155,250,255,.45),0 0 11px rgba(109,218,255,.35); }
 .cosmeticSurface.theme_neon .cityLevel { color:#d3f7ff; background:rgba(13,13,41,.94); border-color:rgba(148,133,244,.4); }
 .cosmeticSurface.cityMap.cityArtMap.theme_first_signal { background:radial-gradient(ellipse at 20% 0,rgba(79,163,145,.28),transparent 65%),linear-gradient(145deg,#193336,#10252c 65%,#0b1c23); border-color:rgba(112,191,175,.55); }
 .cosmeticSurface.theme_first_signal .cityCell.occupied { border-color:rgba(136,210,191,.3); background:linear-gradient(140deg,rgba(143,202,181,.12),rgba(29,65,70,.18)); }
-.cosmeticSurface.theme_first_signal .buildingArt { filter:drop-shadow(0 0 3px rgba(118,204,173,.22)); }
+.cosmeticSurface.theme_first_signal .buildingArt image,.cosmeticSurface.theme_first_signal .decorArt image { filter:brightness(1.04) contrast(1.03) sepia(.1) drop-shadow(0 0 1px rgba(118,204,173,.25)); }
 .cosmeticAtmosphere { position:absolute; z-index:1; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; }
 .cosmeticSky { position:absolute; inset:0; overflow:hidden; background:radial-gradient(ellipse at 45% 0,rgba(81,142,174,.16),transparent 70%); }
 .cosmeticSky i { position:absolute; display:block; width:135%; height:45%; left:-17%; top:-11%; transform:rotate(-14deg); border-radius:0 0 50% 50%; background:linear-gradient(178deg,transparent 18%,rgba(59,238,184,.48) 42%,rgba(64,198,222,.19) 62%,transparent 80%); filter:blur(7px); animation:cosmeticAurora 11s ease-in-out infinite alternate; }
@@ -67,7 +67,26 @@
 .cosmeticPreviewTitle { display:block; max-width:200px; margin-top:4px; color:#b7c9d8; font-size:9px; font-weight:500; line-height:1.4; letter-spacing:0; }
 .cosmeticPreviewBuildings { position:absolute; z-index:2; inset:28px 12px 6px; display:flex; align-items:flex-end; justify-content:center; gap:0; }
 .cosmeticPreviewBuildings > .buildingArt,.cosmeticPreviewBuildings > .founderMonumentArt,.cosmeticPreviewBuildings > .cosmeticMonumentArt,.cosmeticPreviewBuildings > .decorArt { width:min(32%,calc(var(--cosmetic-preview-height) - 42px)); height:auto; aspect-ratio:1; max-height:none; flex:0 0 auto; }
+.cosmeticPreviewBuildings.isObjectPreview { inset:25px 10px 7px; }
+.cosmeticPreviewBuildings.isObjectPreview > .buildingArt,.cosmeticPreviewBuildings.isObjectPreview > .decorArt { width:min(100%,calc(var(--cosmetic-preview-height) - 38px)); }
 .cosmeticPreview figcaption { margin-top:7px; font-size:11px; line-height:1.4; color:var(--muted); }
+
+/* City themes cover the canonical building/decor renderers and their docks. */
+.cosmeticSurface.theme_neon { --city-deck-panel:#b5badc; --city-deck-inset:#4d527d; --city-deck-dark:#242940; --city-deck-edge:#c5a0fa; --city-deck-light:#80eaff; --object-trim-hull:#45466c; --object-trim-edge:#b5abf6; --object-trim-light:#7eefff; --object-trim-halo:rgba(115,113,242,.19); }
+.cosmeticSurface.theme_first_signal { --city-deck-panel:#bbd1ca; --city-deck-inset:#4a776f; --city-deck-dark:#243d3d; --city-deck-edge:#c6d5a5; --city-deck-light:#8ef1d0; --object-trim-hull:#315b59; --object-trim-edge:#b6dac8; --object-trim-light:#8af4d0; --object-trim-halo:rgba(95,213,177,.15); }
+.appearanceTrim { display:none; }
+.cosmeticSurface:is(.theme_neon,.theme_first_signal) .appearanceTrim { display:block; opacity:1; }
+.appearanceTrimHalo { fill:var(--object-trim-halo,transparent); stroke:var(--object-trim-light); stroke-width:1; opacity:.75; }
+.appearanceTrimHull { fill:var(--object-trim-hull); stroke:var(--object-trim-edge); stroke-width:1.2; }
+.appearanceTrimEdge { fill:none; stroke:var(--object-trim-edge); stroke-width:2; }
+.appearanceTrimRail { fill:none; stroke:var(--object-trim-light); stroke-width:2.5; stroke-linecap:round; }
+.appearanceTrimSignal { fill:none; stroke:var(--object-trim-light); stroke-width:3; stroke-linecap:round; }
+.appearanceTrimMark { fill:none; stroke:var(--object-trim-edge); stroke-width:2; }
+.cosmeticSurface.theme_neon .appearanceTrim.isBiology .appearanceTrimMark { stroke:#9febce; }
+.cosmeticSurface.theme_first_signal .appearanceTrim.isIndustry .appearanceTrimMark { stroke:#e5d08f; }
+.cosmeticSurface.theme_neon .cityArrivalLights,.cosmeticSurface.theme_neon .serviceDeckSignal { filter:drop-shadow(0 0 1px rgba(126,234,255,.35)); }
+.cosmeticSurface.theme_neon .cityActivity:not(.cityActivity-furnace):not(.cityActivity-drill):not(.cityActivity-deep-drill) { --activity-tone:#97dcff; }
+.cosmeticSurface.theme_first_signal .cityActivity:not(.cityActivity-furnace):not(.cityActivity-drill):not(.cityActivity-deep-drill) { --activity-tone:#9ce7cb; }
 @keyframes cosmeticAurora { from { transform:translate3d(-6%,-4%,0) rotate(-12deg); opacity:.7; } to { transform:translate3d(8%,12%,0) rotate(4deg); opacity:1; } }
 @keyframes cosmeticFounderSky { from { transform:translate3d(-5%,-4%,0) rotate(-10deg); opacity:.65; } to { transform:translate3d(6%,9%,0) rotate(7deg); opacity:1; } }
 @keyframes cosmeticSignal { 0% { transform:scale(.3); opacity:0; } 20% { opacity:.5; } 100% { transform:scale(2.7); opacity:0; } }

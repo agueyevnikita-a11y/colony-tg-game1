@@ -1,0 +1,16 @@
+.audioSettings { min-width:0; }
+.audioSettings h3 { display:flex; align-items:center; gap:7px; margin:0; }
+.colonyApp .audioSettings > p { margin:9px 0 12px; font-size:11px; line-height:1.65; color:var(--muted); }
+.audioSettingRow { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:12px 0; border-top:1px solid var(--line); }
+.audioSettingRow > div { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.audioSettingRow strong { font-size:12px; }.audioSettingRow span { color:var(--muted); font-size:10px; line-height:1.5; }
+.audioSettingRow > button { min-width:105px; min-height:44px; flex:0 0 auto; padding:9px 11px; border:1px solid var(--line); border-radius:11px; background:rgba(12,27,35,.55); color:var(--muted); font:inherit; font-size:11px; cursor:pointer; }
+.audioSettingRow > button.isOn { color:#aee4ce; border-color:rgba(118,207,181,.45); background:rgba(72,152,129,.12); }
+.audioSettingRow > button:disabled { opacity:.55; cursor:default; }
+.audioVolumeControl { display:flex; flex-direction:column; gap:8px; padding:0 0 13px; }
+.audioVolumeControl > label { display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--muted); }
+.audioVolumeControl output { color:var(--text); }.audioVolumeControl input { width:100%; min-height:44px; margin:0; accent-color:var(--accent); cursor:pointer; }
+.colonyApp .audioVolumeControl > button { min-height:44px; align-self:flex-start; }
+.audioVolumeControl > small { color:var(--muted); font-size:10px; line-height:1.6; }
+.audioSettings button:focus-visible,.audioSettings input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media(max-width:360px) { .audioSettingRow { gap:8px; }.audioSettingRow > button { min-width:95px; padding:8px; font-size:10px; } }

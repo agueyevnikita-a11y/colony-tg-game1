@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRequestCoordinator, RequestCancelled, RequestInProgress } from './requests';
 import { retryTelegramScript, telegramHeaders, waitForTelegram } from './telegram';
 import { localProfileHeaders, selectedLocalProfile } from './local-profile';
+import { actionSound } from './action-sounds';
+import { playColonySound } from './colony-audio';
 
 const development = process.env.NODE_ENV === 'development';
 const localSandbox = development && process.env.NEXT_PUBLIC_LOCAL_DEV === 'true';
@@ -31,12 +33,15 @@ export function useGameConnection() {
       setConnectionError('');
       if (path === '/api/session') setGame(data);
       else if (data.state) setGame((old: any) => ({ ...(old ?? {}), ...data }));
+      const sound = actionSound(path, background);
+      if (sound) playColonySound(sound);
       return data;
     } catch (error) {
       if (!(error instanceof RequestCancelled) && !(error instanceof RequestInProgress && background)) {
         const text = error instanceof Error ? error.message : 'Не удалось выполнить действие.';
         if (path === '/api/session') setConnectionError(text);
         if (!background) setMessage(text);
+        if (!(error instanceof RequestInProgress) && actionSound(path, background)) playColonySound('error');
       }
       throw error;
     }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.0-beta.1 — A Living Lunar City
+- Gave the reactor, warehouse, trade port and logistics centre distinct silhouettes; the reactor no longer uses solar panels. All renderers share transparent, individually measured sprites.
+- Replaced roads with modular service decks that automatically join neighbouring roads, communications nodes and building entrances, including after relocation. These connections are visual and do not change production.
+- Added lightweight building and decor activity animations, a saved motion setting and support for reduced motion. Hidden or inactive Mini Apps stop city movement.
+- Added optional short action sounds, saved volume and explicit audio activation. Background refreshes remain silent; successful action sounds follow server confirmation.
+- Expanded full city styles to every building and decor object, including roads and entrances. Added compact object-by-object before/after previews and paged collections; existing purchases, prices and future object coverage are preserved.
+- Preserved all saved object keys, balances, production, research and placements. No database migration or new dependency is required.
+
 ## 1.10.5-beta.1 — A Lunar Home
 - Replaced terrestrial decor with nine lunar installations: sealed plant capsules, a dome garden, rest module, navigation beacon, service deck, pioneer monument, hydroponics, a closed water recirculator and communications node.
 - Added a transparent isometric decor atlas matching existing building materials, lighting and perspective, with individually measured viewports; connected service decks retain live map adjacency.
