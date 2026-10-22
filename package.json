@@ -8,6 +8,11 @@
   },
   "scripts": {
     "dev": "next dev",
+    "local:setup": "node scripts/local-dev.mjs setup",
+    "local:start": "node scripts/local-dev.mjs start",
+    "local:stop": "node scripts/local-dev.mjs stop",
+    "local:status": "node scripts/local-dev.mjs status",
+    "local:test": "node scripts/local-dev.mjs test",
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",

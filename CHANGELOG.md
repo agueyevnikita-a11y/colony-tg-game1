@@ -1,5 +1,11 @@
 # Changelog
 
+## Development — Isolated Windows Sandbox
+- Added portable PostgreSQL 16 setup and local start, stop, status and full test commands; no system service or Railway connection is required.
+- Added one-click Windows launchers, a local-only banner and browser play with persisted isolated saves; Telegram SDK, paid purchases and outgoing bot messages stay disabled on this sandbox.
+- Pinned loopback database targets and replaced inherited production credentials, including mixed-case Windows environment variables. Generated credentials, data, tools and Next.js environment types remain outside Git.
+- Added configuration/isolation tests and a full PostgreSQL test command using a separate `colony_test` database. Production authentication and game economy are unchanged.
+
 ## 1.10.4-beta.1 — A Clearer Landscaping Loop
 - Replaced long decor cards with compact choices and on-demand details, preserving art, costs, requirements and placement previews.
 - Added the next historical comfort achievement goal and distinguished current comfort from the saved record.

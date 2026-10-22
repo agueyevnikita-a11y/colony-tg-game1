@@ -58,6 +58,8 @@ For browser-only development, explicitly set `ALLOW_DEV_AUTH=true` in `.env.loca
 
 For an existing v0.9 database, apply `db/migrations/010_v1_0_beta.sql` and then `db/migrations/011_v1_0_1.sql`. Existing v1.0 databases need the latter migration. For a fresh database, `npm run db:init` applies the cumulative `db/schema.sql`. Fractional production is persisted so frequent session refreshes do not discard passive income or science.
 
+Для изолированного браузерного стенда на Windows доступны `COLONY-start.cmd` / `COLONY-stop.cmd` и команды `npm run local:start`, `local:status`, `local:stop`. Они создают переносной PostgreSQL и отдельные сохранения без изменения рабочего `.env`; см. [локальный стенд](docs/LOCAL_DEVELOPMENT.md).
+
 ## Production bootstrap
 Follow [the v1.1 Telegram launch guide](docs/DEPLOY_v1.1.md) and set production variables first, including `NEXT_PUBLIC_BOT_USERNAME` **at build time**:
 ```bash
