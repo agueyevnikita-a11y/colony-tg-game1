@@ -1,6 +1,7 @@
 # Changelog
 
 ## Development — Isolated Windows Sandbox
+- Added three independent local test cities with a tab-specific chooser: the existing personal save, a new colony and a developed base for trying advanced mechanics. Fixtures are initialized once and never reset on switching; their API is unavailable in production.
 - Added portable PostgreSQL 16 setup and local start, stop, status and full test commands; no system service or Railway connection is required.
 - Added one-click Windows launchers, a local-only banner and browser play with persisted isolated saves; Telegram SDK, paid purchases and outgoing bot messages stay disabled on this sandbox.
 - Pinned loopback database targets and replaced inherited production credentials, including mixed-case Windows environment variables. Generated credentials, data, tools and Next.js environment types remain outside Git.

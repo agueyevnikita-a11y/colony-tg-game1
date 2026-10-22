@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { LocalDevPanel } from '@/components/LocalDevPanel';
 import './globals.css';
 import './local-dev.css';
 
@@ -21,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ru">
       <body>
         {!localSandbox && <Script id="telegram-sdk" src="https://telegram.org/js/telegram-web-app.js?63" strategy="afterInteractive" />}
-        {localSandbox && <aside className="localDevBanner" aria-label="Локальный тестовый стенд"><strong>COLONY · локальный стенд</strong><span>Тестовый город. Прогресс сохраняется на этом компьютере. Stars и отправка сообщений боту отключены.</span></aside>}
+        {localSandbox && <LocalDevPanel />}
         {children}
       </body>
     </html>

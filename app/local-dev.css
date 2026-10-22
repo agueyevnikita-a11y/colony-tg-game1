@@ -1,3 +1,24 @@
 .localDevBanner { display:flex; flex-direction:column; gap:5px; max-width:600px; margin:0 auto; padding:12px 18px; border-bottom:1px solid #bba45266; background:#302c1e; color:#f0dda1; font-family:system-ui,sans-serif; font-size:12px; line-height:1.6; }
 .localDevBanner > strong { font-size:13px; }
 .localDevBanner > span { color:#d6cda7; }
+.localDevProfiles { min-width:0; margin-top:5px; border-top:1px solid #bba45240; }
+.localDevProfiles > summary { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; min-height:44px; padding:7px 0; cursor:pointer; list-style:none; }
+.localDevProfiles > summary::-webkit-details-marker { display:none; }
+.localDevProfiles > summary::after { content:'+'; margin-left:auto; padding-left:4px; color:#f0dda1; font-size:17px; }
+.localDevProfiles[open] > summary::after { content:'−'; }
+.localDevProfiles > summary > strong { font-size:12px; }
+.localDevProfiles > summary > span { color:#d6cda7; font-size:11px; overflow-wrap:anywhere; }
+.localDevProfiles > p { margin:3px 0 10px; color:#d6cda7; font-size:11px; line-height:1.6; }
+.localDevProfileList { display:grid; grid-template-columns:1fr; gap:7px; }
+.localDevProfile { display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:0; min-height:44px; width:100%; padding:10px 11px; border:1px solid #bba45255; border-radius:11px; background:#29271e; color:#f0dda1; font:inherit; text-align:left; cursor:pointer; }
+.localDevProfile > strong { max-width:100%; font-size:12px; overflow-wrap:anywhere; }
+.localDevProfile > span { max-width:100%; color:#d6cda7; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.localDevProfile > small { margin-top:2px; color:#dfc975; font-size:10px; line-height:1.5; }
+.localDevProfile.isSelected { border-color:#c3b66b; background:#44402a; }
+.localDevProfile:disabled { cursor:default; }
+.localDevProfile:disabled:not(.isSelected) { opacity:.6; }
+.localDevFeedback { display:flex; align-items:flex-start; flex-direction:column; gap:7px; margin-top:10px; padding:9px 10px; border:1px solid #bba45255; border-radius:9px; color:#eadb9d; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.localDevFeedback.isError { color:#ffd0b1; border-color:#d89a6659; }
+.localDevFeedback > button { min-height:44px; padding:7px 10px; border:1px solid #bba45266; border-radius:9px; background:#29271e; color:#f0dda1; font:inherit; cursor:pointer; }
+.localDevProfiles summary:focus-visible,.localDevProfiles button:focus-visible { outline:2px solid #eadb9d; outline-offset:3px; }
+@media(min-width:620px) { .localDevProfileList { grid-template-columns:repeat(3,minmax(0,1fr)); }.localDevProfile > small { margin-top:auto; padding-top:5px; } }

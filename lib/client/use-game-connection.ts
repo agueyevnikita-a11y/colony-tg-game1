@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createRequestCoordinator, RequestCancelled, RequestInProgress } from './requests';
 import { retryTelegramScript, telegramHeaders, waitForTelegram } from './telegram';
+import { localProfileHeaders, selectedLocalProfile } from './local-profile';
 
 const development = process.env.NODE_ENV === 'development';
+const localSandbox = development && process.env.NEXT_PUBLIC_LOCAL_DEV === 'true';
 export type LaunchPhase = 'loading' | 'ready' | 'outside' | 'sdk-error';
 
 export function useGameConnection() {
@@ -14,9 +16,10 @@ export function useGameConnection() {
   const [connectionError, setConnectionError] = useState('');
   const [phase, setPhase] = useState<LaunchPhase>('loading');
   const [attempt, setAttempt] = useState(0);
+  const localPreparation = useRef<{ controller: AbortController; promise: Promise<boolean> } | null>(null);
   const coordinator = useRef<ReturnType<typeof createRequestCoordinator> | null>(null);
   if (!coordinator.current) coordinator.current = createRequestCoordinator({
-    headers: () => telegramHeaders(window.Telegram?.WebApp?.initData ?? '', development),
+    headers: () => localProfileHeaders(telegramHeaders(window.Telegram?.WebApp?.initData ?? '', development), window.location.search, localSandbox),
     onBusy: setBusy,
     isOnline: () => navigator.onLine,
   });
@@ -39,9 +42,41 @@ export function useGameConnection() {
     }
   }, []);
 
+  const prepareLocalProfile = useCallback((): Promise<boolean> => {
+    if (!localSandbox) return Promise.resolve(true);
+    if (localPreparation.current) return localPreparation.current.promise;
+    const preparation = { controller: new AbortController(), promise: Promise.resolve(false) };
+    localPreparation.current = preparation;
+    preparation.promise = (async () => {
+      const timeout = window.setTimeout(() => preparation.controller.abort(), 15000);
+      let prepared = false;
+      try {
+        const profile = selectedLocalProfile(window.location.search);
+        const response = await fetch('/api/local/profiles', {
+          method: 'POST', signal: preparation.controller.signal,
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify({ profile: profile.key }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok || result.profile?.id !== profile.id || result.profile?.key !== profile.key) throw new Error('Local profile preparation failed');
+        prepared = true;
+        return true;
+      } catch {
+        if (localPreparation.current === preparation) setConnectionError('Не удалось подготовить тестовый город. Проверь локальный сервер и попробуй снова.');
+        return false;
+      } finally {
+        window.clearTimeout(timeout);
+        if (!prepared && localPreparation.current === preparation) localPreparation.current = null;
+      }
+    })();
+    return preparation.promise;
+  }, []);
+
   const refresh = useCallback(async (background = false) => {
-    try { return await api('/api/session', {}, background); } catch { return null; }
-  }, [api]);
+    try {
+      if (!await prepareLocalProfile()) return null;
+      return await api('/api/session', {}, background);
+    } catch { return null; }
+  }, [api, prepareLocalProfile]);
 
   useEffect(() => {
     let stopped = false;
@@ -88,6 +123,9 @@ export function useGameConnection() {
     return () => {
       stopped = true;
       controller.abort();
+      const preparation = localPreparation.current;
+      localPreparation.current = null;
+      preparation?.controller.abort();
       clearTimeout(timer);
       coordinator.current?.cancel();
       document.removeEventListener('visibilitychange', wake);

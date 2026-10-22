@@ -83,6 +83,14 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.deepEqual(ready.data.checks, { configuration: 'ok', database: 'ok', schema: 'ok' });
     assert.equal((await request('/api/health')).status, 200);
   });
+  await t.test('local scenario tools stay unavailable in production and do not create test identities', async () => {
+    const before = await sql`SELECT telegram_id FROM users WHERE telegram_id IN (10001,11001,11002) ORDER BY telegram_id`;
+    assert.equal((await request('/api/local/profiles')).status, 404);
+    assert.equal((await request('/api/local/profiles', { method: 'POST', body: { profile: 'developed' } })).status, 404);
+    assert.equal((await request('/api/local/profiles', { method: 'POST', auth: initData(playerId), body: { profile: 'new' } })).status, 404);
+    const after = await sql`SELECT telegram_id FROM users WHERE telegram_id IN (10001,11001,11002) ORDER BY telegram_id`;
+    assert.deepEqual(after, before);
+  });
   await t.test('recipe migration backfills legacy jobs and can be applied twice without repricing them', async () => {
     const migration = await readFile(new URL('../db/migrations/012_v1_4_recipes.sql', import.meta.url), 'utf8');
     await sql.begin(async (tx) => {
