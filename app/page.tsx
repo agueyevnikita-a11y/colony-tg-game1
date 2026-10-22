@@ -5,6 +5,7 @@ import { CityGrid } from '@/components/CityGrid';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { BuildingCatalog, type BuildingCategory } from '@/components/BuildingCatalog';
 import { DecorPanel } from '@/components/DecorPanel';
+import { DecorInspector } from '@/components/DecorInspector';
 import { DecorArt } from '@/components/DecorArt';
 import { ReferralsPanel } from '@/components/ReferralsPanel';
 import { FeatureUnlock } from '@/components/FeatureUnlock';
@@ -650,7 +651,7 @@ export default function Home() {
       return;
     }
     setSelectedBuildingId(null); setSelectedDecorId(null);
-    setConstructionFeedback({ target: 'map', text: 'Свободная клетка. Нажми «Построить», выбери здание, затем место на карте.', error: false });
+    setConstructionFeedback({ target: 'map', text: 'Свободная клетка. Нажми «Построить» для здания или открой «Декор» для благоустройства. Затем выбери место на карте.', error: false });
   }
 
   function beginPlacement(type: string, name: string) {
@@ -676,6 +677,13 @@ export default function Home() {
   }
 
   function beginDecorPlacement(type: string, name: string) {
+    if (busy) return;
+    if ((game?.buildings ?? []).length + (game?.decor ?? []).length >= Number(game?.gridSize ?? 6) ** 2) {
+      showSection('city', 'map');
+      setMessage('');
+      setConstructionFeedback({ target: 'map', text: 'Нет свободных клеток. Освободи место для нового объекта. Территория расширяется при достижении базы ур. 3 и 5.', error: true });
+      return;
+    }
     setDecorPlacementType(type);
     setPlacementType(null);
     setMoveBuildingId(null); setMoveDecorId(null);
@@ -769,7 +777,7 @@ export default function Home() {
       {tab === 'city' && <>
         {subsections.city === 'map' && <div data-section-panel="city-map">
 <section className="card cityCard" ref={cityMapRef}>
-          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание — откроются его действия.</p></div></div>
+          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание или декор — откроются его действия.</p></div></div>
           <button type="button" className="cityComfortSummary" onClick={() => openSubsection('decor')}><span><GameIcon name="comfort" size={18} />Комфорт <strong>{comfort.score}/100</strong></span><span>Благоустроить<GameIcon name="arrow" size={15} /></span></button>
           {(placementType || decorPlacementType || moveBuildingId || moveDecorId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : moveDecorId ? 'Перемещение декора' : 'Перемещение здания'}</span>
@@ -838,25 +846,16 @@ export default function Home() {
           })()}
         </section>}
 
-        {selectedDecor && <section className="card buildingInspector">
-          {(() => { const cfg=(game.decorCatalog??[]).find((x:any)=>x.type===selectedDecor.type); return <>
-            <div className="inspectorHead"><div className="inspectorEmoji"><DecorArt type={selectedDecor.type} /></div><div><h2>{cfg?.name ?? selectedDecor.type}</h2><p>Декор · клетка {Number(selectedDecor.x)+1}:{Number(selectedDecor.y)+1}</p></div></div>
-            <p className="buildingPurpose">{cfg?.description ?? 'Благоустройство города.'}</p>
-            <p className="finePrint">Комфорт колонии: {comfort.score}/100. Перемещение бесплатно. Демонтаж возвращает 50% стоимости — {n(Math.floor(Number(cfg?.credits ?? 0) / 2))} кредитов. Уже открытые достижения сохраняются.</p>
-            <button type="button" className="action inspectorShortcut" disabled={busy} onClick={() => beginDecorMove(selectedDecor)}><GameIcon name="move" size={17} />Переместить бесплатно</button>
-            <button className="action secondary" disabled={busy} onClick={async () => {
-              try {
-                const data = await api('/api/game/decor/remove', { decorId: selectedDecor.id });
-                setInspectorOpen(false); setSelectedDecorId(null);
-                setConstructionFeedback({ target: 'map', text: `Декор демонтирован · возврат кредитов: ${n(data.result?.refund)}`, error: false });
-              } catch (error) {
-                setMessage('');
-                setConstructionFeedback({ target: `decor:${selectedDecor.id}`, text: error instanceof Error ? error.message : 'Не удалось убрать декор. Попробуй ещё раз.', error: true });
-              }
-            }}>Убрать декор</button>
-            {constructionNotice(`decor:${selectedDecor.id}`)}
-          </>})()}
-        </section>}
+        {selectedDecor && <DecorInspector key={selectedDecor.id} decor={selectedDecor}
+          catalogItem={(game.decorCatalog ?? []).find((item: any) => item.type === selectedDecor.type)}
+          allDecor={game.decor ?? []} open={inspectorOpen} busy={busy} onMove={() => beginDecorMove(selectedDecor)}
+          onRemove={async () => {
+            try {
+              const data = await api('/api/game/decor/remove', { decorId: selectedDecor.id });
+              setInspectorOpen(false); setSelectedDecorId(null);
+              setConstructionFeedback({ target: 'map', text: `Декор демонтирован · возврат кредитов: ${n(data.result?.refund)}`, error: false });
+            } catch (error) { setMessage(''); throw error; }
+          }} />}
         </CityActionSheet>
         </div>}
         <div data-section-panel="city-production" hidden={subsections.city !== 'production'}>
@@ -919,7 +918,7 @@ export default function Home() {
         /></div>
         </div>}
         {subsections.city === 'decor' && <div data-section-panel="city-decor">
-          <DecorPanel catalog={game.decorCatalog ?? []} decor={game.decor ?? []} hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)} onPlace={beginDecorPlacement} onResearch={chooseResearchTarget} onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => openAchievements('comfort')} />
+          <DecorPanel key={planOwner} catalog={game.decorCatalog ?? []} decor={game.decor ?? []} hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy} freeCells={Math.max(0, totalCells - usedCells)} onOpenMap={() => showSection('city', 'map')} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)} onPlace={beginDecorPlacement} onResearch={chooseResearchTarget} onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => openAchievements('comfort')} />
         </div>}
       </>}
 
@@ -1063,7 +1062,7 @@ export default function Home() {
         </div>}
         {subsections.social === 'friends' && <div data-section-panel="social-friends">
           <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
-        {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)}{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
+        {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)} · Комфорт {n(viewedCity.comfort?.score ?? calculateComfort(viewedCity.decor ?? []).score)}/100{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
             buildings={viewedCity.buildings ?? []}

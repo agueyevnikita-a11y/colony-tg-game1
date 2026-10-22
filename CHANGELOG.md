@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.4-beta.1 — A Clearer Landscaping Loop
+- Replaced long decor cards with compact choices and on-demand details, preserving art, costs, requirements and placement previews.
+- Added the next historical comfort achievement goal and distinguished current comfort from the saved record.
+- Prevented entering decor placement on a full map and provided a route back to inspect the city.
+- Added explicit demolition confirmation with the exact half-price refund and recalculated comfort after removal; errors stay beside the action.
+- Showed comfort when visiting another colony. Existing comfort, unlocks, refunds and rewards are unchanged; no database migration is required.
+
 ## 1.10.3-beta.1 — A Smoother Reward Loop
 - Added local results and errors for daily, weekly and season rewards, with direct links from unfinished quests to their activity.
 - Added explicit atomic collection of ready rewards for one quest period or the active season; repeated and simultaneous claims cannot duplicate payouts.

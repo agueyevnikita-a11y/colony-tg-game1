@@ -1,4 +1,4 @@
-# COLONY v1.10.3 Beta
+# COLONY v1.10.4 Beta
 
 Telegram Mini App economic city-builder. v1.1 prepares the existing game for a real Telegram closed test. The core game includes city construction, production, P2P market, seasons, achievements, cosmetics, alliances, megaprojects, research, expeditions, onboarding, Telegram completion notifications, profiles, daily streaks and an in-game inbox.
 
@@ -33,6 +33,8 @@ v1.10.1 keeps the next development action visible after onboarding, divides the 
 v1.10.2 puts ready achievements first, adds topic-specific reward links and pages through the complete active inbox. Inbox read controls affect the selected message or visible page, with exact unread counts. Alliance actions show local feedback and exact contribution previews, while membership and leadership changes require an inline confirmation. Existing rewards and economy rules are preserved; no database migration is required from v1.10.
 
 v1.10.3 streamlines daily, weekly and season rewards with local feedback, actionable quest guidance and explicit atomic collection of ready rewards. Season rewards show the next target and compact pages. Alliance work is separated into project, goals and paginated searchable members. Existing reward values, progression and economy rules remain unchanged; no new migration is required from v1.10.
+
+v1.10.4 makes landscaping easier to use: a compact decor chooser opens selected object details, the comfort overview names the next one-time achievement goal, and a full city offers map recovery instead of impossible placement. Demolition requires explicit confirmation with the exact refund and projected comfort. Public cities display their comfort score. Decor costs, comfort rules, free movement and historical achievements remain unchanged; no new migration is required.
 
 ## Stack
 
