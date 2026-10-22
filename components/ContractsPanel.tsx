@@ -77,7 +77,7 @@ export function ContractsPanel(props: Props) {
   }
 
   return <section className="card contractsPanel rewardsPanel" aria-labelledby={`${id}-title`} aria-busy={pendingId !== null}>
-    <h2 id={`${id}-title`}><GameIcon name="market" />Контракты колонии</h2>
+    <h2 id={`${id}-title`}><GameIcon name="contracts" />Контракты колонии</h2>
     <p>Передай заказчику руду или детали и получи кредиты на развитие. Ресурсы спишутся только при выполнении.</p>
     {!enabled ? pendingHub ? <div className="rewardEmptyState">
       <strong><GameIcon name="clock" size={16} />Торговый узел {pendingHub.status === 'upgrading' ? 'улучшается' : 'строится'}</strong>

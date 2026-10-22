@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
+import { lunarIconByName } from '@/lib/game/icon-art';
 import '@/app/city-art.css';
+import '@/app/lunar-icons.css';
 
 type Props = { name: string; size?: number; className?: string; title?: string };
 
@@ -67,11 +69,16 @@ const TONES: Record<string, string> = {
 };
 
 export function GameIcon({ name, size = 20, className = '', title }: Props) {
-  return <svg className={`gameIcon ${className}`.trim()} width={size} height={size} viewBox="0 0 24 24"
+  const art = lunarIconByName(name);
+  const glyph = Object.prototype.hasOwnProperty.call(ICONS, name) ? ICONS[name] : ICONS.building;
+  return <svg className={`gameIcon ${art ? 'gameIconArt' : ''} ${className}`.trim()} width={size} height={size} viewBox="0 0 24 24"
+    data-game-icon={name} data-icon-art={art ? name : undefined}
     fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
     style={TONES[name] ? { color: TONES[name] } : undefined} focusable="false"
     aria-hidden={title ? undefined : true} aria-label={title} role={title ? 'img' : undefined}>
-    {title && <title>{title}</title>}{ICONS[name] ?? ICONS.building}
+    {title && <title>{title}</title>}{art ? <svg x=".5" y=".5" width="23" height="23" viewBox={art.viewport.join(' ')} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true" focusable="false">
+      <image href={art.src} width={art.width} height={art.height} />
+    </svg> : glyph}
   </svg>;
 }
 
@@ -79,7 +86,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   ore: 'Руда', energy: 'Энергия', parts: 'Детали', credits: 'Кредиты', crystals: 'Кристаллы', science: 'Наука',
 };
 
-export function GameAmount({ resource, children, size = 14 }: { resource: string; children: ReactNode; size?: number }) {
+export function GameAmount({ resource, children, size = 16 }: { resource: string; children: ReactNode; size?: number }) {
   const label = RESOURCE_LABELS[resource] ?? resource;
   return <span className="gameAmount" title={label}><GameIcon name={resource} size={size} /><span className="gameSrOnly">{label}: </span>{children}</span>;
 }

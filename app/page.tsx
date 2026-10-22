@@ -21,6 +21,7 @@ import { ResourceBar } from '@/components/ResourceBar';
 import { ConstructionStatus } from '@/components/ConstructionStatus';
 import { ColonyWelcome } from '@/components/ColonyWelcome';
 import { ColonyGuide } from '@/components/ColonyGuide';
+import { ColonyGuideEntry } from '@/components/ColonyGuideEntry';
 import { ColonyEventCard } from '@/components/ColonyEventCard';
 import { ContractsPanel } from '@/components/ContractsPanel';
 import { DailyLoginPanel } from '@/components/DailyLoginPanel';
@@ -29,6 +30,7 @@ import { SeasonPanel } from '@/components/SeasonPanel';
 import { ExpeditionsPanel } from '@/components/ExpeditionsPanel';
 import { MarketPanel } from '@/components/MarketPanel';
 import { SectionTabs } from '@/components/SectionTabs';
+import { SectionAtmosphere } from '@/components/SectionAtmosphere';
 import { MechanicsHelp } from '@/components/MechanicsHelp';
 import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
@@ -55,19 +57,19 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
   social: { title: 'Связи', hint: 'Профиль, альянс и другие колонии' },
 };
 const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> = {
-  city: [{ key: 'map', label: 'Карта', icon: 'city' }, { key: 'production', label: 'Цеха', icon: 'parts' }, { key: 'contracts', label: 'Контракты', icon: 'market' }, { key: 'events', label: 'События', icon: 'info' }, { key: 'decor', label: 'Декор', icon: 'tree' }],
+  city: [{ key: 'map', label: 'Карта', icon: 'map' }, { key: 'production', label: 'Цеха', icon: 'foundry' }, { key: 'contracts', label: 'Контракты', icon: 'contracts' }, { key: 'events', label: 'События', icon: 'events' }, { key: 'decor', label: 'Декор', icon: 'decor' }],
   build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'star' }],
   market: [{ key: 'buy', label: 'Купить' }, { key: 'sell', label: 'Продать' }, { key: 'mine', label: 'Мои ордера' }, { key: 'prices', label: 'Цены' }],
-  missions: [{ key: 'daily', label: 'Сегодня' }, { key: 'weekly', label: 'Неделя' }, { key: 'achievements', label: 'Достижения' }, { key: 'season', label: 'Сезон' }],
-  shop: [{ key: 'offers', label: 'Предложения' }, { key: 'collection', label: 'Моё оформление' }],
-  social: [{ key: 'profile', label: 'Профиль' }, { key: 'alliance', label: 'Альянс' }, { key: 'rating', label: 'Рейтинг' }, { key: 'friends', label: 'Друзья' }, { key: 'inbox', label: 'Почта' }, { key: 'settings', label: 'Настройки' }, { key: 'admin', label: 'Управление' }],
+  missions: [{ key: 'daily', label: 'Сегодня', icon: 'missions' }, { key: 'weekly', label: 'Неделя', icon: 'clock' }, { key: 'achievements', label: 'Достижения', icon: 'trophy' }, { key: 'season', label: 'Сезон', icon: 'star' }],
+  shop: [{ key: 'offers', label: 'Предложения', icon: 'shop' }, { key: 'collection', label: 'Моё оформление', icon: 'palette' }],
+  social: [{ key: 'profile', label: 'Профиль', icon: 'city' }, { key: 'alliance', label: 'Альянс', icon: 'social' }, { key: 'rating', label: 'Рейтинг', icon: 'trophy' }, { key: 'friends', label: 'Друзья', icon: 'network' }, { key: 'inbox', label: 'Почта', icon: 'mail' }, { key: 'settings', label: 'Настройки', icon: 'settings' }, { key: 'admin', label: 'Управление', icon: 'shield' }],
 };
 const DEFAULT_SUBSECTIONS: Record<Tab, string> = { city: 'map', build: 'research', market: 'buy', missions: 'daily', shop: 'offers', social: 'profile' };
 const ARTIFACT_ICONS: Record<string, string> = { signal_fragment: 'artifact_shard', alloy_core: 'artifact_core', stellar_map: 'artifact_beacon', quantum_lens: 'artifact_lens' };
 const BUILDING_SHORTCUTS: Record<string, { action: string; label: string; icon: string }> = {
-  foundry: { action: 'production', label: 'Открыть этот цех', icon: 'parts' },
+  foundry: { action: 'production', label: 'Открыть этот цех', icon: 'foundry' },
   research_lab: { action: 'research', label: 'Открыть исследования', icon: 'research' },
-  trade_hub: { action: 'contracts', label: 'Открыть контракты', icon: 'market' },
+  trade_hub: { action: 'contracts', label: 'Открыть контракты', icon: 'contracts' },
   expedition_center: { action: 'expeditions', label: 'Открыть экспедиции', icon: 'rocket' },
   alliance_hub: { action: 'alliance', label: 'Открыть альянс', icon: 'social' },
 };
@@ -748,12 +750,13 @@ export default function Home() {
   const totalCells = Number(game.gridSize ?? 6) ** 2;
 
   return (
-    <main className="app colonyApp" data-city-motion={media.motionActive ? 'on' : 'off'} onClickCapture={(event) => {
+    <main className="app colonyApp" data-section={tab} data-city-motion={media.motionActive ? 'on' : 'off'} onClickCapture={(event) => {
       if (event.target instanceof Element && event.target.closest('button,summary,a,[role="button"]')) {
         primeColonyAudioFromGesture();
         playColonySound('tap');
       }
     }}>
+      <SectionAtmosphere section={tab} />
       {!game.profile?.profile_completed_at && <ColonyWelcome colonyName={profileName} onNameChange={setProfileName} bio={profileBio} onBioChange={setProfileBio} busy={busy} onSubmit={async () => {
         try { await api('/api/profile/update', { colonyName: profileName, bio: profileBio }); }
         catch (error) { setMessage(''); throw error; }
@@ -761,7 +764,6 @@ export default function Home() {
       <MechanicsHelp open={helpOpen} onClose={() => setHelpOpen(false)} onNavigate={navigateGuide} />
       <div className={`header ${tab === 'city' ? 'cityHeader' : 'sectionHeader'}`}>
         <div className="brandGroup"><div className="brandMark" aria-hidden="true">{tab === 'city' ? <BuildingArt type="hq" /> : <GameIcon name={tab === 'build' ? 'research' : tab === 'missions' ? 'missions' : tab === 'social' ? 'social' : tab} size={26} />}</div><div><span className="brandKicker">{tab === 'city' ? 'ПОСТРОЙ СВОЮ КОЛОНИЮ' : 'COLONY'}</span><h1 className="brand">{SECTION_TITLES[tab].title}</h1><div className="level">{SECTION_TITLES[tab].hint}</div></div></div>
-        <button type="button" className="headerHelp" aria-label="Открыть справочник игры" onClick={() => setHelpOpen(true)}><GameIcon name="help" size={23} /></button>
       </div>
 
       {tab === 'city' && <details className="resourceOverview"><summary><span>Ресурсы</span><span>{['ore', 'energy', 'parts', 'credits', 'science', 'crystals'].map(resource => <GameAmount key={resource} resource={resource}>{n(s[resource])}</GameAmount>)}</span></summary><ResourceBar state={s} caps={game.caps} escrow={game.escrow} scienceRate={Number(game.scienceRate ?? 0)} onHelp={() => setHelpOpen(true)} /></details>}
@@ -775,7 +777,7 @@ export default function Home() {
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       <SectionTabs key={tab} label={`Подразделы: ${SECTION_TITLES[tab].title}`}
-        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, icon: tab === 'build' && item.key === 'expeditions' && expeditionsLocked ? 'lock' : item.icon, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key] : undefined }))}
+        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, locked: tab === 'build' && item.key === 'expeditions' && expeditionsLocked, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key] : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
       {tab === 'city' && subsections.city === 'map' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
@@ -788,7 +790,7 @@ export default function Home() {
           <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание или декор — откроются его действия.</p></div></div>
           <button type="button" className="cityComfortSummary" onClick={() => openSubsection('decor')}><span><GameIcon name="comfort" size={18} />Комфорт <strong>{comfort.score}/100</strong></span><span>Благоустроить<GameIcon name="arrow" size={15} /></span></button>
           {(placementType || decorPlacementType || moveBuildingId || moveDecorId) && <div className="mapModeBar">
-            <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'tree' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : moveDecorId ? 'Перемещение декора' : 'Перемещение здания'}</span>
+            <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'decor' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : moveDecorId ? 'Перемещение декора' : 'Перемещение здания'}</span>
             <button className="miniButton" onClick={cancelMapAction}>Отмена</button>
           </div>}
           {placementType && (() => { const item = game.catalog?.find((entry: any) => entry.type === placementType); return item && <div className="placementPreview"><BuildingArt type={placementType} /><div><strong>{item.name}</strong>{costDisplay(item.baseBuildCost)}<small>Нажми на свободную клетку. Ресурсы спишутся при выборе места.</small></div></div>; })()}
@@ -1094,6 +1096,7 @@ export default function Home() {
             onRead={async (ids) => { try { const data = await api('/api/inbox/read', { ids }); return data.inbox ?? data.inboxCounts; } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'settings' && <div data-section-panel="social-settings">
+        <ColonyGuideEntry onOpen={() => setHelpOpen(true)} />
         <AudioSettings />
 <section className="card notificationCard">
           <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
@@ -1119,7 +1122,7 @@ export default function Home() {
       </section>}
 
       <nav className="tabs">
-        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Задания', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} onClick={()=>openSection(item.key)}><GameIcon name={item.key === 'market' && marketLocked ? 'lock' : item.icon} size={22} /><span>{item.label}</span></button>)}
+        {([{ key:'city', label:'Город', icon:'city' }, { key:'build', label:'Развитие', icon:'research' }, { key:'market', label:'Рынок', icon:'market' }, { key:'missions', label:'Задания', icon:'missions' }, { key:'shop', label:'Магазин', icon:'shop' }, { key:'social', label:'Связи', icon:'social' }] as const).map((item) => <button key={item.key} className={`tab ${tab===item.key?'active':''}`} aria-current={tab===item.key?'page':undefined} aria-label={item.key === 'market' && marketLocked ? 'Рынок. Открывается исследованием' : undefined} onClick={()=>openSection(item.key)}><span className="navigationIcon" aria-hidden="true"><GameIcon name={item.icon} size={22} />{item.key === 'market' && marketLocked && <span className="navigationLock"><GameIcon name="lock" size={10} /></span>}</span><span>{item.label}</span></button>)}
       </nav>
     </main>
   );

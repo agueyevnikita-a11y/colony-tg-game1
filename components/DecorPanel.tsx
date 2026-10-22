@@ -60,7 +60,7 @@ export function DecorPanel(props: Props) {
 
   return <>
     <section className="card decorPanel" data-decor-panel aria-labelledby={`${id}-title`}>
-      <div className="decorPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="tree" />Благоустройство</h2><p>Обустрой лунную базу и открывай награды за комфорт.</p></div><span className="decorComfortValue" aria-label={`Текущий комфорт: ${comfort.score} из ${COMFORT_MAX}`}><GameIcon name="comfort" size={17} /><strong>{comfort.score}</strong><small>/{COMFORT_MAX}</small></span></div>
+      <div className="decorPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="decor" />Благоустройство</h2><p>Обустрой лунную базу и открывай награды за комфорт.</p></div><span className="decorComfortValue" aria-label={`Текущий комфорт: ${comfort.score} из ${COMFORT_MAX}`}><GameIcon name="comfort" size={17} /><strong>{comfort.score}</strong><small>/{COMFORT_MAX}</small></span></div>
       <div className="decorComfortTrack" role="progressbar" aria-label="Текущий комфорт колонии" aria-valuemin={0} aria-valuemax={COMFORT_MAX} aria-valuenow={comfort.score}><i style={{ width: `${comfort.score}%` }} /></div>
       <div className="decorComfortSummary"><span>Сейчас {comfort.score} · рекорд {best}</span><span>{comfort.unique} видов · {comfort.total} объектов</span></div>
       <div className="decorNextGoal" data-decor-next-goal>

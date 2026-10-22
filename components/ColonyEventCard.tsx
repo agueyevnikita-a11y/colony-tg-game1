@@ -100,7 +100,7 @@ export function ColonyEventCard(props: Props) {
         <p className="colonyEventResultText" role="status">{lastResolved.resultText}</p>
         {amounts(lastResolved.reward).length > 0 && <div className="colonyEventResolvedAmounts"><span>Получено:</span><Amounts value={lastResolved.reward} /></div>}
         <details className="colonyEventResultDetails"><summary>Подробности: {lastResolved.title}</summary><Exchange cost={lastResolved.cost} reward={lastResolved.reward} past /></details>
-      </> : <h2 id={`${id}-title`}>События колонии</h2>}
+      </> : <h2 id={`${id}-title`}><GameIcon name="events" />События колонии</h2>}
       {nextTimeValid && <div className="colonyEventNext"><GameIcon name="clock" size={15} /><span>{canCheckNext ? 'Проверь, появилось ли новое событие.' : `Новое событие — не раньше ${availableAt(nextAt!, now)}.`}</span>{canCheckNext && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить события</button>}</div>}
     </section>;
   }
@@ -108,7 +108,7 @@ export function ColonyEventCard(props: Props) {
   return <section className="card colonyEventCard" aria-labelledby={`${id}-title`} data-colony-event={active.id} data-colony-event-key={active.key} aria-busy={pendingChoice !== null}>
     <div className="colonyEventHeading"><div><span className="colonyEventEyebrow">Событие колонии</span><h2 id={`${id}-title`}>{active.title}</h2></div><BuildingArt type={active.buildingType} /></div>
     <p className="colonyEventDescription">{active.description}</p>
-    <div className="colonyEventContext"><span>Можно решить позже — событие дождётся.</span><button type="button" className="miniButton" disabled={locked} onClick={() => props.onShowBuilding(active.buildingType)}><GameIcon name="city" size={13} /> На карте</button></div>
+    <div className="colonyEventContext"><span>Можно решить позже — событие дождётся.</span><button type="button" className="miniButton" disabled={locked} onClick={() => props.onShowBuilding(active.buildingType)}><GameIcon name="map" size={13} /> На карте</button></div>
     <div className="colonyEventChoices" role="group" aria-label="Решения события">
       {active.choices.map((choice) => {
         const evaluation = evaluateColonyChoice(choice, props.resources, props.capacities, props.completedResearch);

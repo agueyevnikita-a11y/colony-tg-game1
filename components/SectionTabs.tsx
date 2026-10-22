@@ -6,7 +6,7 @@ import '@/app/section-tabs.css';
 
 type Props = {
   label: string;
-  items: readonly { key: string; label: string; icon?: string; badge?: number }[];
+  items: readonly { key: string; label: string; icon?: string; badge?: number; locked?: boolean }[];
   value: string;
   onChange: (key: string) => void;
 };
@@ -67,8 +67,9 @@ export function SectionTabs({ label, items, value, onChange }: Props) {
         return <button type="button" className={`sectionTab${item.key === value ? ' isActive' : ''}`} key={item.key}
           ref={(element) => { if (element) buttonRefs.current.set(item.key, element); else buttonRefs.current.delete(item.key); }}
           aria-pressed={item.key === value} data-section-tab={item.key}
+          aria-label={item.locked ? `${item.label}. Открывается исследованием` : undefined}
           onClick={() => onChange(item.key)} onKeyDown={(event) => moveFocus(event, item.key)}>
-          {item.icon && <GameIcon name={item.icon} size={16} />}<span>{item.label}</span>
+          {item.icon && <span className="sectionTabIcon" aria-hidden="true"><GameIcon name={item.icon} size={16} />{item.locked && <span className="sectionTabLock"><GameIcon name="lock" size={10} /></span>}</span>}<span>{item.label}</span>
           {count > 0 && <span className="sectionTabBadge" aria-label={`Количество: ${count}`}>{count > 99 ? '99+' : count}</span>}
         </button>;
       })}

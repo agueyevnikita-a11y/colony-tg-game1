@@ -1,0 +1,23 @@
+.colonyApp[data-section] { position:relative; isolation:isolate; --section-rgb:117,166,184; }
+.colonyApp[data-section="build"] { --section-rgb:129,161,214; }
+.colonyApp[data-section="market"] { --section-rgb:203,171,113; }
+.colonyApp[data-section="missions"] { --section-rgb:197,163,125; }
+.colonyApp[data-section="shop"] { --section-rgb:167,139,214; }
+.colonyApp[data-section="social"] { --section-rgb:116,186,179; }
+.sectionAtmosphere { position:absolute; z-index:-1; inset:0; overflow:hidden; pointer-events:none; contain:strict; background:radial-gradient(ellipse 450px 540px at 95% 0,rgba(var(--section-rgb),.17),transparent 75%),linear-gradient(165deg,#101c26,#0b141e 62%); }
+.sectionAtmospherePanel { position:absolute; inset:0; opacity:.5; background-image:linear-gradient(120deg,transparent 0 30%,rgba(var(--section-rgb),.045) 30% 30.2%,transparent 30.2% 68%,rgba(var(--section-rgb),.025) 68% 68.2%,transparent 68.2%),radial-gradient(ellipse at 4% 89%,rgba(var(--section-rgb),.1),transparent 56%); }
+.sectionAtmosphereScene { position:absolute; top:-51px; right:-36px; width:clamp(240px,65vw,420px); height:auto; opacity:.26; color:rgb(var(--section-rgb)); }
+.sectionAtmosphere .sectionSceneHull { fill:rgba(var(--section-rgb),.3); stroke-width:1.4; }
+.sectionAtmosphere .sectionSceneLight { stroke:rgba(var(--section-rgb),.95); stroke-width:2; }
+.sectionAtmosphereEdge { position:absolute; top:390px; right:8px; bottom:105px; width:30px; border-right:1px solid rgba(var(--section-rgb),.09); background:linear-gradient(90deg,transparent 0 27px,rgba(var(--section-rgb),.06) 27px 28px,transparent 28px); clip-path:polygon(100% 0,100% 100%,0 100%,0 calc(100% - 46px),75% calc(100% - 57px),75% 55px,0 44px,0 0); }
+.colonyApp[data-section] .card { background:linear-gradient(140deg,rgba(var(--section-rgb),.085),transparent 47%),linear-gradient(145deg,#152630,#111d26); }
+.colonyApp[data-section] .header { position:relative; }
+.colonyApp[data-section] .header::after { content:''; position:absolute; left:0; right:0; bottom:-8px; height:1px; pointer-events:none; background:linear-gradient(90deg,rgba(var(--section-rgb),.32),rgba(var(--section-rgb),.07) 65%,transparent); }
+.sectionAtmosphere-build .sectionAtmosphereScene { top:-47px; right:-48px; transform:rotate(-8deg); }
+.sectionAtmosphere-market .sectionAtmosphereScene { top:-58px; right:-30px; }
+.sectionAtmosphere-missions .sectionAtmosphereScene { top:-39px; right:-67px; }
+.sectionAtmosphere-shop .sectionAtmosphereScene { top:-49px; right:-42px; }
+.sectionAtmosphere-social .sectionAtmosphereScene { top:-51px; right:-36px; }
+@media(min-width:640px) { .sectionAtmosphereScene { top:-70px; right:0; opacity:.28; }.sectionAtmosphereEdge { right:11px; top:430px; } }
+@media(max-width:360px) { .sectionAtmosphereScene { right:-54px; opacity:.23; }.sectionAtmosphereEdge { width:18px; right:4px; } }
+@media(prefers-contrast:more) { .sectionAtmosphereScene,.sectionAtmosphereEdge { opacity:.04; }.colonyApp[data-section] .card { background:linear-gradient(145deg,#152630,#111d26); } }

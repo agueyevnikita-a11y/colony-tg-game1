@@ -16,12 +16,12 @@ const ENERGY_LINK = quoteFoundry({ level: 1, recipe: STANDARD.id, mode: 'standar
 const TOPICS = [
   { key: 'resources', title: 'Ресурсы', icon: 'ore' },
   { key: 'city', title: 'Город', icon: 'city' },
-  { key: 'production', title: 'Производство', icon: 'parts' },
+  { key: 'production', title: 'Производство', icon: 'foundry' },
   { key: 'research', title: 'Исследования', icon: 'research' },
   { key: 'trade', title: 'Торговля', icon: 'market' },
   { key: 'comfort', title: 'Комфорт', icon: 'comfort' },
   { key: 'friends', title: 'Друзья', icon: 'network' },
-  { key: 'events', title: 'События', icon: 'missions' },
+  { key: 'events', title: 'События', icon: 'events' },
   { key: 'offline', title: 'Офлайн', icon: 'clock' },
 ] as const;
 type Topic = typeof TOPICS[number]['key'];

@@ -128,7 +128,7 @@ export function ProductionPanel(props: Props) {
 
   return <section className="card productionPanel" aria-labelledby={`${panelId}-title`}>
     <div className="cardTitleRow">
-      <div><h2 id={`${panelId}-title`}><GameIcon name="parts" size={22} /> Производство</h2><p>Превращай руду и энергию в детали.</p></div>
+      <div><h2 id={`${panelId}-title`}><GameIcon name="foundry" size={22} /> Производство</h2><p>Превращай руду и энергию в детали.</p></div>
       {foundries.length > 0 && <span className="productionBadge">{foundries.length} {foundries.length === 1 ? 'цех' : foundries.length < 5 ? 'цеха' : 'цехов'}</span>}
     </div>
 
@@ -146,7 +146,7 @@ export function ProductionPanel(props: Props) {
           </option>)}
         </select>
       </label>
-      {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}><GameIcon name="city" size={14} /> На карте</button>}</div>
+      {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}><GameIcon name="map" size={14} /> На карте</button>}</div>
 
       {!isActive && <div className="notice productionStatus" role="status">{selected.status === 'upgrading'
         ? 'Цех улучшается. Новые плавки станут доступны после улучшения; уже запущенные продолжаются.'

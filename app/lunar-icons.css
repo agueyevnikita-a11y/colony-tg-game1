@@ -1,0 +1,13 @@
+.gameIconArt { overflow:hidden; vertical-align:-.22em; }
+.gameIconArt > svg { display:block; }
+.colonyApp .tabs .gameIconArt { width:32px; height:32px; }
+.colonyApp .sectionHeader .brandMark .gameIconArt { width:32px; height:32px; }
+.colonyApp .resourceLabel .gameIconArt { width:25px; height:25px; }
+.colonyApp .sectionResources .gameIconArt { width:20px; height:20px; }
+.colonyApp .sectionTabs .gameIconArt { width:22px; height:22px; }
+.colonyApp .sectionTab { min-height:44px; }
+.colonyApp .card h2 > .gameIconArt { width:27px; height:27px; }
+.navigationIcon,.sectionTabIcon { display:inline-flex; position:relative; flex-shrink:0; align-items:center; justify-content:center; }
+.navigationLock,.sectionTabLock { position:absolute; right:-3px; bottom:-1px; display:grid; place-items:center; width:14px; height:14px; border:1px solid #435968; border-radius:5px; color:#d6e2e6; background:#13212a; }
+.sectionTabLock { width:12px; height:12px; right:-4px; bottom:-2px; border-radius:4px; }
+@media(max-width:360px) { .colonyApp .resourceLabel .gameIconArt { width:22px; height:22px; }.colonyApp .tabs .gameIconArt { width:29px; height:29px; } }

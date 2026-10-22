@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.0-beta.1 — A Lunar Visual Identity
+- Added 24 original rendered lunar icons: six resources, six main sections and twelve activities. One shared renderer keeps resource/crystal artwork consistent in prices, rewards, navigation and help; utility controls retain clear vector glyphs.
+- Gave map, foundry, contracts, events and decor distinct symbols, enlarged primary navigation artwork and retained labels. Locked market/expedition entries show their recognisable icon with a small lock and research explanation.
+- Added six quiet section backgrounds with lunar modules, technology schematics, cargo infrastructure, mission orbits, crystal displays and communication relays. Their static decorative layers stay inside the app and do not cover the local profile chooser or intercept controls.
+- Moved the permanent guide entry from every header to one labelled card in Connections → Settings, preserving contextual resource help, first steps, keyboard focus and Telegram Back behaviour.
+- Preserved all economy, research, unlocks, payments and saved cities. No migration or dependency change is required.
+
 ## 1.11.0-beta.1 — A Living Lunar City
 - Gave the reactor, warehouse, trade port and logistics centre distinct silhouettes; the reactor no longer uses solar panels. All renderers share transparent, individually measured sprites.
 - Replaced roads with modular service decks that automatically join neighbouring roads, communications nodes and building entrances, including after relocation. These connections are visual and do not change production.

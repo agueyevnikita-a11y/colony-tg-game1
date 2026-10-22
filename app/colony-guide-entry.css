@@ -1,0 +1,9 @@
+.colonyApp .colonyGuideEntry { display:flex; align-items:center; gap:12px; width:100%; min-height:84px; padding:14px; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+.colonyGuideEntryIcon { display:grid; place-items:center; flex-shrink:0; width:46px; height:46px; border:1px solid rgba(133,221,191,.22); border-radius:14px; color:#9bdcc8; background:linear-gradient(145deg,rgba(70,130,138,.16),rgba(15,33,44,.25)); }
+.colonyGuideEntryText { display:flex; flex:1; min-width:0; flex-direction:column; gap:5px; }
+.colonyGuideEntryText strong { font-size:14px; line-height:1.4; }
+.colonyGuideEntryText > span { color:var(--muted); font-size:11px; line-height:1.5; }
+.colonyGuideEntryArrow { flex-shrink:0; color:var(--accent); }
+.colonyGuideEntry:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.colonyGuideEntry:hover { border-color:rgba(133,221,191,.35); }
+@media(max-width:360px) { .colonyApp .colonyGuideEntry { gap:9px; padding:12px; }.colonyGuideEntryIcon { width:40px; height:44px; }.colonyGuideEntryText strong { font-size:13px; } }
