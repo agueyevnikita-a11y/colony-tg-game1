@@ -1,4 +1,5 @@
 import { GameIcon } from '@/components/GameIcon';
+import { HABITAT_ART } from '@/lib/game/habitat-art';
 import '@/app/city-art.css';
 
 type Props = { type: string; className?: string; decorative?: boolean; label?: string };
@@ -20,7 +21,8 @@ const LABELS: Record<string, string> = {
 };
 
 export function BuildingArt({ type, className = '', decorative = true, label }: Props) {
-  const sprite = SPRITES[type];
+  const sprite = type === 'habitat' ? HABITAT_ART.viewport : SPRITES[type];
+  const source = type === 'habitat' ? HABITAT_ART : { src: '/art/buildings-atlas.webp', width: 1263, height: 1245 };
   const scale = sprite ? 300 / Math.max(sprite[2], sprite[3]) : 1;
   const width = sprite ? sprite[2] * scale : 300;
   const height = sprite ? sprite[3] * scale : 300;
@@ -30,7 +32,7 @@ export function BuildingArt({ type, className = '', decorative = true, label }: 
     aria-label={decorative ? undefined : imageLabel}>
     {sprite ? <svg viewBox="0 0 320 320" width="100%" height="100%" aria-hidden="true" focusable="false">
       <svg x={(320 - width) / 2} y={310 - height} width={width} height={height} viewBox={sprite.join(' ')} preserveAspectRatio="none" overflow="hidden">
-        <image href="/art/buildings-atlas.webp" width="1263" height="1245" />
+        <image href={source.src} width={source.width} height={source.height} />
       </svg>
     </svg> : <GameIcon name="building" size={32} />}
   </span>;

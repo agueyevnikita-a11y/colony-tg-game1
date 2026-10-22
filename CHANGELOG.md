@@ -3,6 +3,7 @@
 ## 1.10.5-beta.1 — A Lunar Home
 - Replaced terrestrial decor with nine lunar installations: sealed plant capsules, a dome garden, rest module, navigation beacon, service deck, pioneer monument, hydroponics, a closed water recirculator and communications node.
 - Added a transparent isometric decor atlas matching existing building materials, lighting and perspective, with individually measured viewports; connected service decks retain live map adjacency.
+- Replaced the residential habitat's exposed rooftop greenery with sealed glass growing capsules, preserving its building identity and all gameplay properties.
 - Updated decor icons, research names, guidance and city ground to fit an airless lunar settlement. Existing types, prices, comfort, unlocks and saved placements remain compatible; no migration is required.
 - Excluded local saves and generated database credentials from Docker build contexts.
 

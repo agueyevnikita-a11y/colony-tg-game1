@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { DECOR_ATLAS, decorSpriteByType } from '../lib/game/decor-art.ts';
 import { DECOR_CATALOG } from '../lib/game/decor.ts';
+import { HABITAT_ART } from '../lib/game/habitat-art.ts';
 
 test('every saved decor type has an isolated viewport inside the shipped lunar atlas', async () => {
   const png = await readFile(new URL('../public/art/lunar-decor-atlas.png', import.meta.url));
@@ -29,4 +30,16 @@ test('every saved decor type has an isolated viewport inside the shipped lunar a
 
 test('unknown decor art keys use the neutral fallback, including inherited property names', () => {
   for (const type of [undefined, null, 1, {}, [], '', 'toString', '__proto__', 'constructor', 'unknown']) assert.equal(decorSpriteByType(type), null);
+});
+
+test('the sealed habitat source matches its viewport and shipped WebP', async () => {
+  const png = await readFile(new URL('../public/art/lunar-habitat.png', import.meta.url));
+  assert.equal(png.readUInt32BE(16), HABITAT_ART.width);
+  assert.equal(png.readUInt32BE(20), HABITAT_ART.height);
+  const [x, y, width, height] = HABITAT_ART.viewport;
+  assert.ok(x > 0 && y > 0 && width > 0 && height > 0);
+  assert.ok(x + width < HABITAT_ART.width && y + height < HABITAT_ART.height);
+  const webp = await readFile(new URL(`../public${HABITAT_ART.src}`, import.meta.url));
+  assert.equal(webp.subarray(0, 4).toString(), 'RIFF');
+  assert.equal(webp.subarray(8, 12).toString(), 'WEBP');
 });
