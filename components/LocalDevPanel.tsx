@@ -44,7 +44,7 @@ export function LocalDevPanel() {
           || new Set(body.profiles.map((item: LocalProfile) => item.key)).size !== LOCAL_PROFILES.length) throw new Error('Список тестовых городов недоступен. Повтори загрузку.');
         if (active) setProfiles(body.profiles);
       } catch (cause) {
-        if (active && (!controller.signal.aborted || timedOut)) setError(timedOut ? 'Список городов долго загружается. Повтори попытку.' : cause instanceof Error ? cause.message : 'Не удалось загрузить тестовые города.');
+        if (active && (!controller.signal.aborted || timedOut)) setError(timedOut ? 'Список городов долго загружается. Повтори попытку.' : cause instanceof Error && !(cause instanceof TypeError) ? cause.message : 'Не удалось загрузить тестовые города. Проверь локальный сервер и повтори попытку.');
       } finally { window.clearTimeout(timer); if (active) setLoading(false); }
     })();
     return () => { active = false; window.clearTimeout(timer); controller.abort(); };
@@ -71,7 +71,7 @@ export function LocalDevPanel() {
       window.location.assign(next.href);
     } catch (cause) {
       const aborted = cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError');
-      setError(aborted ? 'Сервер долго готовит город. Повтори попытку — сохранённый город не сбросится.' : cause instanceof Error ? cause.message : 'Не удалось открыть город. Попробуй ещё раз.');
+      setError(aborted ? 'Сервер долго готовит город. Повтори попытку — сохранённый город не сбросится.' : cause instanceof Error && !(cause instanceof TypeError) ? cause.message : 'Не удалось открыть город. Проверь локальный сервер и попробуй ещё раз.');
       guard.current = false;
       setPending(null);
     }

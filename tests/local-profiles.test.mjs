@@ -59,6 +59,9 @@ test('local scenarios require every development flag and the dedicated loopback 
 test('scenario access rejects remote hosts, alternate ports and cross-site browser requests', () => {
   assert.equal(localProfilesAvailable(request({ host: '127.0.0.1:3015', origin: 'http://127.0.0.1:3015', 'sec-fetch-site': 'same-origin' }), localEnvironment), true);
   assert.equal(localProfilesAvailable(request({ origin: 'http://localhost:3015' }, 'http://localhost:3015/api/local/profiles'), localEnvironment), true);
+  assert.equal(localProfilesAvailable(request({ host: '127.0.0.1:3015', 'x-forwarded-host': '127.0.0.1:3015', origin: 'http://127.0.0.1:3015' }, 'http://localhost:3015/api/local/profiles'), localEnvironment), true);
+  assert.equal(localProfilesAvailable(request({ host: '127.0.0.1:3015', origin: 'http://localhost:3015' }, 'http://localhost:3015/api/local/profiles'), localEnvironment), false);
+  assert.equal(localProfilesAvailable(request({ host: '127.0.0.1:3015', 'x-forwarded-host': 'localhost:3015' }, 'http://localhost:3015/api/local/profiles'), localEnvironment), false);
   for (const url of ['https://127.0.0.1:3015/api/local/profiles', 'http://127.0.0.1:3000/api/local/profiles', 'http://example.com:3015/api/local/profiles', 'http://[::1]:3015/api/local/profiles']) {
     assert.equal(localProfilesAvailable(request({}, url), localEnvironment), false, url);
   }

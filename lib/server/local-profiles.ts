@@ -16,12 +16,15 @@ export function localProfilesAvailable(request: Request, env: Environment = proc
       || db.pathname !== '/colony_local' || db.username !== 'colony_local' || db.search || db.hash) return false;
     const url = new URL(request.url);
     if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname) || url.port !== '3015' || url.username || url.password) return false;
-    const host = request.headers.get('host');
-    if (host !== null && host.toLowerCase() !== url.host) return false;
+    // Next's local route URL can use localhost even when the browser used
+    // 127.0.0.1. Validate both loopback addresses, then use the actual Host for
+    // same-origin checks instead of requiring identical aliases.
+    const host = request.headers.get('host')?.toLowerCase() ?? url.host;
+    if (!['127.0.0.1:3015', 'localhost:3015'].includes(host)) return false;
     const forwardedHost = request.headers.get('x-forwarded-host');
-    if (forwardedHost !== null && forwardedHost.toLowerCase() !== url.host) return false;
+    if (forwardedHost !== null && forwardedHost.toLowerCase() !== host) return false;
     const origin = request.headers.get('origin');
-    if (origin !== null && (new URL(origin).origin !== url.origin || origin !== new URL(origin).origin)) return false;
+    if (origin !== null && origin !== `http://${host}`) return false;
     if (request.headers.get('sec-fetch-site') === 'cross-site') return false;
     return true;
   } catch { return false; }
