@@ -16,7 +16,7 @@ const LABELS: Record<string, string> = {
   hq: 'Штаб колонии', mine: 'Шахта', solar: 'Электростанция', warehouse: 'Склад', foundry: 'Литейный цех',
   habitat: 'Жилой модуль', trade_hub: 'Торговый центр', research_lab: 'Исследовательский центр', logistics: 'Логистический центр',
   expedition_center: 'Центр экспедиций', alliance_hub: 'Центр альянса', observatory: 'Обсерватория',
-  deep_mine: 'Глубинная шахта', solar_array: 'Солнечный массив', park: 'Парк', statue: 'Монумент колонии',
+  deep_mine: 'Глубинная шахта', solar_array: 'Солнечный массив', park: 'Купольный сад', statue: 'Монумент первопроходцев',
 };
 
 export function BuildingArt({ type, className = '', decorative = true, label }: Props) {

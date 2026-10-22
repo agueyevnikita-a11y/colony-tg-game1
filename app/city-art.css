@@ -5,19 +5,19 @@
 .gameAmount,.productionPanel .gameAmount,.researchPanel .gameAmount { display:inline-flex; align-items:center; gap:3px; margin:0; color:inherit; font-size:inherit; font-weight:inherit; line-height:inherit; white-space:nowrap; }
 .gameSrOnly,.gameAmount .gameSrOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); clip-path:inset(50%); white-space:nowrap; border:0; }
 .buildingArtFallback { display:flex; align-items:center; justify-content:center; background-image:none; color:var(--accent); }
-.cityMap.cityArtMap:not(.theme_neon) { background:radial-gradient(ellipse at 12% 5%,rgba(112,154,139,.25),transparent 58%),radial-gradient(ellipse at 82% 85%,rgba(67,102,110,.19),transparent 64%),linear-gradient(155deg,#243a3d,#172c33 65%,#12242e); }
+.cityMap.cityArtMap:not(.theme_neon) { background:radial-gradient(ellipse at 12% 5%,rgba(150,166,185,.19),transparent 58%),radial-gradient(ellipse at 82% 85%,rgba(87,105,126,.15),transparent 64%),linear-gradient(155deg,#3a414c,#252e3a 65%,#1c2531); }
 .cityArtMap { padding:10px; border-color:rgba(148,187,183,.27); box-shadow:inset 0 0 0 3px rgba(8,22,28,.35); }
-.cityTerrain { position:absolute; z-index:0; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; opacity:.6; background-image:radial-gradient(ellipse at 28% 30%,rgba(137,154,120,.15),transparent 28%),radial-gradient(ellipse at 75% 60%,rgba(89,124,111,.18),transparent 25%); }
-.cityTerrain i { position:absolute; width:46%; height:22%; left:-20%; top:10%; border:1px solid rgba(152,183,162,.1); border-radius:46%; transform:rotate(-25deg); }
+.cityTerrain { position:absolute; z-index:0; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; opacity:.75; background-image:radial-gradient(ellipse at 28% 30%,rgba(172,182,195,.12),transparent 28%),radial-gradient(ellipse at 75% 60%,rgba(136,150,169,.14),transparent 25%); }
+.cityTerrain i { position:absolute; width:46%; height:22%; left:-20%; top:10%; border:1px solid rgba(171,185,200,.13); border-radius:46%; transform:rotate(-25deg); background:radial-gradient(ellipse at 50% 58%,rgba(11,20,31,.17),transparent 70%); box-shadow:inset 1px 2px 4px rgba(8,15,25,.22),0 1px 0 rgba(182,194,208,.07); }
 .cityTerrain i:nth-child(2) { width:70%; height:36%; left:52%; top:62%; transform:rotate(25deg); }.cityTerrain i:nth-child(3) { left:70%; top:-9%; }.cityTerrain i:nth-child(4) { width:62%; height:31%; left:-24%; top:69%; }
 .cityArtMap .cityMapGrid { gap:0; border:1px solid rgba(156,188,180,.12); border-radius:11px; overflow:hidden; background:rgba(10,23,28,.12); }
 .cityArtMap .cityCell { isolation:isolate; display:flex; align-items:center; justify-content:center; border:0; border-radius:0; background:transparent; box-shadow:inset -1px -1px 0 rgba(166,194,181,.065); }
 .cityArtMap .cityCell.occupied { background:radial-gradient(ellipse at 50% 70%,rgba(165,199,181,.1),transparent 72%); box-shadow:inset -1px -1px 0 rgba(166,194,181,.065); }
 .cityArtMap .cityCell.occupied::before { content:''; position:absolute; z-index:0; width:83%; height:42%; bottom:7%; border-radius:50%; background:rgba(8,19,23,.2); pointer-events:none; }
 .cityArtMap .cityCell.empty { background:transparent; }
-.cityArtMap .cityCell.empty::before { content:''; position:absolute; width:3px; height:2px; left:46%; top:62%; border:0; border-radius:50%; background:rgba(136,170,151,.17); box-shadow:5px -8px 0 rgba(136,170,151,.1); pointer-events:none; }
-.cityArtMap .cityCell.empty.terrain-1::before,.cityArtMap .cityCell.empty.terrain-6::before { width:13%; height:7%; left:62%; top:70%; background:rgba(117,142,129,.22); box-shadow:-6px 3px 0 -1px rgba(75,100,94,.35); transform:rotate(-18deg); }
-.cityArtMap .cityCell.empty.terrain-3::before,.cityArtMap .cityCell.empty.terrain-5::before { background:rgba(93,148,113,.24); width:15%; height:9%; transform:rotate(20deg); }
+.cityArtMap .cityCell.empty::before { content:''; position:absolute; width:3px; height:2px; left:46%; top:62%; border:0; border-radius:50%; background:rgba(174,185,198,.22); box-shadow:5px -8px 0 rgba(159,174,192,.12); pointer-events:none; }
+.cityArtMap .cityCell.empty.terrain-1::before,.cityArtMap .cityCell.empty.terrain-6::before { width:13%; height:7%; left:62%; top:70%; background:rgba(149,162,179,.3); box-shadow:-6px 3px 0 -1px rgba(68,82,100,.45); transform:rotate(-18deg); }
+.cityArtMap .cityCell.empty.terrain-3::before,.cityArtMap .cityCell.empty.terrain-5::before { width:15%; height:9%; border:1px solid rgba(176,189,204,.12); background:rgba(15,24,38,.18); box-shadow:inset 1px 1px 1px rgba(5,12,22,.25); transform:rotate(20deg); }
 .cityArtMap .cityBuildingArt { position:relative; z-index:1; width:100%; transform:none; }
 .cityArtMap .cityCell.selected { border-color:var(--accent); border-radius:6px; background:rgba(133,221,191,.08); box-shadow:inset 0 0 0 1.5px rgba(141,230,189,.8); }
 .cityArtMap .cityCell:focus-visible { z-index:4; outline:2px solid #b3f4dc; outline-offset:-3px; border-radius:6px; }

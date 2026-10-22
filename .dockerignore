@@ -4,6 +4,8 @@ node_modules
 colony-v101
 .local-tools
 .local-cache
+.local-data
+**/.local-data
 *.zip
 .env*
 **/.env*

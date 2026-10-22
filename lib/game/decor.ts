@@ -13,15 +13,15 @@ export type DecorConfig = {
 export type DecorCatalogItem = DecorConfig & { type: DecorType; researchRequirementName?: string | null };
 
 export const DECOR_CATALOG: Record<DecorType, DecorConfig> = {
-  road: { name: 'Дорога', emoji: '🛣️', description: 'Соединяет районы в единый городской маршрут. Здания работают и без дорог.', credits: 50, unlockHq: 1, comfort: 4 },
-  tree: { name: 'Зелёный модуль', emoji: '🌳', description: 'Первый зелёный уголок среди заводов и буровых установок.', credits: 100, unlockHq: 1, comfort: 6 },
-  lamp: { name: 'Световой модуль', emoji: '💡', description: 'Мягкий свет для вечерних улиц колонии.', credits: 140, unlockHq: 2, comfort: 6 },
-  park: { name: 'Парк', emoji: '🌲', description: 'Небольшой сад для отдыха жителей после смены.', credits: 400, unlockHq: 3, comfort: 12 },
-  statue: { name: 'Монумент колонии', emoji: '🗿', description: 'Памятный знак общих достижений колонистов.', credits: 1000, unlockHq: 4, comfort: 10 },
-  bench: { name: 'Площадка отдыха', emoji: '🪑', description: 'Место встречи соседей и короткого отдыха между сменами.', credits: 180, unlockHq: 2, comfort: 8 },
-  flowerbed: { name: 'Цветник', emoji: '🌿', description: 'Адаптированные растения добавляют цвета суровому инопланетному городу.', credits: 220, unlockHq: 2, unlockResearch: 'urban_ecology', comfort: 8 },
-  fountain: { name: 'Водный сад', emoji: '⛲', description: 'Замкнутый водный контур и зелень создают тихое место для прогулок.', credits: 650, unlockHq: 3, unlockResearch: 'public_spaces', comfort: 14 },
-  plaza: { name: 'Площадь колонии', emoji: '🏙️', description: 'Общественное пространство для встреч и праздников колонистов.', credits: 900, unlockHq: 3, unlockResearch: 'public_spaces', comfort: 14 },
+  road: { name: 'Сервисный настил', emoji: '', description: 'Металлические панели с сигнальными огнями намечают маршруты между модулями. Соединять ими здания необязательно.', credits: 50, unlockHq: 1, comfort: 4 },
+  tree: { name: 'Биокапсула', emoji: '', description: 'Герметичная капсула с растениями напоминает колонистам о Земле. Прозрачная оболочка защищает зелень от лунного вакуума.', credits: 100, unlockHq: 1, comfort: 6 },
+  lamp: { name: 'Навигационный маяк', emoji: '', description: 'Световой ориентир на металлической опоре обозначает жилой сектор среди лунного реголита.', credits: 140, unlockHq: 2, comfort: 6 },
+  park: { name: 'Купольный сад', emoji: '', description: 'Сад под герметичным куполом с собственной атмосферой. Здесь колонисты отдыхают среди зелени после смены.', credits: 400, unlockHq: 3, comfort: 12 },
+  statue: { name: 'Монумент первопроходцев', emoji: '', description: 'Памятный знак тем, кто основал колонию. Металлический обелиск и сигнальный кристалл отмечают общий путь поселенцев.', credits: 1000, unlockHq: 4, comfort: 10 },
+  bench: { name: 'Модуль отдыха', emoji: '', description: 'Небольшая герметичная капсула для отдыха после смены. Через обзорные окна видны лунная поверхность и огни базы.', credits: 180, unlockHq: 2, comfort: 8 },
+  flowerbed: { name: 'Гидропонный модуль', emoji: '', description: 'Закрытый биомодуль с растениями под искусственным светом. Питательный раствор циркулирует внутри корпуса.', credits: 220, unlockHq: 2, unlockResearch: 'urban_ecology', comfort: 8 },
+  fountain: { name: 'Водный рециркулятор', emoji: '', description: 'Вода движется по замкнутому контуру за прозрачными панелями. Мягкая подсветка подчёркивает течение в герметичных резервуарах.', credits: 650, unlockHq: 3, unlockResearch: 'public_spaces', comfort: 14 },
+  plaza: { name: 'Коммуникационный узел', emoji: '', description: 'Декоративный терминал с антенной и световым экраном напоминает о связи с другими поселениями и домом.', credits: 900, unlockHq: 3, unlockResearch: 'public_spaces', comfort: 14 },
 };
 
 export function decorByType(type: unknown): DecorConfig | null {

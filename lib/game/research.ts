@@ -47,16 +47,16 @@ export const RESEARCH_TREE: ResearchConfig[] = [
     effectText: 'Открывает рынок игроков. Для сделок нужен работающий торговый узел.', unlockFeature: 'market',
   },
   {
-    key: 'urban_ecology', branch: 'infrastructure', name: 'Городская экология', emoji: '',
-    description: 'Замкнутые биосистемы позволяют выращивать цветники в условиях далёкой планеты.',
+    key: 'urban_ecology', branch: 'infrastructure', name: 'Замкнутые биосистемы', emoji: '',
+    description: 'Герметичные корпуса, искусственный свет и питательные контуры позволяют выращивать растения вдали от Земли.',
     unlockHq: 2, labLevel: 1, science: 60, cost: { credits: 400 }, timeSec: 600, prereqs: ['basic_theory'],
-    effectText: 'Открывает цветники для комфорта и оформления города.', unlockFeature: 'decor',
+    effectText: 'Открывает гидропонный модуль для комфорта и оформления колонии.', unlockFeature: 'decor',
   },
   {
-    key: 'public_spaces', branch: 'infrastructure', name: 'Общественные пространства', emoji: '',
-    description: 'Площади и водные сады создают места отдыха и делают колонию уютнее.',
+    key: 'public_spaces', branch: 'infrastructure', name: 'Среда обитания', emoji: '',
+    description: 'Замкнутые водные контуры и терминалы связи создают уютную среду для жизни на лунной базе.',
     unlockHq: 3, labLevel: 2, science: 140, cost: { credits: 1000 }, timeSec: 1200, prereqs: ['urban_ecology'],
-    effectText: 'Открывает водный сад и площадь колонии для повышения комфорта.', unlockFeature: 'decor',
+    effectText: 'Открывает водный рециркулятор и коммуникационный узел для повышения комфорта.', unlockFeature: 'decor',
   },
   {
     key: 'expedition_protocols', branch: 'exploration', name: 'Экспедиционные протоколы', emoji: '',

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.5-beta.1 — A Lunar Home
+- Replaced terrestrial decor with nine lunar installations: sealed plant capsules, a dome garden, rest module, navigation beacon, service deck, pioneer monument, hydroponics, a closed water recirculator and communications node.
+- Added a transparent isometric decor atlas matching existing building materials, lighting and perspective, with individually measured viewports; connected service decks retain live map adjacency.
+- Updated decor icons, research names, guidance and city ground to fit an airless lunar settlement. Existing types, prices, comfort, unlocks and saved placements remain compatible; no migration is required.
+- Excluded local saves and generated database credentials from Docker build contexts.
+
 ## Development — Isolated Windows Sandbox
 - Added three independent local test cities with a tab-specific chooser: the existing personal save, a new colony and a developed base for trying advanced mechanics. Fixtures are initialized once and never reset on switching; their API is unavailable in production.
 - Added portable PostgreSQL 16 setup and local start, stop, status and full test commands; no system service or Railway connection is required.

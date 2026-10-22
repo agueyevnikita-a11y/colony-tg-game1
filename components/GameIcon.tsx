@@ -29,17 +29,17 @@ const ICONS: Record<string, ReactNode> = {
   building: <><path d="M4 22V4l8-2 8 2v18M2 22h20M9 22v-5h6v5M8 7h1m6 0h1m-8 5h1m6 0h1" /></>,
   star: <path d="m12 2 3 6 7 1-5 5 1 8-6-4-6 4 1-8-5-5 7-1 3-6Z" />,
   rocket: <><path d="M8 16C4 9 11 3 21 3c0 10-6 17-13 13ZM8 10H4l-2 6 6-1m6 1v4l-6 2 1-6m-4 3-2 2" /><circle cx="15" cy="9" r="2" /></>,
-  road: <><path d="M8 2 3 22m13-20 5 20M12 3v3m0 5v3m0 5v2" /></>,
-  tree: <><path d="m12 2-6 8h3l-5 7h16l-5-7h3l-6-8Zm0 15v5" /></>,
-  lamp: <><path d="M8 14a6 6 0 1 1 8 0l-1 3H9l-1-3Zm1 6h6m-5 3h4M12 1v1M2 6l1 1m18-1-1 1" /><path d="m10 10 2 2 2-2m-2 2v5" /></>,
-  park: <><path d="m6 2-4 6h2l-3 5h10L8 8h2L6 2Zm0 11v9M11 15h11m-10 3h9m-8 0v4m7-4v4M12 12v3m9-3v3" /></>,
-  statue: <><path d="M4 22h16l-2-4H6l-2 4Zm4-4v-7h8v7M9 8l3-6 3 6H9Z" /><path d="M7 11h10" /></>,
+  road: <><path d="M6 2h12v20H6V2Zm0 5h12M6 17h12M9 10h6m-6 4h6M3 4v5m0 6v5m18-16v5m0 6v5" /></>,
+  tree: <><path d="M5 18V9a7 7 0 0 1 14 0v9M4 18h16v4H4v-4Z" /><path d="M12 17V9m0 4c-4 0-5-2-5-4 3 0 5 1 5 4Zm0 2c4 0 5-2 5-4-3 0-5 1-5 4Z" /></>,
+  lamp: <><path d="M9 21h6M12 21V10M8 5l4-3 4 3v5H8V5ZM4 5v5m16-5v5M2 7h2m16 0h2M9 7h6" /></>,
+  park: <><path d="M3 18V12a9 9 0 0 1 18 0v6M2 18h20v4H2v-4ZM12 3c-5 4-5 10-5 15m5-15c5 4 5 10 5 15M3 11h18" /><path d="M10 17v-3m4 3v-3" /></>,
+  statue: <><path d="M3 22h18l-3-4H6l-3 4ZM8 18l2-8h4l2 8M12 2l4 5-4 6-4-6 4-5Z" /><path d="M12 2v11" /></>,
   info: <><circle cx="12" cy="12" r="10" /><path d="M12 11v6m0-10h.01" /></>,
   lock: <><rect x="5" y="10" width="14" height="12" rx="3" /><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v3" /></>,
   trophy: <><path d="M7 3h10v5c0 4-2 6-5 6S7 12 7 8V3Zm5 11v5m-5 3h10M8 19h8" /><path d="M7 5H3v3c0 3 2 4 5 4m9-7h4v3c0 3-2 4-5 4" /><path d="m12 5 .8 1.6 1.7.3-1.3 1.2.3 1.8-1.5-.9-1.5.9.3-1.8L9.5 7l1.7-.3L12 5Z" strokeWidth="1.1" /></>,
   gift: <><rect x="3" y="9" width="18" height="4" rx="1" /><path d="M5 13v9h14v-9M12 9v13M12 9H8a3 3 0 1 1 3-3l1 3Zm0 0h4a3 3 0 1 0-3-3l-1 3Z" /></>,
   network: <><path d="M12 7v4m-7 6v-4h14v4M12 13v4" /><path d="m12 2 3 2v3l-3 2-3-2V4l3-2ZM5 17l3 2v3H2v-3l3-2Zm7 0 3 2v3H9v-3l3-2Zm7 0 3 2v3h-6v-3l3-2Z" /></>,
-  comfort: <><path d="M3 11 12 3l9 8M5 10v11h14V10" /><path d="M12 18c-5-3-5-6-2.5-6 1.5 0 2.5 1 2.5 2 0-1 1-2 2.5-2 2.5 0 2.5 3-2.5 6Z" /></>,
+  comfort: <><path d="M3 18V11a9 9 0 0 1 18 0v7M2 18h20v4H2v-4Z" /><path d="M12 16c-5-3-5-6-2.5-6 1.5 0 2.5 1 2.5 2 0-1 1-2 2.5-2 2.5 0 2.5 3-2.5 6Z" /></>,
   shield: <><path d="m12 2 9 4v6c0 5-5 8-9 10-4-2-9-5-9-10V6l9-4Z" /><path d="m8 12 3 3 5-6" /></>,
   crown: <><path d="m3 6 5 4 4-7 4 7 5-4-2 13H5L3 6Zm3 16h12M5 16h14" /><circle cx="12" cy="13" r="1" /></>,
   refresh: <><path d="M20 8a9 9 0 0 0-15-3L2 8m0-6v6h6M4 16a9 9 0 0 0 15 3l3-3m0 6v-6h-6" /></>,
@@ -52,10 +52,10 @@ const ICONS: Record<string, ReactNode> = {
   artifact_lens: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /><path d="m7 7 3 3m4 4 3 3" /></>,
   artifact_shard: <><path d="m13 2 6 7-3 12-9 1-4-12L13 2Z" /><path d="m13 2-3 9 6 10m-6-10 9-2m-9 2-7-1m7 1L7 22" /></>,
   artifact_beacon: <><path d="m12 2 7 4v14l-7 2-7-2V6l7-4ZM5 6l7 4 7-4m-7 4v12M8 14l1 3m7-3-1 3" /><path d="M9 6h6m-6 7 3 2 3-2" /></>,
-  bench: <><path d="M3 5h18v8H3V5Zm-1 12h20M5 17v5m14-5v5M5 13v4m14-4v4M4 9h16" /></>,
-  flowerbed: <><path d="m3 16 9-4 9 4-2 6H5l-2-6Zm9-4V6M7 15V9m10 6V9" /><path d="m12 2 2 2-2 3-2-3 2-2ZM6 6l2 1-1 3-2-1 1-3Zm12 0-2 1 1 3 2-1-1-3Z" /></>,
-  fountain: <><path d="M2 17c0 7 20 7 20 0H2Zm10 0V5m0 4c-5-6-9-3-7 1m7-1c5-6 9-3 7 1M8 3l4-2 4 2" /></>,
-  plaza: <><path d="m12 2 10 6v8l-10 6-10-6V8l10-6Zm-10 6 10 6 10-6m-10 6v8M7 5l10 6M7 19l10-6M7 11v8m10-8v8" /></>,
+  bench: <><rect x="2" y="6" width="20" height="14" rx="6" /><path d="M7 6V3h10v3M7 10h10v5H7v-5ZM5 20v2m14-2v2m-8-12v5" /></>,
+  flowerbed: <><path d="M3 6h18v12H3V6ZM2 18h20v4H2v-4ZM6 6V3h12v3M8 16v-5m8 5v-5M6 9l2 2 2-2m4 0 2 2 2-2" /></>,
+  fountain: <><rect x="3" y="3" width="7" height="16" rx="3" /><rect x="14" y="3" width="7" height="16" rx="3" /><path d="M10 7h4m-4 8h4M3 22h18M6 8h1m10 0h1M6 12h1m10 0h1" /></>,
+  plaza: <><path d="M4 17h16v5H4v-5Zm4 0v-4h8v4M12 13V9" /><ellipse cx="12" cy="6" rx="7" ry="3" /><path d="M3 4v4m18-4v4M12 3V1" /></>,
 };
 
 const TONES: Record<string, string> = {
@@ -63,7 +63,7 @@ const TONES: Record<string, string> = {
   science: '#82d6de', tree: '#78c99d', park: '#78c99d', lamp: '#edcf7f',
   trophy: '#e7c66c', gift: '#bda2fa', network: '#85ddbf', comfort: '#91d6a2', crown: '#e7c66c',
   artifact_core: '#e4b47f', artifact_lens: '#bda2fa', artifact_shard: '#82d6de', artifact_beacon: '#9ec6ed',
-  flowerbed: '#d7a6c9', fountain: '#82d6de', plaza: '#a8c8cd',
+  flowerbed: '#78c99d', fountain: '#82d6de', plaza: '#a8c8cd',
 };
 
 export function GameIcon({ name, size = 20, className = '', title }: Props) {
