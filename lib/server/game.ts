@@ -1,7 +1,7 @@
 import { sql } from './db';
 import { BUILDINGS, HQ_UPGRADES, cityGridSize, type BuildingType } from '@/lib/game/config';
 import { ACHIEVEMENTS, DAILY_QUESTS, WEEKLY_QUESTS } from '@/lib/game/progression';
-import { buildTimeSec, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
+import { upgradeTimeSec, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
 import { ensureProgressionRows, recordProgressEvent, unlockAchievements } from '@/lib/server/progression';
 import { getMarketState, reconcileExpiredMarketOrders } from '@/lib/server/market';
 import { getSeasonState } from '@/lib/server/season';
@@ -340,7 +340,7 @@ export async function reconcilePlayer(userId: string) {
       const nextLevel = currentLevel + 1;
       const nextCost = type === 'hq' ? HQ_UPGRADES[nextLevel]?.cost ?? null : (cfg && nextLevel <= cfg.maxLevel ? upgradeCost(type, currentLevel) : null);
       const nextTimeSec = nextCost
-        ? (type === 'hq' ? HQ_UPGRADES[nextLevel]?.timeSec ?? null : buildTimeSec(type, nextLevel, premium))
+        ? upgradeTimeSec(type, nextLevel, premium)
         : null;
       return {
         ...b,

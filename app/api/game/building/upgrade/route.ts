@@ -3,7 +3,7 @@ import { getInitDataFromRequest } from '@/lib/server/telegram-auth';
 import { ensurePlayer, reconcilePlayer } from '@/lib/server/game';
 import { sql } from '@/lib/server/db';
 import { BUILDINGS, HQ_UPGRADES, type BuildingType, type ResourceCost } from '@/lib/game/config';
-import { buildTimeSec, upgradeCost } from '@/lib/game/economy';
+import { upgradeTimeSec, upgradeCost } from '@/lib/game/economy';
 import { recordProgressEvent } from '@/lib/server/progression';
 import { enqueueNotification } from '@/lib/server/notifications';
 
@@ -53,9 +53,8 @@ export async function POST(request: Request) {
       const maxQueue = premium ? 3 : 2;
       if (Number(activeQueue[0]?.count ?? 0) >= maxQueue) throw new Error(`Очередь строительства заполнена (${maxQueue})`);
 
-      const seconds = type === 'hq'
-        ? Math.max(5, Math.ceil((HQ_UPGRADES[targetLevel]?.timeSec ?? 0) * (premium ? 0.95 : 1)))
-        : buildTimeSec(type, targetLevel, premium);
+      const seconds = upgradeTimeSec(type, targetLevel, premium);
+      if (seconds === null) throw new Error('Следующее улучшение пока не настроено');
 
       await tx`
         UPDATE game_states SET

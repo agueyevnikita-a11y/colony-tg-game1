@@ -5,6 +5,7 @@ import { CityGrid } from '@/components/CityGrid';
 import { CityActionDock } from '@/components/CityActionDock';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { BuildingCatalog, type BuildingCategory } from '@/components/BuildingCatalog';
+import { BuildingUpgradePreview } from '@/components/BuildingUpgradePreview';
 import { DecorPanel } from '@/components/DecorPanel';
 import { DecorInspector } from '@/components/DecorInspector';
 import { DecorArt } from '@/components/DecorArt';
@@ -42,6 +43,7 @@ import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foun
 import { PRODUCTS } from '@/lib/game/config';
 import { calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
 import { cityActionItems } from '@/lib/game/city-actions';
+import { buildingHourlyProduction, buildingUpgradePreview } from '@/lib/game/upgrade-preview';
 import { permanentProductOwned } from '@/lib/game/product-ownership';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
@@ -98,10 +100,10 @@ function costDisplay(cost?: Record<string, number> | null) {
 }
 
 function productionText(p?: { resource: string; perHour: number } | null, type?: string) {
+  if (p) return <GameAmount resource={p.resource}>{n(p.perHour)}/ч</GameAmount>;
   if (type === 'foundry') return 'Детали по выбранному рецепту';
   if (type === 'research_lab') return 'Наука для исследований';
-  if (!p) return 'не производит ресурс напрямую';
-  return <GameAmount resource={p.resource}>{n(p.perHour)}/ч</GameAmount>;
+  return 'не производит ресурс напрямую';
 }
 function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(1,Math.ceil(Number(seconds)))} сек.`; const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
 
@@ -832,13 +834,16 @@ export default function Home() {
         {selectedBuilding && <section className="card buildingInspector">
           {(() => {
             const cfg = game.catalog.find((x: any) => x.type === selectedBuilding.type);
+            const upgradeContext = { buildings: game.buildings ?? [], completedResearch: game.research?.completed ?? [], premium: Boolean(s.premium) };
+            const upgradePreview = buildingUpgradePreview(selectedBuilding, upgradeContext);
+            const hourlyProduction = buildingHourlyProduction(selectedBuilding, upgradeContext);
             return <>
               <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedBuilding.type} /></div><div><h2>{cfg?.name ?? selectedBuilding.type}</h2><p>Уровень {selectedBuilding.level} · клетка {Number(selectedBuilding.x) + 1}:{Number(selectedBuilding.y) + 1}</p></div></div>
               {cfg?.description && <p className="buildingPurpose">{cfg.description}</p>}
               {selectedBuilding.type === 'hq' && <details className="inspectorUnlocks"><summary>Что открывают уровни базы</summary><p>Уровень 2 открывает исследовательский центр. Уровень 3 даёт новые здания и карту 7×7, уровень 5 расширяет её до 8×8.</p></details>}
               <div className="inspectorStats">
                 <div><span>Статус</span><b>{selectedBuilding.status === 'active' ? 'Работает' : `${selectedBuilding.status === 'upgrading' ? 'Улучшается' : 'Строится'} → ур. ${selectedBuilding.target_level}`}</b></div>
-                <div><span>Производство</span><b>{productionText(selectedBuilding.production, selectedBuilding.type)}</b></div>
+                {!upgradePreview && <div><span>Производство</span><b>{selectedBuilding.status !== 'active' && (selectedBuilding.production || selectedBuilding.type === 'research_lab') ? 'Возобновится после работ' : productionText(hourlyProduction, selectedBuilding.type)}</b></div>}
               </div>
               {BUILDING_SHORTCUTS[selectedBuilding.type] && <button type="button" className="action inspectorShortcut" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => {
                 const id = selectedBuilding.id;
@@ -846,7 +851,8 @@ export default function Home() {
                 if (selectedBuilding.type === 'foundry') setSelectedBuildingId(id);
               }}><GameIcon name={BUILDING_SHORTCUTS[selectedBuilding.type].icon} size={18} /> {BUILDING_SHORTCUTS[selectedBuilding.type].label}</button>}
               <ConstructionStatus building={selectedBuilding} busy={busy} onRefresh={() => { void refresh(); }} />
-              {selectedBuilding.nextUpgrade ? <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b>{Number(selectedBuilding.nextUpgrade.timeSec) > 0 && <small className="inspectorUpgradeTime"><GameIcon name="clock" size={14} /> {durationText(selectedBuilding.nextUpgrade.timeSec)}</small>}</div> : <p className="finePrint">Достигнут максимальный уровень здания.</p>}
+              <BuildingUpgradePreview preview={upgradePreview} />
+              {selectedBuilding.status === 'active' && (selectedBuilding.nextUpgrade ? <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b>{Number(selectedBuilding.nextUpgrade.timeSec) > 0 && <small className="inspectorUpgradeTime"><GameIcon name="clock" size={14} /> {durationText(selectedBuilding.nextUpgrade.timeSec)}</small>}</div> : <p className="finePrint">Достигнут максимальный уровень здания.</p>)}
               <div className="grid2">
                 <button className="action" disabled={busy || selectedBuilding.status !== 'active' || !selectedBuilding.nextUpgrade} onClick={() => constructionAction(`upgrade:${selectedBuilding.id}`, '/api/game/building/upgrade', { buildingId: selectedBuilding.id }, 'Улучшение запущено')}><GameIcon name="upgrade" size={17} /> Улучшить</button>
                 <button className="action secondary" disabled={busy || selectedBuilding.status !== 'active'} onClick={() => beginMove(selectedBuilding)}><GameIcon name="move" size={17} /> Переместить</button>

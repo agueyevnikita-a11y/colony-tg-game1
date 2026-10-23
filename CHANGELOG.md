@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.2-beta.1 — Understand Every Upgrade
+- Added a compact current → next comparison to active building inspectors: actual researched and Premium production, total storage capacity, foundry output/time/queue, lab technology level, HQ territory and expedition slots. Buildings with only a rating effect say so explicitly.
+- Explain temporary production/storage pauses during upgrades and preserve already-paid foundry queues and ongoing research. Maximum levels and work in progress do not advertise a new upgrade price.
+- Use the same configured upgrade duration for the session snapshot and paid action, correcting HQ Premium time in the inspector without changing actual completion times.
+- Preserved prices, income rules, research gates, existing saves and payments. No migration, asset or dependency change is required.
+
 ## 1.12.1-beta.1 — City Actions at a Glance
 - Replaced the map's two generic actions with a compact illustrated dock for construction, foundries, research and events. Decor, contracts and the existing public-city share action remain under More.
 - Added snapshot-based status hints and quiet attention markers for work worth checking, active events and affordable valid contracts. Expired jobs and research request verification rather than promising a new reward; storage hints respect market escrow.

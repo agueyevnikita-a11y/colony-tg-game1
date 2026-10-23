@@ -628,6 +628,31 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     await sql`UPDATE game_states SET last_tick_at=now()+interval '1 day',passive_carry='{}'::jsonb WHERE user_id=${userId}`;
   }
 
+  await t.test('HQ upgrade preview quotes the same standard and Premium duration as the accepted upgrade', async () => {
+    for (const premium of [false, true]) {
+      // researchFixture only touches this suite's randomly generated CI player.
+      const { userId } = await researchFixture({ hqLevel: 1, labLevel: 0 });
+      try {
+        if (premium) await sql`UPDATE game_states SET premium_until=now()+interval '1 day' WHERE user_id=${userId}`;
+        const session = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+        assert.equal(session.status, 200, JSON.stringify(session.data));
+        const hq = session.data.buildings.find((building) => building.type === 'hq');
+        assert.ok(hq?.nextUpgrade, 'An active level-1 HQ must advertise its configured next upgrade');
+        assert.equal(hq.nextUpgrade.level, 2);
+        assert.equal(hq.nextUpgrade.timeSec, premium ? 114 : 120, 'The preview must include the existing 5% Premium build-speed bonus');
+
+        const upgraded = await request('/api/game/building/upgrade', {
+          method: 'POST', auth: initData(playerId), body: { buildingId: hq.id },
+        });
+        assert.equal(upgraded.status, 200, JSON.stringify(upgraded.data));
+        assert.equal(upgraded.data.result.targetLevel, hq.nextUpgrade.level);
+        assert.equal(upgraded.data.result.seconds, hq.nextUpgrade.timeSec, 'Displayed duration must equal the actual accepted upgrade duration');
+      } finally {
+        await sql`UPDATE game_states SET premium_until=NULL WHERE user_id=${userId}`;
+      }
+    }
+  });
+
   await t.test('research catalog remains visible before a laboratory exists or while it is upgrading', async () => {
     for (const options of [{ labLevel: 0 }, { labLevel: 1, labStatus: 'building' }, { labLevel: 1, labStatus: 'upgrading', active: 'basic_theory' }]) {
       await researchFixture(options);

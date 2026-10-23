@@ -1,8 +1,10 @@
 import {
   BUILDINGS,
+  HQ_UPGRADES,
   DEFAULT_OFFLINE_CAP_HOURS,
   PREMIUM_OFFLINE_CAP_HOURS,
   PREMIUM_PRODUCTION_MULTIPLIER,
+  PREMIUM_BUILD_SPEED_MULTIPLIER,
   type BuildingType,
   type ResourceCost,
 } from './config';
@@ -32,7 +34,15 @@ export function upgradeCost(type: BuildingType, currentLevel: number): ResourceC
 export function buildTimeSec(type: BuildingType, targetLevel = 1, isPremium = false) {
   const base = BUILDINGS[type].baseBuildTimeSec;
   const raw = base * Math.pow(1.5, Math.max(0, targetLevel - 1));
-  return Math.max(5, Math.ceil(raw * (isPremium ? 0.95 : 1)));
+  return Math.max(5, Math.ceil(raw * (isPremium ? PREMIUM_BUILD_SPEED_MULTIPLIER : 1)));
+}
+
+/** Use the same upgrade duration in the snapshot and the paid action. */
+export function upgradeTimeSec(type: BuildingType, targetLevel: number, isPremium = false): number | null {
+  if (!Number.isInteger(targetLevel) || targetLevel < 2 || !Object.hasOwn(BUILDINGS, type) || targetLevel > BUILDINGS[type].maxLevel) return null;
+  if (type !== 'hq') return buildTimeSec(type, targetLevel, isPremium);
+  const upgrade = HQ_UPGRADES[targetLevel];
+  return upgrade ? Math.max(5, Math.ceil(upgrade.timeSec * (isPremium ? PREMIUM_BUILD_SPEED_MULTIPLIER : 1))) : null;
 }
 
 export function storageCaps(warehouseLevels: number[]) {
