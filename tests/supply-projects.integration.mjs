@@ -13,8 +13,9 @@ export async function runSupplyProjectsIntegration({ t, sql, request, initData, 
   const balances = async player => Object.fromEntries(Object.entries((await sql`
     SELECT ore,energy,parts,credits,science,crystals FROM game_states WHERE user_id=${player.userId}
   `)[0]).map(([key, value]) => [key, Number(value)]));
-  const progress = player => sql`SELECT * FROM supply_project_progress WHERE user_id=${player.userId} ORDER BY project_key`;
-  const receipts = player => sql`SELECT * FROM supply_project_requests WHERE user_id=${player.userId} ORDER BY request_id`;
+  // postgres.Result is an Array subclass; compare row values rather than its prototype.
+  const progress = async player => [...await sql`SELECT * FROM supply_project_progress WHERE user_id=${player.userId} ORDER BY project_key`];
+  const receipts = async player => [...await sql`SELECT * FROM supply_project_requests WHERE user_id=${player.userId} ORDER BY request_id`];
   async function session(player) {
     const reply = await request('/api/session', { method: 'POST', auth: initData(player.telegramId) });
     assert.equal(reply.status, 200, JSON.stringify(reply.data));

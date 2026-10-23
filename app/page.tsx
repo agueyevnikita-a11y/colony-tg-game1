@@ -1028,6 +1028,7 @@ export default function Home() {
           onSelectProject={chooseSupplyProject} busy={busy}
           onAction={async body => { try { return await api('/api/game/supply-projects', body); } catch (error) { setMessage(''); throw error; } }}
           onBuildLogistics={() => beginPlacement('logistics', 'Логистический центр')}
+          onUpgradeHq={() => navigateGuide('upgrade_hq')}
           onProduction={() => navigateGuide('production')} onRefresh={() => { void refresh(); }}
         /></div>
         <div hidden={supplyView !== 'contracts'}><ContractsPanel key={planOwner}
