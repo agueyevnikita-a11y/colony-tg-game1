@@ -41,7 +41,7 @@
 .artifactRouteTiming > span { display:inline-flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:10px; line-height:1.5; }
 .artifactRouteTiming .gameIcon { flex-shrink:0; }
 .artifactRouteTiming > small { max-width:100%; color:#abdedc; font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
-.artifactRouteLink { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:44px; width:100%; white-space:normal; text-align:left; line-height:1.5; font-size:11px; }
+.artifactsPanel button.artifactRouteLink { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:44px; width:100%; white-space:normal; text-align:left; line-height:1.5; font-size:11px; }
 .artifactRouteLink:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .artifactRouteLink > .gameIcon { flex-shrink:0; }
 .artifactDetails li span { min-width:0; }.artifactDetails li b { flex-shrink:0; font-weight:600; color:#abdedc; }
