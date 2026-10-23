@@ -25,6 +25,23 @@
 .productionSettings > .productionField { padding:0 10px; }
 .productionSettings > .productionField:last-child { margin-bottom:12px; }
 .productionSettings > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:10px; }
+.productionSustainability { margin:0 0 15px; min-width:0; border:1px solid var(--line); border-radius:12px; background:rgba(10,24,33,.2); }
+.productionSustainability > summary { display:flex; align-items:center; gap:8px; min-height:58px; padding:10px; list-style:none; cursor:pointer; }
+.productionSustainability > summary::-webkit-details-marker { display:none; }
+.productionSustainability > summary::marker { content:''; }
+.productionSustainability > summary > .gameIcon { flex-shrink:0; }
+.productionSustainability > summary > span { flex:1; min-width:0; }
+.productionSustainability > summary strong { display:block; font-size:12px; line-height:1.5; }
+.productionSustainability > summary small { display:block; margin-top:3px; color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
+.productionSustainability[open] > summary > .gameIcon:last-child { transform:rotate(90deg); }
+.productionSustainability > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:10px; }
+.productionPanel .productionSustainability p { margin:0; padding:0 10px 12px; color:var(--muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.productionSupplyComparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:0 10px 12px; }
+.productionSupplyComparisonRow { display:flex; flex-direction:column; gap:7px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; }
+.productionSupplyComparisonRow > strong { display:flex; align-items:center; gap:5px; font-size:12px; }
+.productionSupplyComparisonRow > span { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px; color:var(--muted); font-size:10px; line-height:1.5; }
+.productionSupplyComparisonRow small { color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
+@media(max-width:360px) { .productionSupplyComparison { grid-template-columns:minmax(0,1fr); } }
 .productionRecipes { display:flex; flex-direction:column; gap:7px; }
 .productionRecipePicker { border:1px solid rgba(133,221,191,.24); border-radius:12px; background:rgba(133,221,191,.035); }
 .productionRecipePicker > summary { display:flex; align-items:center; gap:9px; min-height:64px; padding:10px; list-style:none; cursor:pointer; }

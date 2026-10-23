@@ -6,6 +6,7 @@ import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { SectionTabs } from '@/components/SectionTabs';
 import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan, researchBlocker } from '@/lib/game/research-plan';
+import { researchRouteOutcome } from '@/lib/game/research-outcome';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/research-plan.css';
 
@@ -28,6 +29,7 @@ type Props = {
   onUpgradeLab: () => void;
   onProduction: () => void;
   onRefresh: () => void;
+  onExpeditions?: () => void;
 };
 
 const GOAL_GROUPS = [
@@ -80,6 +82,7 @@ export function ResearchPlanner(props: Props) {
   const activeName = props.catalog.find((item) => item.key === props.active?.research_key)?.name ?? 'текущая технология';
   const goals = GOALS.filter((goal) => goal.group === goalGroup && props.catalog.some((item) => item.key === goal.key));
   const foundation = props.catalog.find((item) => item.key === 'basic_theory' && !completed.has(item.key));
+  const routeOutcome = plan && !next ? researchRouteOutcome(plan.target.key) : null;
 
   useEffect(() => {
     const target = GOALS.find((goal) => goal.key === props.targetKey);
@@ -194,7 +197,7 @@ export function ResearchPlanner(props: Props) {
       <div className="researchPlanTarget"><div><span className="researchPlanEyebrow">Твоя цель</span><h3>{plan.target.name}</h3><p>{plan.target.effectText}</p></div>
         {plan.target.unlockBuilding && <BuildingArt type={plan.target.unlockBuilding} />}
       </div>
-      {!next ? <div className="researchPlanComplete" role="status"><strong><GameIcon name="check" size={19} /> Технология открыта</strong><p>{plan.target.unlockBuilding ? 'Теперь можно перейти к её карточке и выбрать постройку нового здания.' : plan.target.unlockRecipe ? 'Теперь можно перейти к её карточке и открыть рецепт в производстве.' : plan.target.unlockFeature ? 'Открой карточку технологии и перейди к новой возможности колонии.' : 'Бонус технологии уже действует в колонии.'}</p><button type="button" className="action secondary" disabled={props.busy} onClick={() => props.onResearch(plan.target.key)}>Показать технологию<GameIcon name="arrow" size={15} /></button></div>
+      {!next ? <div className="researchPlanComplete" role="status"><strong><GameIcon name="check" size={19} /> Технология открыта</strong><p>{routeOutcome ? `Открыт маршрут «${routeOutcome.routeName}». ${routeOutcome.requirementsText}` : plan.target.unlockBuilding ? 'Теперь можно перейти к её карточке и выбрать постройку нового здания.' : plan.target.unlockRecipe ? 'Теперь можно перейти к её карточке и открыть рецепт в производстве.' : plan.target.unlockFeature ? 'Открой карточку технологии и перейди к новой возможности колонии.' : 'Бонус технологии уже действует в колонии.'}</p><button type="button" className="action secondary" disabled={props.busy} onClick={routeOutcome && props.onExpeditions ? props.onExpeditions : () => props.onResearch(plan.target.key)}>{routeOutcome && props.onExpeditions ? 'К маршрутам' : 'Показать технологию'}<GameIcon name="arrow" size={15} /></button></div>
         : <>
           {renderNextAction()}
           <details className="researchPlanBudget"><summary>Общий бюджет до цели</summary><div>{costEntries(plan.remainingCost).length ? costEntries(plan.remainingCost).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{number(amount)}</GameAmount>) : <span>Все оставшиеся расходы уже оплачены.</span>}</div><p>Это сумма ещё не запущенных исследований, а не цена одного действия. Постройки и улучшения центров в неё не входят.{plan.activeInPlan ? ' Текущее исследование уже оплачено и повторно не считается.' : ''}</p>{plan.remainingTimeSec > 0 && <p><GameIcon name="clock" size={11} /> Время ещё не запущенных исследований: {duration(plan.remainingTimeSec)}. Без накопления ресурсов и улучшений.</p>}</details>

@@ -190,6 +190,25 @@ export default function Home() {
     ?? supplyProjects.find(project => project.started && !project.completed)
     ?? supplyProjects.find(project => !project.completed) ?? supplyProjects[0];
   const plannedResearchKey = researchTarget.owner === planOwner ? researchTarget.key : null;
+  const [guideFocus, setGuideFocus] = useState<{ owner: string; kind: 'research' | 'supplies' | null }>({ owner: '', kind: null });
+  const activeGuideFocus = guideFocus.owner === planOwner && guideFocus.kind ? guideFocus.kind
+    : plannedResearchKey ? 'research' : selectedSupply?.started && !selectedSupply.completed ? 'supplies' : 'research';
+
+  useEffect(() => {
+    if (!planOwner) return;
+    let kind: 'research' | 'supplies' | null = null;
+    try {
+      const saved = localStorage.getItem(`colony:guide-focus:${planOwner}`);
+      if (saved === 'research' || saved === 'supplies') kind = saved;
+    } catch { /* An unavailable preference never blocks development. */ }
+    setGuideFocus({ owner: planOwner, kind });
+  }, [planOwner]);
+
+  function chooseGuideFocus(kind: 'research' | 'supplies') {
+    if (!planOwner) return;
+    setGuideFocus({ owner: planOwner, kind });
+    try { localStorage.setItem(`colony:guide-focus:${planOwner}`, kind); } catch { /* The choice remains available in memory. */ }
+  }
 
   useEffect(() => {
     if (!game || phase !== 'ready' || !planOwner) return;
@@ -216,6 +235,7 @@ export default function Home() {
   function chooseSupplyProject(key: string) {
     if (!planOwner || !supplyProjects.some(project => project.id === key)) return;
     setSupplyFocus({ owner: planOwner, key });
+    chooseGuideFocus('supplies');
     try { localStorage.setItem(`colony:supply-goal:${planOwner}`, key); } catch { /* The current focus remains available in memory. */ }
   }
 
@@ -235,6 +255,7 @@ export default function Home() {
     if (!planOwner || (key && !game?.research?.catalog?.some((item: any) => item.key === key))) return;
     showSection('build', 'research');
     setResearchTarget({ owner: planOwner, key });
+    chooseGuideFocus('research');
     try {
       const storageKey = `colony:research-target:${planOwner}`;
       if (key) localStorage.setItem(storageKey, key); else localStorage.removeItem(storageKey);
@@ -360,6 +381,8 @@ export default function Home() {
     if (action === 'build_foundry') return beginPlacement('foundry', 'Литейный цех');
     if (action === 'build_trade_hub') return beginPlacement('trade_hub', 'Торговый узел');
     if (action === 'build_lab') return beginPlacement('research_lab', 'Исследовательский центр');
+    if (action === 'build_logistics') return beginPlacement('logistics', 'Логистический центр');
+    if (action === 'build_expedition_center') return beginPlacement('expedition_center', 'Центр экспедиций');
     if (action === 'production') {
       const foundry = (game?.buildings ?? []).find((building: any) => building.type === 'foundry' && building.status === 'active');
       if (foundry) setSelectedBuildingId(foundry.id);
@@ -560,6 +583,18 @@ export default function Home() {
   const movingFoundry = (game?.buildings ?? []).find((building: any) => building.id === moveBuildingId && building.type === 'foundry');
   const planningFoundry = placementType === 'foundry' || Boolean(movingFoundry);
   const productionNetwork = useMemo(() => createProductionNetwork(game?.buildings ?? [], game?.decor ?? [], Number(game?.gridSize ?? 6)), [game?.buildings, game?.decor, game?.gridSize]);
+  const productionResourceRates = useMemo(() => {
+    if (!Array.isArray(game?.buildings)) return undefined;
+    const rates = { ore: 0, energy: 0 };
+    for (const building of game.buildings) {
+      const rate = buildingHourlyProduction({ ...building, level: Number(building.level) }, { completedResearch: game?.research?.completed ?? [], premium: !!game?.state?.premium });
+      if (rate && (rate.resource === 'ore' || rate.resource === 'energy')) {
+        if (!Number.isFinite(rate.perHour)) return undefined;
+        rates[rate.resource] += rate.perHour;
+      }
+    }
+    return rates;
+  }, [game?.buildings, game?.research?.completed, game?.state?.premium]);
   const foundrySite = planningFoundry && planningCell ? productionNetwork.placement(planningCell.x, planningCell.y, movingFoundry?.id) : null;
   const sitePreview = foundrySite?.foundry ? foundryLinksPreview(foundrySite.foundry, game?.buildings ?? []) : null;
 
@@ -874,7 +909,9 @@ export default function Home() {
         items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, locked: tab === 'build' && item.key === 'expeditions' && expeditionsLocked, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key] : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
-      {tab === 'city' && subsections.city === 'map' && <ColonyGuide tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
+      {tab === 'city' && subsections.city === 'map' && <ColonyGuide key={planOwner} tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
+        focus={activeGuideFocus} onFocusChange={chooseGuideFocus}
+        development={{ resources: s, caps: game.caps, escrow: game.escrow, jobs: game.activeJobs ?? [], supplyGoal: game.supplyProjects?.available ? selectedSupply : null, supplyUnlocked: game.supplyProjects?.unlocked }}
         onAction={navigateGuide} onHelp={() => setHelpOpen(true)} onRefresh={() => { void refresh(); }}
         onClaim={async () => { try { await api('/api/game/tutorial/claim'); } catch (error) { setMessage(''); throw error; } }} />}
 
@@ -984,6 +1021,7 @@ export default function Home() {
           resources={s}
           partsCapacity={Math.max(0, Number(game.caps?.parts ?? 800) - Number(game.escrow?.parts ?? 0))}
           partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
+          resourceRates={productionResourceRates}
           unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
           recipesEnabled={game.production?.recipesEnabled}
           supplyGoal={selectedSupply && game.supplyProjects?.available && (game.supplyProjects?.unlocked || selectedSupply.started) ? {

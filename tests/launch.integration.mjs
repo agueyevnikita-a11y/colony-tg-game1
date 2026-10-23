@@ -14,6 +14,7 @@ import { runUnlocksIntegration } from './unlocks.integration.mjs';
 import { runInboxIntegration } from './inbox.integration.mjs';
 import { runQuestRewardsIntegration } from './quest-rewards.integration.mjs';
 import { runSeasonRewardsIntegration } from './season-rewards.integration.mjs';
+import { runSeasonBalanceIntegration } from './season-balance.integration.mjs';
 import { runAllianceSocialIntegration } from './alliance-social.integration.mjs';
 import { runSupplyProjectsIntegration } from './supply-projects.integration.mjs';
 import { runAllianceCreationIntegration } from './alliance-creation.integration.mjs';
@@ -1484,6 +1485,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runInboxIntegration({ t, sql, request, initData, playerId, adminId });
   await runQuestRewardsIntegration({ t, sql, request, initData, playerId, adminId });
   await runSeasonRewardsIntegration({ t, sql, request, initData, playerId, adminId });
+  await runSeasonBalanceIntegration({ t, sql, request, initData, playerId });
   await runAllianceSocialIntegration({ t, sql, request, initData, playerId });
   await runSupplyProjectsIntegration({ t, sql, request, initData, playerId });
   await runAllianceCreationIntegration({ t, sql, request, initData, playerId });

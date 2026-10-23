@@ -15,13 +15,13 @@ export type ProgressEvent =
 
 export const DAILY_QUESTS = [
   { key: 'daily_login', title: 'Проверка связи', description: 'Зайди в колонию сегодня', event: 'daily_session' as const, target: 1, crystals: 3, credits: 100 },
-  { key: 'daily_build', title: 'Стройка дня', description: 'Начни строительство 1 объекта', event: 'build_started' as const, target: 1, crystals: 6, credits: 250 },
+  { key: 'daily_build', title: 'Стройка дня', description: 'Начни строительство или улучшение 1 здания', event: 'build_started' as const, target: 1, crystals: 6, credits: 250 },
   { key: 'daily_smelt', title: 'Горячий металл', description: 'Запусти 2 плавки', event: 'foundry_started' as const, target: 2, crystals: 6, credits: 200 },
   { key: 'daily_expedition', title: 'За горизонт', description: 'Заверши 1 экспедицию', event: 'expedition_completed' as const, target: 1, crystals: 2, credits: 150 },
 ] as const;
 
 export const WEEKLY_QUESTS = [
-  { key: 'weekly_build', title: 'Большая стройка', description: 'Начни 7 строительств', event: 'build_started' as const, target: 7, crystals: 25, credits: 1200 },
+  { key: 'weekly_build', title: 'Большая стройка', description: 'Начни 7 строительств или улучшений зданий', event: 'build_started' as const, target: 7, crystals: 25, credits: 1200 },
   { key: 'weekly_smelt', title: 'Промышленная неделя', description: 'Запусти 10 плавок', event: 'foundry_started' as const, target: 10, crystals: 25, credits: 900 },
   { key: 'weekly_contracts', title: 'Деловые связи', description: 'Выполни 3 контракта', event: 'contract_completed' as const, target: 3, crystals: 25, credits: 1500 },
   { key: 'weekly_expeditions', title: 'Исследовательская программа', description: 'Заверши 5 экспедиций', event: 'expedition_completed' as const, target: 5, crystals: 15, credits: 1000 },
@@ -37,9 +37,9 @@ export const ACHIEVEMENTS = [
   { key: 'comfort_25', title: 'Уютный квартал', description: 'Достигни 25 очков комфорта города', stat: 'max_comfort', target: 25, reward: { crystals: 10 } },
   { key: 'comfort_50', title: 'Живая колония', description: 'Достигни 50 очков комфорта города', stat: 'max_comfort', target: 50, reward: { cosmeticId: 'frame_garden' } },
   { key: 'comfort_80', title: 'Город для колонистов', description: 'Достигни 80 очков комфорта города', stat: 'max_comfort', target: 80, reward: { crystals: 25 } },
-  { key: 'builder_10', title: 'Прораб', description: 'Начни 10 строительств', stat: 'buildings_started', target: 10, reward: { crystals: 25 } },
-  { key: 'builder_100', title: 'Архитектор', description: 'Начни 100 строительств', stat: 'buildings_started', target: 100, reward: { cosmeticId: 'theme_neon', cosmeticDays: 7 } },
-  { key: 'builder_10000', title: 'Город без конца', description: 'Начни 10 000 строительств', stat: 'buildings_started', target: 10000, reward: { cosmeticId: 'theme_neon' } },
+  { key: 'builder_10', title: 'Прораб', description: 'Начни 10 строительств или улучшений зданий', stat: 'buildings_started', target: 10, reward: { crystals: 25 } },
+  { key: 'builder_100', title: 'Архитектор', description: 'Начни 100 строительств или улучшений зданий', stat: 'buildings_started', target: 100, reward: { cosmeticId: 'theme_neon', cosmeticDays: 7 } },
+  { key: 'builder_10000', title: 'Город без конца', description: 'Начни 500 строительств или улучшений зданий', stat: 'buildings_started', target: 500, reward: { cosmeticId: 'theme_neon' } },
   { key: 'smelter_25', title: 'Металлург', description: 'Запусти 25 плавок', stat: 'foundry_jobs_started', target: 25, reward: { crystals: 40 } },
   { key: 'trader_10', title: 'Контрактник', description: 'Выполни 10 контрактов', stat: 'contracts_completed', target: 10, reward: { cosmeticId: 'frame_orbit', cosmeticDays: 14 } },
   { key: 'trader_100', title: 'Торговый магнат', description: 'Выполни 100 контрактов', stat: 'contracts_completed', target: 100, reward: { cosmeticId: 'frame_orbit' } },

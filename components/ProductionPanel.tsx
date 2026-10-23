@@ -9,6 +9,7 @@ import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import { supplyProductionPlan } from '@/lib/game/supply-production';
+import { productionSustainability } from '@/lib/game/production-sustainability';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/production.css';
 
@@ -18,6 +19,7 @@ type Props = {
   resources: Record<string, unknown>;
   partsMultiplier: number;
   partsCapacity?: number;
+  resourceRates?: Partial<Record<'ore' | 'energy', number>>;
   busy: boolean;
   selectedBuildingId?: string | null;
   selectedRecipe?: FoundryRecipeKey;
@@ -111,6 +113,8 @@ export function ProductionPanel(props: Props) {
   const effectiveRecipe = recipeUnlocked(recipe) ? recipe : 'standard_alloy';
   const selectedRecipe = FOUNDRY_RECIPES.find((item) => item.id === effectiveRecipe) ?? FOUNDRY_RECIPES[0];
   const quote = quoteFoundry({ level: selectedLevel, recipe: effectiveRecipe, mode, link: effectiveLink, cycles: effectiveCycles, partsMultiplier: props.partsMultiplier });
+  const sustainability = productionSustainability({ cycleCost: { ore: quote.ore / effectiveCycles, energy: quote.energy / effectiveCycles },
+    cycleSeconds: quote.cycleSeconds, resourceRates: props.resourceRates });
   const insufficient = Number(props.resources.ore ?? 0) < quote.ore || Number(props.resources.energy ?? 0) < quote.energy;
   const queueEnd = Math.max(now, ...selectedJobs.map((job) => new Date(job.completes_at).getTime()));
   const batchEnd = queueEnd + quote.seconds * 1000;
@@ -257,6 +261,18 @@ export function ProductionPanel(props: Props) {
             : 'Выбери одну связь. Скидка применяется к новым плавкам.'}</p>
         </fieldset>
         </details>
+
+        {sustainability && <details className="productionSustainability">
+          <summary><GameIcon name="foundry" size={18} /><span><strong>Обеспеченность производства</strong><small>{sustainability.every(row => row.sustainable) ? 'Добыча покрывает расход этого цеха' : 'Сравни добычу города и расход цеха'}</small></span><GameIcon name="arrow" size={14} /></summary>
+          <p>Ориентир для непрерывной работы цеха ({selected.x + 1}, {selected.y + 1}) с выбранными рецептом, режимом и связью. Паузы между партиями нормальны.</p>
+          <div className="productionSupplyComparison">{sustainability.map(row => <div key={row.resource} className="productionSupplyComparisonRow" data-production-supply={row.resource}>
+            <strong><GameIcon name={row.resource} size={17} />{row.resource === 'ore' ? 'Руда' : 'Энергия'}</strong>
+            <span>Расход цеха <GameAmount resource={row.resource}>{row.requiredPerHour.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}/ч</GameAmount></span>
+            <span>Добыча города <GameAmount resource={row.resource}>{row.passivePerHour.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}/ч</GameAmount></span>
+            <small>{row.passivePerHour === 0 ? 'Пассивная добыча этого ресурса сейчас не работает.' : row.sustainable ? 'Доход покрывает этот расход при свободном складе.' : `Добыча покрывает ${Math.floor(row.coverage * 100)}% расхода. При нехватке запаса полезно развивать ${row.resource === 'ore' ? 'шахты' : 'энергетику'}, прежде чем ускорять цех.`}</small>
+          </div>)}</div>
+          <p>Это сравнение темпов при свободном складе, а не срок готовности. Другие расходы города не учтены. Текущие запасы, предоплата партии и уже оплаченная очередь показаны отдельно.</p>
+        </details>}
 
         <div className="productionCycles">
           <div><strong id={`${panelId}-cycles`}>Циклов подряд</strong><span>Свободно в очереди: {freeSlots} из {capacity}</span></div>

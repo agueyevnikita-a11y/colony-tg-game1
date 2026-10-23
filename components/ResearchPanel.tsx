@@ -5,6 +5,7 @@ import { BUILDINGS } from '@/lib/game/config';
 import type { ResearchConfig } from '@/lib/game/research';
 import type { FoundryRecipeKey } from '@/lib/game/foundry';
 import { durationText as duration } from '@/lib/game/format';
+import { researchRouteOutcome } from '@/lib/game/research-outcome';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ResearchPlanner } from '@/components/ResearchPlanner';
@@ -148,6 +149,7 @@ export function ResearchPanel(props: Props) {
     const done = isCompleted(item);
     const researching = item.status === 'researching' || research.active?.research_key === item.key;
     const unlockedBuilding = item.unlockBuilding ? BUILDINGS[item.unlockBuilding] : undefined;
+    const routeOutcome = done ? researchRouteOutcome(item.key) : null;
     const requirements = [
       { label: `Центр колонии ур. ${item.unlockHq}`, met: item.unlockedByHq },
       { label: `Исследовательский центр ур. ${item.labLevel}`, met: item.unlockedByLab },
@@ -191,6 +193,7 @@ export function ResearchPanel(props: Props) {
       {done && unlockedBuilding && item.unlockBuilding && <button type="button" className="action secondary technologyBuild" disabled={locked || props.hqLevel < unlockedBuilding.unlockHq} onClick={() => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? `Нужен центр колонии ур. ${unlockedBuilding.unlockHq}` : `К постройке: ${unlockedBuilding.name}`}</button>}
       {done && item.unlockRecipe && props.onProduction && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onProduction?.(item.unlockRecipe!)}>Открыть рецепт в производстве</button>}
       {done && item.unlockFeature && props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.(item.unlockFeature!)}>{item.unlockFeature === 'market' ? 'Открыть рынок' : item.unlockFeature === 'expeditions' ? 'Открыть экспедиции' : 'Перейти к благоустройству'}</button>}
+      {routeOutcome && <><p className="technologyBlocker">{routeOutcome.requirementsText}</p>{props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.('expeditions')}>К маршрутам<GameIcon name="arrow" size={15} /></button>}</>}
       {feedback?.key === item.key && <div ref={feedbackRef} className={`notice researchFeedback ${feedback.error ? 'error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
     </article>;
   }
@@ -220,7 +223,8 @@ export function ResearchPanel(props: Props) {
       hqLevel={props.hqLevel} labLevel={research.labLevel} labStatus={research.labStatus} enabled={research.enabled}
       resources={props.resources} scienceRate={props.scienceRate} busy={locked}
       onResearch={props.onInspectResearch} onUpgradeHq={props.onUpgradeHq} onBuildLab={props.onBuildLab}
-      onUpgradeLab={props.onUpgradeLab} onProduction={props.onShowProduction} onRefresh={props.onRefresh} />
+      onUpgradeLab={props.onUpgradeLab} onProduction={props.onShowProduction} onRefresh={props.onRefresh}
+      onExpeditions={props.onOpenFeature ? () => props.onOpenFeature?.('expeditions') : undefined} />
     {research.catalog.filter(item => item.branch === 'foundation').every(isCompleted)
       ? <details className="researchFoundation" open={research.catalog.some(item => item.branch === 'foundation' && item.key === props.focusResearchKey)}><summary><GameIcon name="check" size={14} /> Основа развития изучена</summary>{research.catalog.filter(item => item.branch === 'foundation').map(renderTechnology)}</details>
       : <div className="researchFoundation"><h3>Основа развития</h3>{research.catalog.filter(item => item.branch === 'foundation').map(renderTechnology)}</div>}

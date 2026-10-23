@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { GameIcon } from '@/components/GameIcon';
+import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { BUILDINGS } from '@/lib/game/config';
 import { durationText } from '@/lib/game/format';
 import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan } from '@/lib/game/research-plan';
 import { TUTORIAL_STEPS } from '@/lib/game/tutorial';
+import { goalBudget, type GoalCost } from '@/lib/game/goal-budget';
+import type { SupplyProjectState } from '@/lib/game/supply-projects';
 import '@/app/onboarding.css';
 import '@/app/colony-guide.css';
 
@@ -26,7 +28,36 @@ type Props = {
     labStatus: string;
   };
   plannedResearchKey?: string | null;
+  focus?: 'research' | 'supplies';
+  onFocusChange?: (focus: 'research' | 'supplies') => void;
+  development?: {
+    resources: Record<string, unknown>; caps?: Record<string, unknown>; escrow?: Record<string, unknown>;
+    jobs?: readonly { building_id: string; parts_reward: unknown }[];
+    supplyGoal?: SupplyProjectState | null; supplyUnlocked?: boolean;
+  };
 };
+
+function Amounts({ value }: { value: GoalCost }) {
+  return <>{Object.entries(value).map(([resource, value]) => <GameAmount key={resource} resource={resource}>{Number(value).toLocaleString('ru-RU')}</GameAmount>)}</>;
+}
+function GoalNeeds({ budget, partial, onAction }: { budget: ReturnType<typeof goalBudget>; partial?: boolean; onAction: (action: string) => void }) {
+  const missing = Object.keys(budget.missing).length > 0;
+  return <div className="colonyGoalBudget">
+    <div><span>{partial ? 'Осталось доставить' : 'Стоимость ближайшего шага'}</span><strong><Amounts value={budget.cost} /></strong></div>
+    {missing ? <div className="colonyGoalMissing"><span>{partial ? 'Ещё накопить или произвести' : 'Не хватает'}</span><strong><Amounts value={budget.missing} /></strong></div> : <p>Ресурсов хватает. Остальные требования проверь в карточке действия.</p>}
+    {missing && <details className="colonyGoalResources"><summary>Где взять ресурсы<GameIcon name="arrow" size={14} /></summary>
+    {(budget.missing.parts ?? 0) > 0 && <div className="colonyGoalProduction">
+      {budget.queuedParts > 0 && <p>В оплаченных очередях: <GameAmount resource="parts">{budget.queuedParts.toLocaleString('ru-RU')}</GameAmount>. Это будущие детали; выдача требует свободного места.</p>}
+      <p>{budget.partsToProduce > 0 ? <>Дополнительно произвести: <GameAmount resource="parts">{budget.partsToProduce.toLocaleString('ru-RU')}</GameAmount>.</> : 'Оплаченные циклы покрывают нехватку деталей. Новую партию для этой цели запускать не нужно.'}</p>
+      <button type="button" className="miniButton" onClick={() => onAction('production')}>{budget.partsToProduce > 0 ? 'Рассчитать производство' : 'Проверить оплаченные циклы'}<GameIcon name="arrow" size={14} /></button>
+    </div>}
+    {Object.keys(budget.capacityMissing).length > 0 && <p className="colonyGoalStorage">С учётом резерва продаж на складе не помещается ещё <Amounts value={budget.capacityMissing} />. Проверь склад или свои ордера перед накоплением.</p>}
+    {(budget.missing.credits ?? 0) > 0 && <button type="button" className="miniButton" onClick={() => onAction('contracts')}>Кредиты за контракты<GameIcon name="arrow" size={14} /></button>}
+    {(budget.missing.ore ?? 0) > 0 || (budget.missing.energy ?? 0) > 0 ? <p>Руда и энергия поступают от работающих добывающих зданий. Если сырья не хватает, развивай добычу; ускорение цеха само по себе сырья не добавит.</p> : null}
+    {(budget.missing.science ?? 0) > 0 && <p>Наука производится исследовательскими центрами. Проекты снабжения и экспедиции дают дополнительную науку по своим условиям.</p>}
+    </details>}
+  </div>;
+}
 
 const FALLBACKS: Record<string, { action: string; label: string; why: string; hint: string; building?: string }> = {
   welcome: { action: 'city', label: 'Показать город', why: 'Стартовый резерв поможет запустить первое производство.', hint: 'Забери резерв, затем выберем место для литейного цеха.' },
@@ -45,7 +76,7 @@ function remainingTime(endsAt: unknown, now: number) {
   if (!seconds) return 'Время вышло. Проверь готовность здания.';
   return `Осталось ${durationText(seconds)}`;
 }
-export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRefresh, onHelp, research, plannedResearchKey }: Props) {
+export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRefresh, onHelp, research, plannedResearchKey, focus = 'research', onFocusChange, development }: Props) {
   const id = useId();
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
@@ -70,13 +101,16 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
   const labLevel = Number(research?.labLevel ?? (lab?.status === 'active' ? lab.level : 0));
   const currentResearch = research?.active;
   const labPending = completed && (labStatus === 'building' || labStatus === 'upgrading') ? lab : null;
+  const logistics = buildings.find(building => building.type === 'logistics' && building.status === 'active') ?? buildings.find(building => building.type === 'logistics');
+  const expeditionCenter = buildings.find(building => building.type === 'expedition_center' && building.status === 'active') ?? buildings.find(building => building.type === 'expedition_center');
+  const otherBuildingPending = ['building', 'upgrading'].includes(logistics?.status ?? '') || ['building', 'upgrading'].includes(expeditionCenter?.status ?? '');
 
   useEffect(() => {
-    if (!pending && !(completed && (currentResearch || labPending || hq?.status === 'upgrading'))) return;
+    if (!pending && !(completed && (currentResearch || labPending || hq?.status === 'upgrading' || otherBuildingPending))) return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [pending?.id, pending?.completes_at, completed, currentResearch?.research_key, currentResearch?.completes_at, labPending?.id, labPending?.completes_at, hq?.status, hq?.completes_at]);
+  }, [pending?.id, pending?.completes_at, completed, currentResearch?.research_key, currentResearch?.completes_at, labPending?.id, labPending?.completes_at, hq?.status, hq?.completes_at, otherBuildingPending, logistics?.id, logistics?.completes_at, expeditionCenter?.id, expeditionCenter?.completes_at]);
 
   useEffect(() => { setFeedback((previous) => previous?.error ? null : previous); }, [step]);
 
@@ -102,8 +136,12 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
   const completedKeys = Array.isArray(research?.completed) ? research.completed : [];
   const completedSet = new Set(completedKeys);
   const activeTechnology = catalog.find((item) => item.key === currentResearch?.research_key);
-  const plan = plannedResearchKey && !completedSet.has(plannedResearchKey)
-    ? buildResearchPlan(plannedResearchKey, catalog, completedKeys, currentResearch?.research_key) : null;
+  const suggestedKey = ['basic_theory', 'expedition_protocols', 'deep_navigation', 'thermal_recovery', 'extraction_ai', 'deep_drilling']
+    .find(key => catalog.some(item => item.key === key) && !completedSet.has(key))
+    ?? catalog.find(item => !completedSet.has(item.key))?.key;
+  const targetKey = plannedResearchKey ?? suggestedKey;
+  const plan = targetKey && !completedSet.has(targetKey)
+    ? buildResearchPlan(targetKey, catalog, completedKeys, currentResearch?.research_key) : null;
   const allResearched = catalog.length > 0 && catalog.every((item) => completedSet.has(item.key));
   let nextEyebrow = 'Следующая цель';
   let nextAction = 'research';
@@ -138,11 +176,12 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     nextWaiting.push({ title: 'Готовность технологии', endsAt: currentResearch.completes_at, kind: 'research' });
     if (labPending) nextWaiting.push({ title: labPending.status === 'upgrading' ? 'Центр улучшается' : 'Центр строится', endsAt: labPending.completes_at, kind: 'building' });
   } else if (allResearched) {
-    nextTitle = 'Развивай город и производство';
-    nextWhy = 'Все технологии изучены. Улучшай здания, сравнивай рецепты и налаживай выпуск деталей.';
-    nextHint = 'Проверь, хватает ли добычи и места на складе для следующей партии.';
-    nextAction = 'production';
-    nextLabel = 'Показать производство';
+    const project = development?.supplyGoal;
+    nextTitle = project && !project.completed ? 'Снабжай колонию' : 'Развивай город и производство';
+    nextWhy = project && !project.completed ? project.description : 'Все технологии изучены. Улучшай здания, сравнивай рецепты и налаживай выпуск деталей.';
+    nextHint = project && !project.completed ? 'В цели «Снабжение» видны оставшиеся ресурсы, оплаченные циклы и награда этапа.' : 'Проверь, хватает ли добычи и места на складе для следующей партии.';
+    nextAction = project && !project.completed ? 'supplies' : 'production';
+    nextLabel = project && !project.completed ? 'К проекту' : 'Показать производство';
   } else if (labStatus === 'missing' || (!lab && !research)) {
     nextTitle = 'Построй исследовательский центр';
     nextWhy = 'Центр производит науку. Технологии помогут получать больше ресурсов с каждой клетки и развивать производство.';
@@ -164,8 +203,26 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     nextHint = target?.unlockBuilding ? 'Открой карточку технологии, чтобы выбрать постройку нового здания.' : target?.unlockRecipe ? 'Открой карточку технологии и перейди к новому рецепту плавки.' : target?.unlockFeature ? 'Открой карточку технологии и перейди к новой возможности колонии.' : 'Можно выбрать новую цель в плане развития.';
     nextAction = `research:${plannedResearchKey}`;
     nextLabel = target?.unlockBuilding || target?.unlockRecipe || target?.unlockFeature ? 'Использовать технологию' : 'Сменить цель';
+  } else if (!plannedResearchKey && completedSet.has('basic_theory') && hqLevel >= 3 && development?.supplyGoal && logistics?.status !== 'active') {
+    nextTitle = logistics ? 'Логистика готовится к работе' : 'Дай производству долгосрочную цель';
+    nextWhy = 'Логистический центр открывает проекты: поставляй произведённые ресурсы и получай кредиты, науку и титулы по этапам.';
+    nextHint = logistics ? 'Поставки начнутся после завершения работ. Уже принятые поставки сохраняются.' : 'Это один из вариантов развития. Другую цель можно выбрать в исследованиях.';
+    nextAction = logistics ? 'supplies' : 'build_logistics';
+    nextLabel = logistics ? 'Проверить логистику' : 'К логистическому центру';
+    if (logistics) nextWaiting.push({ title: 'Логистический центр', endsAt: logistics.completes_at, kind: 'building' });
+  } else if (!plannedResearchKey && completedSet.has('basic_theory') && development?.supplyGoal && !development.supplyGoal.completed && logistics?.status === 'active') {
+    nextTitle = 'Выпусти ресурсы для проекта';
+    nextWhy = development.supplyGoal.description;
+    nextHint = 'Выбери «Снабжение» выше: увидишь, сколько ещё доставить и какая часть деталей уже оплачена в очередях.';
+    nextAction = 'supplies'; nextLabel = 'Выбрать этап';
+  } else if (!plannedResearchKey && completedSet.has('expedition_protocols') && expeditionCenter?.status !== 'active') {
+    nextTitle = expeditionCenter ? 'Центр экспедиций готовится' : 'Используй экспедиционные протоколы';
+    nextWhy = 'Работающий центр позволяет отправлять аппараты за ресурсами, наукой и артефактами. Открытая технология сама не строит здание.';
+    nextHint = 'Сначала проверь строительство центра, затем выбери маршрут. Запуск экспедиции оплачивается отдельно.';
+    nextAction = expeditionCenter ? 'expeditions' : 'build_expedition_center'; nextLabel = expeditionCenter ? 'К экспедициям' : 'К центру экспедиций';
+    if (expeditionCenter) nextWaiting.push({ title: 'Центр экспедиций', endsAt: expeditionCenter.completes_at, kind: 'building' });
   } else if (plan?.next) {
-    nextEyebrow = 'План развития';
+    nextEyebrow = plannedResearchKey ? 'План развития' : 'Вариант развития';
     nextTitle = `Следующая цель: ${plan.target.name}`;
     nextWhy = plan.target.effectText;
     nextHint = hqLevel < plan.next.unlockHq ? `Следующий шаг — «${plan.next.name}». Для него нужна база уровня ${plan.next.unlockHq}.`
@@ -196,18 +253,52 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
   }
 
   if (completed) {
+    const supplyGoal = development?.supplyGoal;
+    const focusControl = supplyGoal && onFocusChange && <div className="colonyGoalFocus" role="group" aria-label="Цель развития колонии">
+      <button type="button" aria-pressed={focus === 'research'} onClick={() => onFocusChange('research')}><GameIcon name="research" size={16} />Развитие</button>
+      <button type="button" aria-pressed={focus === 'supplies'} onClick={() => onFocusChange('supplies')}><GameIcon name="contracts" size={16} />Снабжение</button>
+    </div>;
+    if (focus === 'supplies' && supplyGoal && development) {
+      const stage = supplyGoal.completed ? null : supplyGoal.stages[supplyGoal.stageIndex];
+      const budget = goalBudget({ cost: supplyGoal.remaining, ...development, buildings, partialDelivery: true });
+      const preparingParts = !budget.deliverable && (budget.missing.parts ?? 0) > 0 && development.supplyUnlocked !== false;
+      return <section className="card colonyGuide colonyGuideComplete colonyNextStep" aria-labelledby={`${id}-title`}>
+        {focusControl}
+        <div className="colonyNextStepMain"><div className="colonyNextStepHeading"><span className="onboardingEyebrow">{supplyGoal.name} · {supplyGoal.completed ? 'Завершён' : `Этап ${supplyGoal.stageIndex + 1}/${supplyGoal.stages.length}`}</span><h2 id={`${id}-title`}>{supplyGoal.completed ? 'Выбери следующую цель колонии' : supplyGoal.ready ? 'Награда этапа готова' : stage?.name ?? 'Продолжи проект снабжения'}</h2></div>
+          <button type="button" className="action secondary colonyNextStepAction" disabled={locked} onClick={() => onAction(preparingParts && !supplyGoal.ready && !supplyGoal.completed ? 'production' : 'supplies')}>{supplyGoal.completed ? 'Выбрать проект' : supplyGoal.ready ? 'К награде этапа' : preparingParts ? 'К производству' : 'К поставке'}<GameIcon name="arrow" size={16} /></button>
+        </div>
+        <p className="colonyNextStepWhy">{supplyGoal.completed ? 'Все этапы этого проекта закрыты. Можно выбрать другой проект или вернуться к технологиям.' : supplyGoal.description}</p>
+        {stage && <div className="colonyGoalReward"><span>Награда этапа</span><strong>{(['credits', 'science', 'crystals'] as const).filter(resource => stage.reward[resource] > 0).map(resource => <GameAmount key={resource} resource={resource}>{stage.reward[resource].toLocaleString('ru-RU')}</GameAmount>)}{stage.reward.cosmeticIds.length > 0 && <span><GameIcon name="trophy" size={14} />Памятный титул</span>}</strong></div>}
+        {!supplyGoal.completed && !supplyGoal.ready && <><GoalNeeds budget={budget} partial onAction={onAction} /><p className="colonyGoalHint">Поставки принимаются частями; доставленное сохранится без срока.</p>{development.supplyUnlocked === false && <p className="colonyGoalStorage">Новые поставки ждут работающий логистический центр и центр колонии ур. 3. Уже готовая награда доступна в проекте.</p>}</>}
+      </section>;
+    }
     const waiting = nextWaiting[0];
     const waitingReady = waiting && new Date(String(waiting.endsAt)).getTime() <= now;
     const refreshAction = nextRefresh || (waiting?.kind === 'building' && waitingReady);
     const actionLabel = !nextRefresh && refreshAction ? 'Проверить готовность' : nextLabel;
+    let nextCost: GoalCost | null = null;
+    if (!waiting) {
+      if (nextAction === 'build_lab') nextCost = BUILDINGS.research_lab.baseBuildCost;
+      else if (nextAction === 'build_logistics') nextCost = BUILDINGS.logistics.baseBuildCost;
+      else if (nextAction === 'build_expedition_center') nextCost = BUILDINGS.expedition_center.baseBuildCost;
+      else if (nextAction === 'upgrade_hq' && hq?.status === 'active') nextCost = hq.nextUpgrade?.cost ?? null;
+      else if (nextAction === 'upgrade_lab' && lab?.status === 'active') nextCost = lab.nextUpgrade?.cost ?? null;
+      else if (nextAction.startsWith('research:')) {
+        const next = catalog.find(item => item.key === nextAction.slice('research:'.length));
+        if (next && !completedSet.has(next.key)) nextCost = { science: next.science, ...next.cost };
+      }
+    }
     return <section className="card colonyGuide colonyGuideComplete colonyNextStep" aria-labelledby={`${id}-title`}>
+      {focusControl}
       <div className="colonyNextStepMain">
         <div className="colonyNextStepHeading"><span className="onboardingEyebrow">{nextEyebrow}</span><h2 id={`${id}-title`}>{nextTitle}</h2>
           {waiting && <span className="colonyNextStepTimer" role="timer" aria-live="off" aria-label={`${waiting.title}: ${waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}`}><GameIcon name={waiting.kind === 'research' ? 'research' : 'clock'} size={14} />{waitingReady ? 'Готово к проверке' : remainingTime(waiting.endsAt, now)}</span>}
         </div>
         <button className="action secondary colonyNextStepAction" type="button" disabled={locked} onClick={refreshAction ? onRefresh : () => onAction(nextAction)}>{actionLabel}<GameIcon name={refreshAction ? 'refresh' : 'arrow'} size={16} /></button>
       </div>
-      <details className="colonyNextStepDetails"><summary>Зачем это нужно</summary><p className="colonyGuideWhy">{nextWhy}</p><p className="colonyGuideHint">{nextHint}</p>
+      <p className="colonyNextStepWhy">{nextWhy}</p>
+      {nextCost && development && <GoalNeeds budget={goalBudget({ cost: nextCost, ...development, buildings })} onAction={onAction} />}
+      <details className="colonyNextStepDetails"><summary>План действий</summary><p className="colonyGuideHint">{nextHint}</p>
         {nextWaiting.slice(1).map((item, index) => <p className="colonyNextStepExtraTimer" key={`${item.kind}-${index}`}><GameIcon name="clock" size={14} />{item.title}: {remainingTime(item.endsAt, now)}</p>)}
       </details>
     </section>;

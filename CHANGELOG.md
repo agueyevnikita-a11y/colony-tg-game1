@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.6-beta.1 — Give Development a Purpose
+- Connected the city guide to a concrete research step or selected supply stage. It shows the immediate cost, shortages, stage reward and optional resource help; prepaid foundry outputs reduce new production needs without becoming spendable stock. Supply stages accept partial deliveries without demanding storage for the whole stage.
+- Added a production supply comparison: actual active mine and power income versus one selected workshop's uninterrupted recipe demand, including research and Premium. This explains raw-material bottlenecks without promising a completion time or changing rates.
+- Completed route technologies now lead to expeditions and explain their real access, HQ and centre requirements. First-smelt and building-goal descriptions match the events that actually count.
+- Closed seasonal-point farming through reversible listings and arbitrarily split player trades. Market statistics, achievements, fees, historical points and claimed rewards are preserved; other seasonal sources and reward thresholds are unchanged.
+- Retained the permanent builder achievement's key and reward while changing its impossible 10,000-action target to a reachable 500 constructions or upgrades. Existing counters, claims and cosmetic ownership remain intact.
+- Added a read-only numerical balance audit with explicit assumptions. Resource rates, prices, production timers, expedition outcomes, supply payouts, purchases and saved cities are preserved; no migration or dependency is required.
+
 ## 1.14.5-beta.1 — Clear Player Controls
 - Applied compact, collapsible explanations to market views, shop collections, decor and player settings. Market controls fit touch screens, partial own orders show the sold amount, and a pending trade hub's timer updates even without orders.
 - Shop recovery no longer promises an unconfirmed purchase or Premium renewal. Crystal Premium buttons state their action and duration; preview and application remain separate. Exact paid-receipt holds and all payment rules are preserved.
