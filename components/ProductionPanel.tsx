@@ -8,6 +8,7 @@ import {
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { supplyProductionPlan } from '@/lib/game/supply-production';
+import { durationText as duration } from '@/lib/game/format';
 import '@/app/production.css';
 
 type Props = {
@@ -35,13 +36,6 @@ type Props = {
 };
 
 const number = (value: number) => value.toLocaleString('ru-RU');
-function duration(seconds: number) {
-  const rounded = Math.max(1, Math.ceil(seconds));
-  const hours = Math.floor(rounded / 3600);
-  const minutes = Math.floor((rounded % 3600) / 60);
-  const remainder = rounded % 60;
-  return [hours ? `${hours} ч.` : '', minutes ? `${minutes} мин.` : '', remainder ? `${remainder} сек.` : ''].filter(Boolean).join(' ');
-}
 function finishTime(value: number, now: number) {
   return new Date(value).toLocaleString('ru-RU', {
     ...(new Date(value).toDateString() !== new Date(now).toDateString() ? { day: 'numeric', month: 'short' } : {}),

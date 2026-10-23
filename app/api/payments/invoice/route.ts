@@ -24,9 +24,10 @@ export async function POST(request:Request){
     }
     const token=process.env.BOT_TOKEN;if(!token)throw new Error('BOT_TOKEN is not configured');
     const payload=`shop:${productId}:${crypto.randomUUID()}`.slice(0,128);
-    await sql`INSERT INTO purchases(user_id,product_id,stars_paid,invoice_payload) VALUES(${userId},${productId},${product.stars},${payload})`;
+    const [purchase]=await sql<{id:string}[]>`INSERT INTO purchases(user_id,product_id,stars_paid,invoice_payload) VALUES(${userId},${productId},${product.stars},${payload}) RETURNING id`;
+    if(!purchase)throw new Error('Не удалось подготовить покупку');
     const tgResponse=await fetch(`https://api.telegram.org/bot${token}/createInvoiceLink`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:product.title,description:'Digital item for COLONY Mini App',payload,currency:'XTR',prices:[{label:product.title,amount:product.stars}]})});
     const data=await tgResponse.json() as any;if(!data.ok)throw new Error(data.description??'Telegram invoice error');
-    return NextResponse.json({ok:true,invoiceLink:data.result});
+    return NextResponse.json({ok:true,invoiceLink:data.result,purchaseId:purchase.id});
   }catch(error){return NextResponse.json({ok:false,error:error instanceof Error?error.message:'Unknown error'},{status:400});}
 }

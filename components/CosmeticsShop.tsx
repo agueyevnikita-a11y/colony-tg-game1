@@ -33,11 +33,11 @@ type ProductId = keyof typeof PRODUCTS;
 const CATEGORIES: Record<string, { name: string; where: string; icon: string }> = {
   theme: { name: 'Стили колонии', where: 'Единое оформление всех зданий, декора, настилов и входов. Новые объекты получают его автоматически.', icon: 'city' },
   weather: { name: 'Небо', where: 'Видно над картой твоего города и при его просмотре.', icon: 'star' },
-  frame: { name: 'Рамки', where: 'Обрамляет карту города и профиль колонии.', icon: 'social' },
+  frame: { name: 'Рамки', where: 'Обрамляет карту города и имя в профиле колонии.', icon: 'social' },
   badge: { name: 'Знаки', where: 'Знак рядом с названием колонии.', icon: 'star' },
   title: { name: 'Титулы', where: 'Подпись под названием колонии.', icon: 'social' },
   effect: { name: 'Эффекты', where: 'Добавляет визуальный эффект на карте города.', icon: 'energy' },
-  building_skin: { name: 'Монументы', where: 'Украшение на карте города.', icon: 'building' },
+  building_skin: { name: 'Монументы', where: 'Появляется под картой города. Не занимает клетку и не повышает комфорт.', icon: 'building' },
 };
 
 const COSMETIC_PRODUCTS = (Object.entries(PRODUCTS) as [ProductId, typeof PRODUCTS[ProductId]][])
@@ -46,7 +46,7 @@ const COSMETIC_PRODUCTS = (Object.entries(PRODUCTS) as [ProductId, typeof PRODUC
 const DESCRIPTIONS: Record<string, { name: string; category: string; text: string }> = {
   theme_neon: { name: 'Неоновый город', category: 'theme', text: 'Неоновая палитра, световые контуры платформ и отделка панелей для всей колонии. Одна покупка — все типы объектов.' },
   weather_aurora: { name: 'Северное сияние', category: 'weather', text: 'Мягкие переливы северного сияния над колонией.' },
-  frame_orbit: { name: 'Орбитальная рамка', category: 'frame', text: 'Орбитальное обрамление эмблемы колонии.' },
+  frame_orbit: { name: 'Орбитальная рамка', category: 'frame', text: 'Светлая орбитальная окантовка карты города и имени в профиле.' },
 };
 
 const FOUNDER_ITEMS = [
@@ -72,6 +72,7 @@ export function CosmeticsShop(props: Props) {
   const [previewPage, setPreviewPage] = useState(0);
   const [previewObjectIndex, setPreviewObjectIndex] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
+  const [ownershipNow, setOwnershipNow] = useState(() => Date.now());
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const inFlight = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -94,7 +95,7 @@ export function CosmeticsShop(props: Props) {
       items.set(cosmeticId, { ...best, equipped: !!existing?.equipped || item.equipped });
     }
     return [...items.values()].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, 'ru'));
-  }, [props.cosmetics, catalog]);
+  }, [props.cosmetics, catalog, ownershipNow]);
   const owned = new Map(collection.map((item) => [item.id, item]));
   const awaiting = new Set(props.awaitingProducts ?? []);
   const categories = [...new Set(collection.map((item) => item.category))];
@@ -111,6 +112,15 @@ export function CosmeticsShop(props: Props) {
   const previewSubject = objects.items[previewObjectIndex] ?? objects.items[0];
   const buildingCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'building').length;
   const decorCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'decor').length;
+
+  // Temporary rewards expire even while the player keeps this screen open.
+  useEffect(() => {
+    const now = Date.now();
+    const nextExpiry = Math.min(...(props.cosmetics ?? []).map(row => row.expires_at ? new Date(row.expires_at).getTime() : Infinity).filter(time => time > now));
+    if (!Number.isFinite(nextExpiry)) return;
+    const timer = window.setTimeout(() => setOwnershipNow(Date.now()), Math.min(2_147_483_647, Math.max(1, nextExpiry - now)));
+    return () => window.clearTimeout(timer);
+  }, [props.cosmetics, ownershipNow]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -150,10 +160,16 @@ export function CosmeticsShop(props: Props) {
   }
 
   function buy(productId: ProductId, permanent = false) {
-    if (!props.starsEnabled || permanent || (productId !== 'premium_30d' && awaiting.has(productId))) return;
-    void run(`buy:${productId}`, () => props.onBuy(productId), 'Ответ Telegram получен. Если оплата прошла, дождись подтверждения — покупка появится в коллекции.');
+    if (!props.starsEnabled || permanent || awaiting.has(productId)) return;
+    void run(`buy:${productId}`, () => props.onBuy(productId), productId === 'premium_30d'
+      ? 'Ответ Telegram получен. После подтверждения оплаты срок Premium обновится.'
+      : 'Ответ Telegram получен. После подтверждения оплаты оформление появится в коллекции.');
   }
   function equip(item: Item) {
+    if (item.expiresAt && !(new Date(item.expiresAt).getTime() > Date.now())) {
+      setOwnershipNow(Date.now());
+      return;
+    }
     void run(`equip:${item.id}`, () => props.onEquip(item.id, !item.equipped), item.equipped ? 'Оформление снято.' : 'Оформление применено.');
   }
   function notice(key: string) {
@@ -161,7 +177,7 @@ export function CosmeticsShop(props: Props) {
     return value ? <div className={`notice shopFeedback${value.error ? ' error' : ''}`} role={value.error ? 'alert' : 'status'}>{value.text}</div> : null;
   }
   function status(item?: Item) {
-    return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />Надето</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span></div>;
+    return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />Применено</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span></div>;
   }
   function openPreview(item: PreviewItem) {
     setPreviewKind('building');
@@ -174,14 +190,18 @@ export function CosmeticsShop(props: Props) {
   }
   function awaitingPurchase(productId: ProductId, permanent: boolean) {
     if (permanent || !awaiting.has(productId)) return null;
-    return <><p className="cosmeticWhere" role="status">Дождись подтверждения оплаты от Telegram.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => {
+    return <><p className="shopPurchaseNote" role="status">Оплата ожидает подтверждения Telegram. Проверь покупку перед повтором.{!props.starsEnabled && ' Проверка станет доступна, когда возобновятся покупки за Telegram Stars.'}</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => {
       if (props.starsEnabled) void run(`recover:${productId}`, props.onRecover, 'Проверка покупки завершена.');
     }}>{pending === `recover:${productId}` ? 'Проверяем покупку…' : 'Проверить покупку'}</button></>;
+  }
+  function starsAvailability(productId: ProductId, permanent = false) {
+    if (props.starsEnabled || permanent || awaiting.has(productId)) return null;
+    return <p className="shopPurchaseNote" role="status">Оплата за Telegram Stars временно недоступна. Предпросмотр работает.</p>;
   }
 
   return <div className="cosmeticsShop">
     {props.view !== 'collection' && <>
-    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Тема оформляет все здания и декор одной покупкой. В предпросмотре можно проверить каждый объект. Применение — отдельной кнопкой в коллекции.</p>{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Stars и восстановление временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
+    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Стиль оформляет все здания и декор одной покупкой. В предпросмотре можно проверить каждый объект. Применение — отдельной кнопкой в коллекции. Оформление не меняет добычу и комфорт.</p><p className="shopCurrencyNote"><span><GameIcon name="stars" size={17} />Telegram Stars — валюта Telegram.</span><span><GameIcon name="crystals" size={17} />Кристаллы — ресурс COLONY.</span></p>{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Telegram Stars и проверка платежей временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
 
     <section className="shopOffers" aria-labelledby={`${id}-offers`}><div className="shopSectionHeading"><h2 id={`${id}-offers`}>Витрина</h2><span>Постоянное оформление</span></div><div className="cosmeticOfferGrid">{COSMETIC_PRODUCTS.map(([productId, product]) => {
       const description = DESCRIPTIONS[product.cosmeticId];
@@ -189,16 +209,25 @@ export function CosmeticsShop(props: Props) {
       const item = { id: product.cosmeticId, name: config?.name || description.name, category: config?.category || description.category };
       const inventory = owned.get(item.id);
       const permanent = inventory?.expiresAt === null;
-      return <article key={productId} className="card cosmeticOffer" data-cosmetic-id={item.id} data-product-id={productId} aria-labelledby={`${id}-${productId}`}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="shopCosmeticArt" /><div className="cosmeticOfferBody"><span className="cosmeticCategory">{categoryInfo(item.category).name}</span><h3 id={`${id}-${productId}`}>{item.name}</h3><p>{description.text}</p><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(inventory)}{previewButton(item)}<button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || permanent || awaiting.has(productId)} onClick={() => buy(productId, permanent)}>{pending === `buy:${productId}` ? 'Ожидаем Telegram…' : permanent ? 'Уже есть навсегда' : awaiting.has(productId) ? 'Ожидаем подтверждения' : <>{inventory ? 'Купить навсегда' : 'Купить'}<span><GameIcon name="star" size={16} />{product.stars} Stars</span></>}</button>{notice(`buy:${productId}`)}{awaitingPurchase(productId, permanent)}{notice(`recover:${productId}`)}</div></article>;
+      return <article key={productId} className="card cosmeticOffer" data-cosmetic-id={item.id} data-product-id={productId} aria-labelledby={`${id}-${productId}`}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="shopCosmeticArt" /><div className="cosmeticOfferBody"><span className="cosmeticCategory">{categoryInfo(item.category).name}</span><h3 id={`${id}-${productId}`}>{item.name}</h3><p>{description.text}</p><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(inventory)}{previewButton(item)}<button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || permanent || awaiting.has(productId)} onClick={() => buy(productId, permanent)}>{pending === `buy:${productId}` ? 'Ожидаем Telegram…' : permanent ? 'Уже есть навсегда' : awaiting.has(productId) ? 'Ожидаем подтверждения' : <>{inventory ? 'Купить навсегда' : 'Купить'}<span><GameIcon name="stars" size={16} />{product.stars} Telegram Stars</span></>}</button>{starsAvailability(productId, permanent)}{notice(`buy:${productId}`)}{awaitingPurchase(productId, permanent)}{notice(`recover:${productId}`)}</div></article>;
     })}</div></section>
 
     <section className="card founderOffer" data-product-id="founder_pack" aria-labelledby={`${id}-founder`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Набор основателя</span><h2 id={`${id}-founder`}>{PRODUCTS.founder_pack.title}</h2></div><span className="cosmeticPermanent">4 предмета навсегда</span></div><p>Знак, монумент, рамка и небо основателя составляют единый образ колонии.</p><div className="founderCombinedPreview" data-cosmetic-id="founder_pack"><CosmeticPreview cosmeticId="founder_pack" label="Образ основателя" /></div><div className="founderContents">{FOUNDER_ITEMS.map((base) => {
       const item = { ...base, name: catalog.get(base.id)?.name || base.name };
       const inventory = owned.get(item.id);
       return <button className="founderPreview" type="button" key={item.id} data-cosmetic-id={item.id} aria-haspopup="dialog" aria-label={`Предпросмотр: ${item.name}`} onClick={() => openPreview(item)}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="founderCosmeticArt" /><strong>{item.name}</strong><span>{inventory?.expiresAt === null ? 'Есть навсегда' : 'Посмотреть'}</span></button>;
-    })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">В твоей коллекции {founderOwned} из {FOUNDER_ITEMS.length} предметов набора. Цена полная, без скидки за уже полученные предметы.</p>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="star" size={17} />{PRODUCTS.founder_pack.stars} Stars</span></>}</button>{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
+    })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">Навсегда получено {founderPermanent} из {FOUNDER_ITEMS.length} предметов набора.{founderOwned > founderPermanent && ` Ещё ${founderOwned - founderPermanent} доступны временно.`} Цена полная, без скидки за уже полученные предметы. Все четыре станут постоянными.</p>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="stars" size={17} />{PRODUCTS.founder_pack.stars} Telegram Stars</span></>}</button>{starsAvailability('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
 
-    <section className="card premiumOffer" data-product-id="premium_30d" aria-labelledby={`${id}-premium`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${props.premium ? ' isActive' : ''}`}>{props.premium ? 'Активен' : `${PRODUCTS.premium_30d.days} дней`}</span></div>{props.premium && <p className="premiumUntil">{dateText(props.premiumUntil) ? `Действует до ${dateText(props.premiumUntil)}` : 'Premium активен в твоей колонии.'}</p>}<ul className="premiumBenefits"><li><GameIcon name="ore" size={20} /><span><strong>+{Math.round((PREMIUM_PRODUCTION_MULTIPLIER - 1) * 100)}% к добыче</strong>Руда, энергия и кредиты</span></li><li><GameIcon name="clock" size={20} /><span><strong>−{Math.round((1 - PREMIUM_BUILD_SPEED_MULTIPLIER) * 100)}% времени</strong>Строительство и улучшения зданий</span></li><li><GameIcon name="build" size={20} /><span><strong>2 → 3 стройки</strong>Больше работ одновременно</span></li><li><GameIcon name="city" size={20} /><span><strong>{DEFAULT_OFFLINE_CAP_HOURS} → {PREMIUM_OFFLINE_CAP_HOURS} часов</strong>Базовый лимит добычи без открытой игры</span></li></ul><p className="premiumExplanation">Каждая покупка добавляет {PRODUCTS.premium_30d.days} дней к действующему сроку Premium.</p><div className="premiumPurchaseOptions"><div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : <>{props.premium ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="star" size={17} />{PRODUCTS.premium_30d.stars} Stars</span></>}</button>{notice('buy:premium_30d')}</div><div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</>}</button>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div></div></section>
+    <section className="card premiumOffer" data-product-id="premium_30d" aria-labelledby={`${id}-premium`}>
+      <div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${props.premium ? ' isActive' : ''}`}>{props.premium ? 'Активен' : `${PRODUCTS.premium_30d.days} дней`}</span></div>
+      {props.premium && <p className="premiumUntil">{dateText(props.premiumUntil) ? `Действует до ${dateText(props.premiumUntil)}` : 'Premium активен в твоей колонии.'}</p>}
+      <ul className="premiumBenefits"><li><GameIcon name="ore" size={20} /><span><strong>+{Math.round((PREMIUM_PRODUCTION_MULTIPLIER - 1) * 100)}% к добыче</strong>Руда, энергия и кредиты</span></li><li><GameIcon name="clock" size={20} /><span><strong>−{Math.round((1 - PREMIUM_BUILD_SPEED_MULTIPLIER) * 100)}% времени</strong>Строительство и улучшения зданий</span></li><li><GameIcon name="build" size={20} /><span><strong>2 → 3 стройки</strong>Больше работ одновременно</span></li><li><GameIcon name="city" size={20} /><span><strong>{DEFAULT_OFFLINE_CAP_HOURS} → {PREMIUM_OFFLINE_CAP_HOURS} часов</strong>Базовый лимит добычи без открытой игры</span></li></ul>
+      <p className="premiumExplanation">Выбери один способ оплаты. Каждая покупка добавляет {PRODUCTS.premium_30d.days} дней к действующему сроку Premium. Автоматического продления нет.</p>
+      <div className="premiumPurchaseOptions">
+        <div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || awaiting.has('premium_30d')} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : awaiting.has('premium_30d') ? 'Ожидаем подтверждения' : <>{props.premium ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="stars" size={17} />{PRODUCTS.premium_30d.stars} Telegram Stars</span></>}</button>{starsAvailability('premium_30d')}{notice('buy:premium_30d')}{awaitingPurchase('premium_30d', false)}{notice('recover:premium_30d')}</div>
+        <div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</>}</button><p className="shopPurchaseNote">В наличии: {number(props.crystals)} кристаллов.</p>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit" role="status">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div>
+      </div>
+    </section>
 
     </>}
 
@@ -214,7 +243,7 @@ export function CosmeticsShop(props: Props) {
         <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
           <CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" />
           <div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}
-            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Применяем…' : item.equipped ? 'Снять' : 'Надеть'}</button></div>{notice(`equip:${item.id}`)}
+            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Применяем…' : item.equipped ? 'Снять' : 'Применить'}</button></div>{notice(`equip:${item.id}`)}
           </div>
         </article>)}</div>
         {collectionPages > 1 && <nav className="cosmeticPager" aria-label="Страницы коллекции"><button type="button" disabled={selectedCollectionPage === 0} onClick={() => setCollectionPage(selectedCollectionPage - 1)}>Назад</button><span aria-live="polite">{selectedCollectionPage + 1} / {collectionPages}</span><button type="button" disabled={selectedCollectionPage + 1 === collectionPages} onClick={() => setCollectionPage(selectedCollectionPage + 1)}>Дальше</button></nav>}
@@ -223,7 +252,7 @@ export function CosmeticsShop(props: Props) {
 
     </>}
 
-    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Покупки проверены. Коллекция и Premium обновлены.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{notice('recover')}</section>
+    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium. Проверка не списывает Telegram Stars или кристаллы.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Покупки проверены. Коллекция и Premium обновлены.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{!props.starsEnabled && <p className="shopPurchaseNote" role="status">Проверка временно недоступна: покупки за Telegram Stars приостановлены. Просмотр и применение коллекции работают.</p>}{notice('recover')}</section>
 
     <dialog ref={dialogRef} className="cosmeticsPreviewDialog" aria-modal="true" aria-labelledby={`${id}-preview-title`} aria-describedby={`${id}-preview-description`} onCancel={event => { event.preventDefault(); setPreview(null); }} onClick={event => { if (event.target === event.currentTarget) setPreview(null); }}>
       {preview && <div className="cosmeticsPreviewBody">

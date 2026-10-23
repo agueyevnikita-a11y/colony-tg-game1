@@ -7,6 +7,7 @@ import { BuildingArt } from '@/components/BuildingArt';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ResourceShortage } from '@/components/ResourceShortage';
+import { durationText as duration } from '@/lib/game/format';
 import '@/app/building-catalog.css';
 
 export type BuildingCategory = 'resources' | 'production' | 'development' | 'appearance';
@@ -45,14 +46,6 @@ const ROLES: Record<string, string> = {
 };
 
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 20 }); }
-
-function duration(seconds: number) {
-  const total = Math.max(1, Math.ceil(seconds));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor(total % 3600 / 60);
-  const rest = total % 60;
-  return [hours && `${hours} ч.`, minutes && `${minutes} мин.`, rest && `${rest} сек.`].filter(Boolean).join(' ');
-}
 
 function canAfford(cost: ResourceCost, resources: Record<string, unknown>) {
   return Object.entries(cost).every(([resource, required]) => Number(resources[resource] ?? 0) >= Number(required));

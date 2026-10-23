@@ -323,6 +323,12 @@ export async function reconcilePlayer(userId: string) {
       SELECT id, name, category, star_price, achievement_key, temporary_days, metadata
       FROM cosmetics ORDER BY category, name
     `;
+    // Confirm only the player's exact paid renewal, never another active Premium period.
+    const paidPremiumPurchases = await tx<{id:string}[]>`
+      SELECT id FROM purchases
+      WHERE user_id=${userId} AND status='paid' AND product_id='premium_30d'
+      ORDER BY created_at DESC, id DESC LIMIT 100
+    `;
     const referralProgram = await getReferralProgram(tx, userId);
     const referrals = referralProgram.friends.map((friend) => ({
       telegram_id: friend.telegramId, colony_name: friend.name, hq_level: friend.hqLevel,
@@ -394,6 +400,7 @@ export async function reconcilePlayer(userId: string) {
       stats,
       cosmetics,
       shopCosmetics,
+      paidPremiumPurchaseIds: paidPremiumPurchases.map(purchase => purchase.id),
       referrals,
       referralProgram,
       market,

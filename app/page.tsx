@@ -48,9 +48,12 @@ import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foun
 import { PRODUCTS } from '@/lib/game/config';
 import { calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
 import { cityActionItems } from '@/lib/game/city-actions';
+import { durationText } from '@/lib/game/format';
 import { buildingHourlyProduction, buildingUpgradePreview } from '@/lib/game/upgrade-preview';
 import { createProductionNetwork, foundryLinksPreview, type ProductionResource } from '@/lib/game/production-network';
 import { permanentProductOwned } from '@/lib/game/product-ownership';
+import { parsePremiumHold, premiumHoldConfirmed, type PremiumHold } from '@/lib/client/purchase-holds';
+import { usePremiumPurchaseHold } from '@/lib/client/use-premium-purchase-hold';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { RequestCancelled } from '@/lib/client/requests';
@@ -69,7 +72,7 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
 const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> = {
   city: [{ key: 'map', label: 'Карта', icon: 'map' }, { key: 'production', label: 'Цеха', icon: 'foundry' }, { key: 'contracts', label: 'Поставки', icon: 'contracts' }, { key: 'events', label: 'События', icon: 'events' }, { key: 'decor', label: 'Декор', icon: 'decor' }],
   build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'artifact_lens' }],
-  market: [{ key: 'buy', label: 'Купить' }, { key: 'sell', label: 'Продать' }, { key: 'mine', label: 'Мои ордера' }, { key: 'prices', label: 'Цены' }],
+  market: [{ key: 'buy', label: 'Купить', icon: 'buy' }, { key: 'sell', label: 'Продать', icon: 'sell' }, { key: 'mine', label: 'Мои ордера', icon: 'orders' }, { key: 'prices', label: 'Цены', icon: 'chart' }],
   missions: [{ key: 'daily', label: 'Сегодня', icon: 'missions' }, { key: 'weekly', label: 'Неделя', icon: 'clock' }, { key: 'achievements', label: 'Достижения', icon: 'trophy' }, { key: 'season', label: 'Сезон', icon: 'star' }],
   shop: [{ key: 'offers', label: 'Предложения', icon: 'shop' }, { key: 'collection', label: 'Моё оформление', icon: 'palette' }],
   social: [{ key: 'profile', label: 'Профиль', icon: 'city' }, { key: 'alliance', label: 'Альянс', icon: 'social' }, { key: 'rating', label: 'Рейтинг', icon: 'trophy' }, { key: 'friends', label: 'Друзья', icon: 'network' }, { key: 'inbox', label: 'Почта', icon: 'mail' }, { key: 'settings', label: 'Настройки', icon: 'settings' }, { key: 'admin', label: 'Управление', icon: 'shield' }],
@@ -92,6 +95,9 @@ function readAwaitingProducts(key: string): string[] {
 function saveAwaitingProducts(key: string, products: string[]) {
   try { if (products.length) sessionStorage.setItem(key, JSON.stringify(products)); else sessionStorage.removeItem(key); } catch { /* The in-memory hold still protects this session. */ }
 }
+function readPremiumHold(key: string): PremiumHold | null {
+  try { return parsePremiumHold(sessionStorage.getItem(`${key}:premium`)); } catch { return null; }
+}
 
 function n(value: unknown) {
   return new Intl.NumberFormat('ru-RU', {
@@ -111,7 +117,6 @@ function productionText(p?: { resource: string; perHour: number } | null, type?:
   if (type === 'research_lab') return 'Наука для исследований';
   return 'не производит ресурс напрямую';
 }
-function durationText(seconds:number){ if(Number(seconds)<60)return `${Math.max(1,Math.ceil(Number(seconds)))} сек.`; const h=Math.floor(Number(seconds)/3600); const m=Math.ceil((Number(seconds)%3600)/60); return h>0?`${h} ч. ${m?`${m} мин.`:''}`:`${Math.max(1,m)} мин.`; }
 
 export default function Home() {
   const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
@@ -171,7 +176,10 @@ export default function Home() {
   const [adminGeneratedCode,setAdminGeneratedCode]=useState('');
   const purchaseUser = game?.userId ?? game?.telegramUser?.id;
   const purchaseStorageKey = purchaseUser ? `colony:awaiting-cosmetics:${purchaseUser}` : '';
-  const awaitingProducts = awaitingPurchases.key === purchaseStorageKey ? awaitingPurchases.products : [];
+  const { pending: premiumAwaiting, remember: rememberPremiumPurchase } = usePremiumPurchaseHold(purchaseStorageKey, game?.paidPremiumPurchaseIds);
+  const awaitingCosmetics = awaitingPurchases.key === purchaseStorageKey ? awaitingPurchases.products : [];
+  const awaitingProducts = premiumAwaiting
+    ? [...awaitingCosmetics, 'premium_30d'] : awaitingCosmetics;
   const planOwner = purchaseUser ? String(purchaseUser) : '';
   const supplyProjects = (game?.supplyProjects?.projects ?? []) as SupplyProjectState[];
   const selectedSupplyKey = supplyFocus.owner === planOwner ? supplyFocus.key : null;
@@ -625,21 +633,29 @@ export default function Home() {
     if (game?.flags?.stars_shop === false) throw new Error('Покупки за Stars временно недоступны.');
     if (invoiceOpening.current) throw new Error('Сначала заверши или закрой открытый счёт Telegram.');
     if (awaitingProducts.includes(productId)) throw new Error('Ожидаем подтверждения предыдущей оплаты. Проверь покупку перед повтором.');
+    const storedPremium = productId === 'premium_30d' && purchaseStorageKey ? readPremiumHold(purchaseStorageKey) : null;
+    if (storedPremium && !premiumHoldConfirmed(storedPremium, game?.paidPremiumPurchaseIds)) throw new Error('Ожидаем подтверждения оплаты Premium. Проверь покупку перед повтором.');
     const app = window.Telegram?.WebApp;
     if (!supportsTelegram(app, '6.1') || !app?.openInvoice) throw new Error('Покупки доступны внутри актуального Telegram.');
     invoiceOpening.current = true;
     setInvoiceOpen(true);
     try {
       const data = await api('/api/payments/invoice', { productId });
+      const product = PRODUCTS[productId as keyof typeof PRODUCTS];
+      const premiumHold = product?.kind === 'premium' ? parsePremiumHold({ purchaseId: data.purchaseId }) : null;
+      if (product?.kind === 'premium' && !premiumHold) throw new Error('Не удалось подтвердить номер покупки. Обнови игру перед оплатой Premium.');
       const invoice = new URL(data.invoiceLink);
       if (invoice.protocol !== 'https:' || invoice.hostname !== 't.me') throw new Error('Не удалось открыть счёт Telegram. Попробуйте позже.');
       await new Promise<void>((resolve, reject) => {
         app.openInvoice!(invoice.href, (status) => {
-          const product = PRODUCTS[productId as keyof typeof PRODUCTS];
-          if ((status === 'paid' || status === 'pending') && product?.kind !== 'premium' && purchaseStorageKey) {
-            const products = [...new Set([...awaitingProducts, productId])];
-            saveAwaitingProducts(purchaseStorageKey, products);
-            setAwaitingPurchases({ key: purchaseStorageKey, products });
+          if ((status === 'paid' || status === 'pending') && purchaseStorageKey) {
+            if (premiumHold) {
+              rememberPremiumPurchase(premiumHold);
+            } else {
+              const products = [...new Set([...awaitingCosmetics, productId])];
+              saveAwaitingProducts(purchaseStorageKey, products);
+              setAwaitingPurchases({ key: purchaseStorageKey, products });
+            }
           }
           invoiceOpening.current = false;
           setInvoiceOpen(false);
@@ -1145,6 +1161,7 @@ export default function Home() {
 
       {tab === 'market' && <div data-section-panel={`market-${subsections.market}`}>{marketLocked && subsections.market !== 'mine' ? <FeatureUnlock feature="market" busy={busy} onResearch={chooseResearchTarget} /> : <MarketPanel
         key={planOwner} market={game.market} view={subsections.market as 'buy' | 'sell' | 'mine' | 'prices'}
+        tradeHub={(game.buildings ?? []).find((building: any) => building.type === 'trade_hub' && building.status === 'active') ?? (game.buildings ?? []).find((building: any) => building.type === 'trade_hub')}
         resources={s} userId={String(game.userId ?? '')} featureEnabled={game.flags?.market !== false} busy={busy}
         capacities={{ ore: Math.max(0, Number(game.caps?.ore ?? 0) - Number(game.escrow?.ore ?? 0)), energy: Math.max(0, Number(game.caps?.energy ?? 0) - Number(game.escrow?.energy ?? 0)), parts: Math.max(0, Number(game.caps?.parts ?? 0) - Number(game.escrow?.parts ?? 0)) }}
         onCreate={async (body) => { try { return await api('/api/market/order/create', body); } catch (error) { setMessage(''); throw error; } }}

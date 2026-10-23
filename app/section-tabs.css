@@ -3,7 +3,7 @@
 .sectionTabsStrip::-webkit-scrollbar { height:3px; }
 .sectionTabsStrip::-webkit-scrollbar-track { background:transparent; }
 .sectionTabsStrip::-webkit-scrollbar-thumb { border-radius:3px; background:rgba(135,177,184,.35); }
-.sectionTab { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; min-height:40px; padding:8px 11px; border:1px solid var(--line); border-radius:12px; color:var(--muted); background:rgba(24,41,51,.45); font-size:12px; line-height:1.4; font-weight:600; white-space:nowrap; cursor:pointer; }
+.sectionTab { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; min-height:44px; padding:8px 11px; border:1px solid var(--line); border-radius:12px; color:var(--muted); background:rgba(24,41,51,.45); font-size:12px; line-height:1.4; font-weight:600; white-space:nowrap; cursor:pointer; }
 .sectionTab > .gameIcon { flex-shrink:0; }
 .sectionTab.isActive { color:#b9efdb; border-color:rgba(133,221,191,.38); background:rgba(133,221,191,.11); }
 .sectionTab:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }

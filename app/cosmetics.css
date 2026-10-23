@@ -71,6 +71,12 @@
 .cosmeticPreviewBuildings.isObjectPreview > .buildingArt,.cosmeticPreviewBuildings.isObjectPreview > .decorArt { width:min(100%,calc(var(--cosmetic-preview-height) - 38px)); }
 .cosmeticPreview figcaption { margin-top:7px; font-size:11px; line-height:1.4; color:var(--muted); }
 
+/* Purchase states stay beside the corresponding action, including collection-only views. */
+.cosmeticsShop p.shopPurchaseNote { margin:8px 0 10px; color:#a8bdc9; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.cosmeticsShop .shopIntroduction p.shopCurrencyNote { display:grid; gap:6px; margin-top:12px; font-size:11px; line-height:1.5; }
+.shopCurrencyNote > span { display:flex; align-items:center; gap:6px; }
+.shopCurrencyNote .gameIcon { flex:0 0 auto; }
+
 /* City themes cover the canonical building/decor renderers and their docks. */
 .cosmeticSurface.theme_neon { --city-deck-panel:#b5badc; --city-deck-inset:#4d527d; --city-deck-dark:#242940; --city-deck-edge:#c5a0fa; --city-deck-light:#80eaff; --object-trim-hull:#45466c; --object-trim-edge:#b5abf6; --object-trim-light:#7eefff; --object-trim-halo:rgba(115,113,242,.19); }
 .cosmeticSurface.theme_first_signal { --city-deck-panel:#bbd1ca; --city-deck-inset:#4a776f; --city-deck-dark:#243d3d; --city-deck-edge:#c6d5a5; --city-deck-light:#8ef1d0; --object-trim-hull:#315b59; --object-trim-edge:#b6dac8; --object-trim-light:#8af4d0; --object-trim-halo:rgba(95,213,177,.15); }

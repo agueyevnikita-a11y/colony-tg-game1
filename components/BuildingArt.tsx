@@ -1,6 +1,7 @@
 import { GameIcon } from '@/components/GameIcon';
 import { HABITAT_ART } from '@/lib/game/habitat-art';
 import { INDUSTRY_ATLAS, industrySpriteByType } from '@/lib/game/industry-art';
+import { BUILDINGS, type BuildingType } from '@/lib/game/config';
 import { AppearanceTrim } from '@/components/AppearanceTrim';
 import '@/app/city-art.css';
 
@@ -15,12 +16,7 @@ const SPRITES: Record<string, [number, number, number, number]> = {
   deep_mine: [9, 892, 319, 324], solar_array: [337, 911, 307, 299], park: [643, 942, 317, 261], statue: [956, 893, 307, 317],
 };
 
-const LABELS: Record<string, string> = {
-  hq: 'Штаб колонии', mine: 'Шахта', solar: 'Электростанция', warehouse: 'Склад', foundry: 'Литейный цех',
-  habitat: 'Жилой модуль', trade_hub: 'Торговый центр', research_lab: 'Исследовательский центр', logistics: 'Логистический центр',
-  expedition_center: 'Центр экспедиций', alliance_hub: 'Центр альянса', observatory: 'Обсерватория',
-  deep_mine: 'Глубинная шахта', solar_array: 'Солнечный массив', park: 'Купольный сад', statue: 'Монумент первопроходцев',
-};
+const LEGACY_LABELS: Record<string, string> = { park: 'Купольный сад', statue: 'Монумент первопроходцев' };
 
 export function BuildingArt({ type, className = '', decorative = true, label }: Props) {
   const industrySprite = industrySpriteByType(type);
@@ -31,7 +27,8 @@ export function BuildingArt({ type, className = '', decorative = true, label }: 
   const scale = sprite ? 300 / Math.max(sprite[2], sprite[3]) : 1;
   const width = sprite ? sprite[2] * scale : 300;
   const height = sprite ? sprite[3] * scale : 300;
-  const imageLabel = label ?? LABELS[type] ?? 'Здание колонии';
+  const imageLabel = label ?? (Object.hasOwn(BUILDINGS, type) ? BUILDINGS[type as BuildingType].name
+    : Object.hasOwn(LEGACY_LABELS, type) ? LEGACY_LABELS[type] : 'Здание колонии');
   return <span className={`buildingArt ${!sprite ? 'buildingArtFallback' : ''} ${className}`.trim()}
     data-building-art={type} aria-hidden={decorative ? true : undefined} role={decorative ? undefined : 'img'}
     aria-label={decorative ? undefined : imageLabel}>

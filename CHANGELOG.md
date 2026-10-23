@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.2-beta.1 — One Colony, Consistent Rules
+- Unified building labels across the catalog, art, guide, construction feedback and new notifications. Market subsections now have distinct buy, sell, orders and price icons; Telegram Stars has its own currency icon and label.
+- Use one duration formatter across construction, production, research, contracts, expeditions, alliance waits and the season. Rounded waits cannot show an overflowing minute or hour field; action deadlines remain unchanged.
+- The market now distinguishes a missing, building or upgrading trade hub and offers the correct build or refresh action. Contracts explain that player trading additionally needs its research.
+- Clarified shop ownership, previews, timed rewards and disabled payment/recovery states. Premium renewal waits for its exact own paid receipt, including after reload; an already active subscription does not acknowledge a second purchase. Existing payment fulfillment, prices and economy are unchanged.
+- No migration or dependency is required; saved cities, prepaid queues, resource balances and existing purchases are preserved.
+
 ## 1.14.1-beta.1 — Clear Rules and Lunar Finds
 - Alliance creation now costs 100 earned crystals with a separate confirmation; joining remains free. The server publishes the currency and requires the confirmed price, so old tabs cannot unexpectedly spend crystals. Existing alliances are unchanged.
 - Added four distinct lunar artifact illustrations across the collection, navigation and expedition rewards. The collection shows translated rarities, progress, real per-route discovery chances and a direct path to the permanent-frame achievement.

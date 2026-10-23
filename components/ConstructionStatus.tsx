@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { GameIcon } from '@/components/GameIcon';
+import { durationText } from '@/lib/game/format';
 
 export function ConstructionStatus({ building, busy, onRefresh }: { building: {
   status: string; completes_at?: string | null; updated_at?: string; created_at?: string; target_level?: number;
@@ -16,8 +17,7 @@ export function ConstructionStatus({ building, busy, onRefresh }: { building: {
   const start = Date.parse(building.updated_at ?? building.created_at ?? '');
   const seconds = Math.max(0, Math.ceil((end - now) / 1000));
   const progress = Number.isFinite(start) ? Math.max(0, Math.min(100, (now - start) / Math.max(1, end - start) * 100)) : null;
-  const hours = Math.floor(seconds / 3600), minutes = Math.floor(seconds % 3600 / 60);
-  const time = hours ? `${hours} ч. ${minutes} мин.` : minutes ? `${minutes} мин. ${seconds % 60} сек.` : `${seconds} сек.`;
+  const time = durationText(seconds);
   return <div className="constructionStatus">
     <div><GameIcon name="clock" size={20} /><strong>{seconds ? building.status === 'upgrading' ? 'Улучшение идёт' : 'Строительство идёт' : 'Время строительства вышло'}</strong><span>{seconds ? time : 'Обнови город'}</span></div>
     {progress !== null && <div className="constructionProgress" role="progressbar" aria-label="Готовность здания" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(progress)}><i style={{ width: `${progress}%` }} /></div>}

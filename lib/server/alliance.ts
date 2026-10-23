@@ -261,7 +261,7 @@ export async function joinAlliance(userId: string, rawCode: string) {
   return sql.begin(async (tx) => {
     const state = (await tx<any[]>`SELECT hq_level FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
     if (!state) throw new Error('Игровой профиль не найден');
-    if (Number(state.hq_level) < ALLIANCE_JOIN_HQ) throw new Error(`Вступление доступно с HQ${ALLIANCE_JOIN_HQ}`);
+    if (Number(state.hq_level) < ALLIANCE_JOIN_HQ) throw new Error(`Для вступления нужен центр колонии ур. ${ALLIANCE_JOIN_HQ}`);
     if (await membership(tx, userId)) throw new Error('Вы уже состоите в альянсе');
     await assertCooldown(tx, userId);
     const alliance = (await tx<any[]>`SELECT * FROM alliances WHERE upper(code)=${code} FOR UPDATE`)[0];

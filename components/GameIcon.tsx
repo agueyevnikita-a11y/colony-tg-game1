@@ -31,6 +31,11 @@ const ICONS: Record<string, ReactNode> = {
   copy: <><rect x="8" y="8" width="13" height="14" rx="2" /><path d="M16 8V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><path d="M11 12h7m-7 4h5" /></>,
   building: <><path d="M4 22V4l8-2 8 2v18M2 22h20M9 22v-5h6v5M8 7h1m6 0h1m-8 5h1m6 0h1" /></>,
   star: <path d="m12 2 3 6 7 1-5 5 1 8-6-4-6 4 1-8-5-5 7-1 3-6Z" />,
+  stars: <><path d="m12 2 3 6 7 1-5 5 1 8-6-4-6 4 1-8-5-5 7-1 3-6Z" fill="#e7c66c" stroke="#f6dda0" strokeWidth="1" /><path d="m12 6 1.8 4 4.2.5-3 2.9.6 4.3-3.6-2.1-3.6 2.1.6-4.3-3-2.9 4.2-.5L12 6Z" stroke="#b78337" strokeWidth=".8" /></>,
+  buy: <><path d="M4 14v7h16v-7M12 2v13m-5-5 5 5 5-5" /><path d="M4 17h4m8 0h4" /></>,
+  sell: <><path d="M4 14v7h16v-7M12 15V2m-5 5 5-5 5 5" /><path d="M4 17h4m8 0h4" /></>,
+  orders: <><rect x="5" y="4" width="15" height="18" rx="2" /><path d="M9 4V2h7v4H9V4Zm0 6h7m-7 4h7m-7 4h4M2 8v10" /></>,
+  chart: <><path d="M3 3v18h18M6 16l5-6 4 3 6-8m-5 0h5v5" /><path d="M7 20v-2m5 2v-4m5 4v-5" opacity=".5" /></>,
   rocket: <><path d="M8 16C4 9 11 3 21 3c0 10-6 17-13 13ZM8 10H4l-2 6 6-1m6 1v4l-6 2 1-6m-4 3-2 2" /><circle cx="15" cy="9" r="2" /></>,
   road: <><path d="M6 2h12v20H6V2Zm0 5h12M6 17h12M9 10h6m-6 4h6M3 4v5m0 6v5m18-16v5m0 6v5" /></>,
   tree: <><path d="M5 18V9a7 7 0 0 1 14 0v9M4 18h16v4H4v-4Z" /><path d="M12 17V9m0 4c-4 0-5-2-5-4 3 0 5 1 5 4Zm0 2c4 0 5-2 5-4-3 0-5 1-5 4Z" /></>,
@@ -64,7 +69,7 @@ const ICONS: Record<string, ReactNode> = {
 const TONES: Record<string, string> = {
   ore: '#d5b884', energy: '#f4cc68', parts: '#b0c8de', credits: '#e7c66c', crystals: '#bda2fa',
   science: '#82d6de', tree: '#78c99d', park: '#78c99d', lamp: '#edcf7f',
-  trophy: '#e7c66c', gift: '#bda2fa', network: '#85ddbf', comfort: '#91d6a2', crown: '#e7c66c',
+  trophy: '#e7c66c', stars: '#e7c66c', gift: '#bda2fa', network: '#85ddbf', comfort: '#91d6a2', crown: '#e7c66c',
   artifact_core: '#e4b47f', artifact_lens: '#bda2fa', artifact_shard: '#82d6de', artifact_beacon: '#9ec6ed',
   flowerbed: '#78c99d', fountain: '#82d6de', plaza: '#a8c8cd',
 };
@@ -86,7 +91,7 @@ export function GameIcon({ name, size = 20, className = '', title }: Props) {
 }
 
 const RESOURCE_LABELS: Record<string, string> = {
-  ore: 'Руда', energy: 'Энергия', parts: 'Детали', credits: 'Кредиты', crystals: 'Кристаллы', science: 'Наука',
+  ore: 'Руда', energy: 'Энергия', parts: 'Детали', credits: 'Кредиты', crystals: 'Кристаллы', science: 'Наука', stars: 'Telegram Stars',
 };
 
 export function GameAmount({ resource, children, size = 16 }: { resource: string; children: ReactNode; size?: number }) {

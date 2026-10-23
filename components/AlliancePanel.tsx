@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { durationText } from '@/lib/game/format';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { allianceCreationQuote, contributionPoints, type AllianceCreationQuote, type AllianceResource } from '@/lib/game/alliance';
 import { AllianceCooperationPanel, type AllianceCooperationState } from '@/components/AllianceCooperationPanel';
@@ -95,8 +96,7 @@ const memberName = (member: AllianceMember) => member.colony_name || member.firs
 
 function timeRemaining(timestamp: string | null | undefined, now: number) {
   if (!timestamp) return '';
-  const minutes = Math.ceil(Math.max(0, new Date(timestamp).getTime() - now) / 60_000);
-  return minutes >= 60 ? `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.` : `${minutes} мин.`;
+  return durationText((Date.parse(timestamp) - now) / 1000);
 }
 
 export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh }: Props) {

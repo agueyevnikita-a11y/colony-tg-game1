@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { durationText } from '@/lib/game/format';
 import '@/app/rewards-panels.css';
 
 type Props = {
@@ -23,9 +24,7 @@ function number(value: unknown) {
 }
 function quantity(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
 function timeLeft(end: number, now: number) {
-  const seconds = Math.max(0, Math.ceil((end - now) / 1000));
-  const hours = Math.floor(seconds / 3600), minutes = Math.floor(seconds % 3600 / 60);
-  return hours ? `${hours} ч. ${minutes} мин.` : minutes ? `${minutes} мин. ${seconds % 60} сек.` : `${seconds} сек.`;
+  return durationText((end - now) / 1000);
 }
 
 export function ContractsPanel(props: Props) {
@@ -84,7 +83,7 @@ export function ContractsPanel(props: Props) {
       <p>{Number.isFinite(hubEnd) && hubEnd > now ? <>До готовности: <span role="timer" aria-live="off">{timeLeft(hubEnd, now)}</span>. Контракты появятся, когда узел начнёт работать.</> : 'Обнови колонию, чтобы проверить готовность узла и получить заказы.'}</p>
       <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить готовность узла</button>
     </div> : <div className="rewardEmptyState">
-      <p>Построй торговый узел: он откроет контракты и обмен с другими игроками.</p>
+      <p>Построй торговый узел: он откроет контракты колонии. Для рынка игроков дополнительно изучи «Межколониальную торговлю».</p>
       <button type="button" className="action secondary" disabled={locked} onClick={props.onBuild}>Построить торговый узел</button>
     </div> : contracts.length === 0 ? <div className="rewardEmptyState">
       <strong>Сейчас нет активных заказов</strong>

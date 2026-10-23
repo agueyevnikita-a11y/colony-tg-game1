@@ -7,6 +7,7 @@ import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ARTIFACTS, EXPEDITIONS } from '@/lib/game/expeditions';
 import { RESEARCH_TREE } from '@/lib/game/research';
 import { quoteExpeditionSettlement } from '@/lib/game/expedition-quote';
+import { durationText as duration } from '@/lib/game/format';
 import '@/app/expeditions-panel.css';
 
 type Props = {
@@ -36,13 +37,6 @@ function entries(value: unknown) {
   });
 }
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
-function duration(seconds: number) {
-  const rounded = Math.max(1, Math.ceil(Math.max(0, seconds)));
-  if (rounded < 60) return `${rounded} сек.`;
-  const minutes = Math.ceil(rounded / 60);
-  const hours = Math.floor(minutes / 60);
-  return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
-}
 function Amounts({ value, empty = 'Без затрат' }: { value: unknown; empty?: string }) {
   const values = entries(value);
   return <span className="xpAmounts">{values.length ? values.map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{number(amount)}</GameAmount>) : empty}</span>;

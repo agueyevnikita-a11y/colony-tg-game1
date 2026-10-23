@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { BUILDINGS } from '@/lib/game/config';
 import type { ResearchConfig } from '@/lib/game/research';
 import type { FoundryRecipeKey } from '@/lib/game/foundry';
+import { durationText as duration } from '@/lib/game/format';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ResearchPlanner } from '@/components/ResearchPlanner';
@@ -55,11 +56,6 @@ const BRANCHES = [
 type Branch = typeof BRANCHES[number]['key'];
 
 function number(value: unknown) { return Number(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
-function duration(seconds: number) {
-  const minutes = Math.max(1, Math.ceil(Math.max(0, seconds) / 60));
-  const hours = Math.floor(minutes / 60);
-  return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
-}
 function costText(cost: Record<string, number | undefined>) {
   return Object.entries(cost).filter(([, amount]) => Number(amount) > 0)
     .map(([resource, amount], index) => <span key={resource}>{index > 0 && ' · '}<GameAmount resource={resource}>{number(amount)}</GameAmount></span>);

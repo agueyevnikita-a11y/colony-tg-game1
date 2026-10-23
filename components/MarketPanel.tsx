@@ -2,12 +2,14 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { durationText } from '@/lib/game/format';
 import { MARKET_MAX_AMOUNT, MARKET_MAX_OPEN_ORDERS, MARKET_MIN_ORDER_VALUE, MARKET_ORDER_TTL_HOURS, MARKET_RULES, marketFee, type MarketResource } from '@/lib/game/market';
 import '@/app/market-panel.css';
 
 type View = 'buy' | 'sell' | 'mine' | 'prices';
 type Props = {
   market: any;
+  tradeHub?: { status: string; completes_at?: string | null } | null;
   view: View;
   resources: Record<string, unknown>;
   capacities: Partial<Record<MarketResource, number>>;
@@ -106,11 +108,13 @@ export function MarketPanel(props: Props) {
   }
   const orphanFeedback = feedback?.view === props.view && feedback.target !== 'create'
     && !shownOrders.some((order) => feedback.target === `buy:${order.id}` || feedback.target === `cancel:${order.id}`);
+  const hubPending = props.tradeHub?.status === 'building' || props.tradeHub?.status === 'upgrading';
+  const hubEnd = Date.parse(props.tradeHub?.completes_at ?? '');
 
   return <section className="card marketPanel" aria-labelledby={`${id}-title`} data-market-view={props.view}>
-    <div className="marketPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="market" size={22} /> {TITLES[props.view]}</h2><p>{props.view === 'buy' ? 'Выбери количество. Кредиты спишутся при покупке, ресурс поступит на склад.' : props.view === 'sell' ? 'Ресурс резервируется при размещении. Комиссия удерживается с продавца после сделки.' : props.view === 'mine' ? 'Здесь только открытые ордера. Отмена возвращает непроданный остаток.' : 'Цены отражают состоявшиеся сделки игроков за последние 24 часа.'}</p></div><button type="button" className="miniButton marketRefresh" disabled={locked} aria-label="Обновить рынок" onClick={props.onRefresh}><GameIcon name="clock" size={15} /></button></div>
+    <div className="marketPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="market" size={22} /> {TITLES[props.view]}</h2><p>{props.view === 'buy' ? 'Выбери количество. Кредиты спишутся при покупке, ресурс поступит на склад.' : props.view === 'sell' ? 'Ресурс резервируется при размещении. Комиссия удерживается с продавца после сделки.' : props.view === 'mine' ? 'Здесь только открытые ордера. Отмена возвращает непроданный остаток.' : 'Цены отражают состоявшиеся сделки игроков за последние 24 часа.'}</p></div><button type="button" className="miniButton marketRefresh" disabled={locked} aria-label="Обновить рынок" onClick={props.onRefresh}><GameIcon name="refresh" size={15} /></button></div>
     {!props.featureEnabled && <div className="marketPanelNotice" role="status">Покупка и размещение ордеров временно приостановлены. Свои ордера можно отменить.</div>}
-    {!market.enabled && (props.view === 'buy' || props.view === 'sell') && <div className="marketPanelNotice"><span>Для торговли нужен работающий торговый узел.</span><button type="button" className="miniButton" disabled={locked} onClick={props.onBuild}>Показать торговый узел</button></div>}
+    {!market.enabled && (props.view === 'buy' || props.view === 'sell') && <div className="marketPanelNotice" role="status"><span>{hubPending ? <>Торговый узел {props.tradeHub?.status === 'upgrading' ? 'улучшается' : 'строится'}. {Number.isFinite(hubEnd) && hubEnd > now ? `До готовности: ${durationText((hubEnd - now) / 1000)}.` : 'Обнови данные, чтобы проверить готовность.'} После завершения работ торговля станет доступна.</> : props.tradeHub ? 'Торговый узел есть. Обнови данные, чтобы проверить его готовность.' : 'Для торговли нужен работающий торговый узел.'}</span><button type="button" className="miniButton" disabled={locked} onClick={props.tradeHub ? props.onRefresh : props.onBuild}>{props.tradeHub ? 'Проверить готовность узла' : 'Построить торговый узел'}</button></div>}
     {orphanFeedback && feedback && notice(feedback.target)}
 
     {(props.view === 'buy' || props.view === 'mine') && <>

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameIcon } from '@/components/GameIcon';
 import { BUILDINGS } from '@/lib/game/config';
+import { durationText } from '@/lib/game/format';
 import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan } from '@/lib/game/research-plan';
 import { TUTORIAL_STEPS } from '@/lib/game/tutorial';
@@ -33,7 +34,7 @@ const FALLBACKS: Record<string, { action: string; label: string; why: string; hi
   first_smelt: { action: 'production', label: 'Показать производство', why: 'Первая партия деталей откроет путь к улучшениям и новым зданиям.', hint: 'В панели производства выбери цех и запусти один цикл плавки.', building: 'foundry' },
   build_trade_hub: { action: 'build_trade_hub', label: 'Показать торговый узел', why: 'Торговля превращает лишние ресурсы в кредиты для развития.', hint: 'Выбери место для торгового узла на карте.', building: 'trade_hub' },
   first_contract: { action: 'contracts', label: 'Показать контракты', why: 'Контракты дают колонии первые доходы от продажи ресурсов.', hint: 'Выбери доступный NPC-контракт и обменяй указанные ресурсы на кредиты.', building: 'trade_hub' },
-  hq2: { action: 'upgrade_hq', label: 'Показать улучшение HQ', why: 'Следующий уровень управления открывает исследовательский центр и технологии.', hint: 'Открой Центр управления на карте и начни улучшение.', building: 'hq' },
+  hq2: { action: 'upgrade_hq', label: 'Показать улучшение центра', why: 'Следующий уровень центра колонии открывает исследовательский центр и технологии.', hint: 'Открой центр колонии на карте и начни улучшение.', building: 'hq' },
 };
 
 function text(value: unknown, fallback: string) { return typeof value === 'string' && value.trim() ? value : fallback; }
@@ -42,10 +43,7 @@ function remainingTime(endsAt: unknown, now: number) {
   if (!Number.isFinite(end)) return 'Проверь готовность, чтобы обновить город.';
   const seconds = Math.max(0, Math.ceil((end - now) / 1000));
   if (!seconds) return 'Время вышло. Проверь готовность здания.';
-  const roundedMinutes = Math.ceil(seconds / 60);
-  const hours = Math.floor(roundedMinutes / 60);
-  const minutes = roundedMinutes % 60;
-  return hours ? `Осталось ${hours} ч.${minutes ? ` ${minutes} мин.` : ''}` : seconds >= 60 ? `Осталось ${Math.ceil(seconds / 60)} мин.` : `Осталось ${seconds} сек.`;
+  return `Осталось ${durationText(seconds)}`;
 }
 export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRefresh, onHelp, research, plannedResearchKey }: Props) {
   const id = useId();
@@ -122,11 +120,11 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
     nextTitle = 'Открой научное развитие';
     nextWhy = `База уровня ${BUILDINGS.research_lab.unlockHq} открывает исследовательский центр и первые технологии.`;
     nextAction = 'upgrade_hq';
-    nextLabel = 'Показать Центр управления';
+    nextLabel = 'Показать центр колонии';
     nextHint = 'Сверь стоимость улучшения с запасами колонии.';
     if (hq?.status === 'upgrading') {
       nextHint = 'Улучшение уже запущено. После завершения можно будет построить исследовательский центр.';
-      nextWaiting.push({ title: 'Центр управления улучшается', endsAt: hq.completes_at, kind: 'building' });
+      nextWaiting.push({ title: 'Центр колонии улучшается', endsAt: hq.completes_at, kind: 'building' });
     }
   } else if (currentResearch) {
     const ready = new Date(currentResearch.completes_at).getTime() <= now;
@@ -180,7 +178,7 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
       nextTitle = `Улучши базу до уровня ${plan.next.unlockHq}`;
       nextAction = 'upgrade_hq';
       nextLabel = 'К улучшению базы';
-      if (hq?.status === 'upgrading') nextWaiting.push({ title: 'Центр управления улучшается', endsAt: hq.completes_at, kind: 'building' });
+      if (hq?.status === 'upgrading') nextWaiting.push({ title: 'Центр колонии улучшается', endsAt: hq.completes_at, kind: 'building' });
     } else if (labLevel < plan.next.labLevel) {
       nextTitle = `Улучши исследовательский центр до уровня ${plan.next.labLevel}`;
       nextAction = 'upgrade_lab';

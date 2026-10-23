@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { durationText } from '@/lib/game/format';
 import '@/app/alliance-cooperation.css';
 
 type Amounts = Partial<Record<'ore' | 'energy' | 'parts' | 'credits' | 'science', number>>;
@@ -41,8 +42,7 @@ function date(value: string) { return new Date(value).toLocaleString('ru-RU', { 
 function remaining(timestamp: string, now: number) {
   const seconds = Math.max(0, Math.ceil((Date.parse(timestamp) - now) / 1000));
   if (!Number.isFinite(seconds)) return 'Обнови состояние';
-  const roundedMinutes = Math.ceil(seconds / 60), hours = Math.floor(roundedMinutes / 60), minutes = roundedMinutes % 60;
-  return hours ? `${hours} ч. ${minutes} мин.` : seconds > 60 ? `${minutes} мин.` : `${seconds} сек.`;
+  return durationText(seconds);
 }
 function amounts(value: Amounts) {
   return <span className="coopAmounts">{Object.entries(value).filter(([, amount]) => Number(amount) > 0).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{n(amount)}</GameAmount>)}</span>;

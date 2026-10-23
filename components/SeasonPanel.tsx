@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { durationText } from '@/lib/game/format';
 import { SEASON_EVENT_POINTS, type SeasonReward } from '@/lib/game/season';
 import type { SeasonClaimRequest, SeasonClaimResult } from '@/lib/server/season';
 import '@/app/season-panel.css';
@@ -46,10 +47,7 @@ const n = (value: number) => value.toLocaleString('ru-RU');
 function finite(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0; }
 function date(value: string | Date | null | undefined) { return value == null || value === '' ? NaN : new Date(value).getTime(); }
 function remainingTime(milliseconds: number) {
-  const minutes = Math.max(1, Math.ceil(milliseconds / 60000));
-  if (minutes >= 1440) return `${Math.floor(minutes / 1440)} дн. ${Math.floor(minutes % 1440 / 60)} ч.`;
-  if (minutes >= 60) return `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.`;
-  return `${minutes} мин.`;
+  return durationText(milliseconds / 1000);
 }
 function RewardValue({ reward }: { reward: SeasonReward }) {
   return <span className="seasonRewardValue">

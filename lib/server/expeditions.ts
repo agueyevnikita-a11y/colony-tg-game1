@@ -106,7 +106,7 @@ export async function getExpeditionState(tx: Transaction, userId: string, hqLeve
   const catalog = EXPEDITIONS.map((cfg) => ({
     ...cfg,
     unlocked: !!center && hqLevel >= cfg.unlockHq && (!cfg.requiredResearch || completed.has(cfg.requiredResearch)),
-    lockReason: !center ? 'Нужен центр экспедиций' : hqLevel < cfg.unlockHq ? `Нужен HQ${cfg.unlockHq}` : cfg.requiredResearch && !completed.has(cfg.requiredResearch) ? 'Нужно исследование' : null,
+    lockReason: !center ? 'Нужен центр экспедиций' : hqLevel < cfg.unlockHq ? `Нужен центр колонии ур. ${cfg.unlockHq}` : cfg.requiredResearch && !completed.has(cfg.requiredResearch) ? 'Нужно исследование' : null,
   }));
   return {
     enabled: !!center,
@@ -147,7 +147,7 @@ export async function startExpedition(userId: string, expeditionKey: string) {
       ORDER BY level DESC LIMIT 1
     `)[0];
     if (!center) throw new Error('Сначала построй центр экспедиций');
-    if (Number(state.hq_level) < cfg.unlockHq) throw new Error(`Требуется HQ${cfg.unlockHq}`);
+    if (Number(state.hq_level) < cfg.unlockHq) throw new Error(`Нужен центр колонии ур. ${cfg.unlockHq}`);
     const completed = await completedResearchKeys(tx, userId);
     if (cfg.requiredResearch && !completed.has(cfg.requiredResearch)) throw new Error('Сначала заверши необходимое исследование');
     const slots = expeditionSlots(Number(center.level), completed);

@@ -5,6 +5,7 @@ import { BuildingArt } from '@/components/BuildingArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan, researchBlocker } from '@/lib/game/research-plan';
+import { durationText as duration } from '@/lib/game/format';
 import '@/app/research-plan.css';
 
 type Props = {
@@ -49,11 +50,6 @@ const GOALS = [
 ] as const;
 
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
-function duration(seconds: number) {
-  const minutes = Math.max(1, Math.ceil(Math.max(0, seconds) / 60));
-  const hours = Math.floor(minutes / 60);
-  return hours ? `${hours} ч.${minutes % 60 ? ` ${minutes % 60} мин.` : ''}` : `${minutes} мин.`;
-}
 function iconFor(item: ResearchConfig) {
   if (item.branch === 'infrastructure') return item.key === 'trade_network' ? 'market' : 'comfort';
   if (item.branch === 'exploration') return 'rocket';

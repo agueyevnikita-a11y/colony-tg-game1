@@ -35,7 +35,7 @@ export type BuildingConfig = {
 
 export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   hq: {
-    name: 'Центр управления', emoji: '🏛️', unlockHq: 1,
+    name: 'Центр колонии', emoji: '🏛️', unlockHq: 1,
     description: 'Определяет уровень базы. Улучшай его, чтобы открывать новые здания, исследования и расширять территорию.',
     baseBuildCost: { ore: 400, parts: 50, credits: 250 }, baseBuildTimeSec: 120, maxLevel: 10,
   },

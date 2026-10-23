@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       if (targetLevel > cfg.maxLevel) throw new Error('Достигнут максимальный уровень');
 
       const cost = type === 'hq' ? HQ_UPGRADES[targetLevel]?.cost : upgradeCost(type, Number(building.level));
-      if (!cost) throw new Error('Следующее улучшение HQ пока не настроено');
+      if (!cost) throw new Error('Следующее улучшение центра колонии пока недоступно');
       if (!canPay(state, cost)) throw new Error('Не хватает ресурсов');
 
       const activeQueue = await tx<{ count: string }[]>`
@@ -78,6 +78,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, result, ...(await reconcilePlayer(userId)) });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Не удалось начать улучшение. Обнови колонию и попробуй снова.' }, { status: 400 });
   }
 }

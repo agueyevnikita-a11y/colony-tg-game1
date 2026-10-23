@@ -17,6 +17,7 @@ import { runSeasonRewardsIntegration } from './season-rewards.integration.mjs';
 import { runAllianceSocialIntegration } from './alliance-social.integration.mjs';
 import { runSupplyProjectsIntegration } from './supply-projects.integration.mjs';
 import { runAllianceCreationIntegration } from './alliance-creation.integration.mjs';
+import { runPremiumPurchasesIntegration } from './premium-purchases.integration.mjs';
 
 test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
@@ -1471,6 +1472,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runAllianceSocialIntegration({ t, sql, request, initData, playerId });
   await runSupplyProjectsIntegration({ t, sql, request, initData, playerId });
   await runAllianceCreationIntegration({ t, sql, request, initData, playerId });
+  await runPremiumPurchasesIntegration({ t, sql, request, initData });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     await reconcilePlayer(userId);
     const body = (await request.json()) as Body;
     const cfg = Object.hasOwn(BUILDINGS, body.type) ? BUILDINGS[body.type] : undefined;
-    if (!cfg) return NextResponse.json({ ok: false, error: 'Unknown building' }, { status: 400 });
+    if (!cfg) return NextResponse.json({ ok: false, error: 'Неизвестный тип здания' }, { status: 400 });
 
     const result = await sql.begin(async (tx) => {
       const states = await tx<any[]>`SELECT * FROM game_states WHERE user_id = ${userId} FOR UPDATE`;
@@ -45,15 +45,15 @@ export async function POST(request: Request) {
         SELECT count(*)::text AS count FROM buildings WHERE user_id=${userId} AND status IN ('building','upgrading')
       `;
       const maxQueue = premium ? 3 : 2;
-      if (Number(activeQueue[0]?.count ?? 0) >= maxQueue) throw new Error(`Build queue is full (${maxQueue})`);
+      if (Number(activeQueue[0]?.count ?? 0) >= maxQueue) throw new Error(`Очередь строительства заполнена (${maxQueue}). Дождись завершения одной из работ.`);
 
       if (body.type === 'hq') {
         const hqRows = await tx<any[]>`SELECT * FROM buildings WHERE user_id=${userId} AND type='hq' LIMIT 1 FOR UPDATE`;
         const hq = hqRows[0];
-        if (!hq || hq.status !== 'active') throw new Error('HQ is busy');
+        if (!hq || hq.status !== 'active') throw new Error('Центр колонии занят строительством или улучшением. Проверь его готовность.');
         const target = hq.level + 1;
         const up = HQ_UPGRADES[target];
-        if (!up) throw new Error('HQ upgrade is not configured yet');
+        if (!up) throw new Error('Для центра колонии больше нет доступных улучшений.');
         if (!canPay(state, up.cost)) throw new Error('Не хватает ресурсов');
         const seconds = Math.max(5, Math.ceil(up.timeSec * (premium ? 0.95 : 1)));
         await tx`
@@ -67,11 +67,11 @@ export async function POST(request: Request) {
           WHERE id=${hq.id}
         `;
         await recordProgressEvent(tx, userId, 'build_started', 1, { building_type: 'hq', target_level: target });
-        await enqueueNotification(tx, userId, 'building_ready', `building:${hq.id}:${target}`, new Date(Date.now()+seconds*1000), { name: `Центр управления HQ${target}`, buildingId: hq.id });
+        await enqueueNotification(tx, userId, 'building_ready', `building:${hq.id}:${target}`, new Date(Date.now()+seconds*1000), { name: `${BUILDINGS.hq.name} ур. ${target}`, buildingId: hq.id });
         return { action: 'upgrade', seconds };
       }
 
-      if (state.hq_level < cfg.unlockHq) throw new Error(`Requires HQ level ${cfg.unlockHq}`);
+      if (state.hq_level < cfg.unlockHq) throw new Error(`Нужен центр колонии ур. ${cfg.unlockHq}`);
       const retainedExpeditions = body.type === 'expedition_center' && (await getColonyUnlocks(tx, userId)).expeditions.legacy;
       if (cfg.unlockResearch && !retainedExpeditions && !(await completedResearchKeys(tx, userId)).has(cfg.unlockResearch)) {
         throw new Error(`Сначала изучи «${researchByKey(cfg.unlockResearch)?.name ?? cfg.unlockResearch}»`);
@@ -113,6 +113,6 @@ export async function POST(request: Request) {
     const game = await reconcilePlayer(userId);
     return NextResponse.json({ ok: true, result, ...game });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : 'Не удалось начать строительство. Обнови колонию и попробуй снова.' }, { status: 400 });
   }
 }
