@@ -17,16 +17,21 @@ async function ensurePeriod(tx: any) {
 
 export async function recordAllianceCompetitionContribution(tx: any, input: { userId: string; allianceId: string; sourceId: string }) {
   const period = await ensurePeriod(tx);
-  const row = (await tx`SELECT finalized_at FROM alliance_competition_periods WHERE id=${period.id} FOR UPDATE`)[0];
+  const row = (await tx`SELECT finalized_at,starts_at,ends_at FROM alliance_competition_periods WHERE id=${period.id} FOR UPDATE`)[0];
   if (row.finalized_at) throw new Error('Недельный зачёт уже закрыт');
+  // Sample acceptance after the lock wait: a queued request cannot extend an ended week.
+  const [{ accepted_at: acceptedAt }] = await tx`SELECT clock_timestamp() AS accepted_at`;
+  if (new Date(acceptedAt).getTime() < new Date(row.starts_at).getTime() || new Date(acceptedAt).getTime() >= new Date(row.ends_at).getTime()) {
+    throw new Error('Неделя лиги сменилась. Повтори отправку — ресурсы не списаны.');
+  }
   const alliance = (await tx`SELECT name FROM alliances WHERE id=${input.allianceId}`)[0];
   if (!alliance) throw new Error('Альянс не найден');
   await tx`INSERT INTO alliance_competition_bindings(period_id,user_id,alliance_id,alliance_name)
     VALUES(${period.id},${input.userId},${input.allianceId},${alliance.name}) ON CONFLICT DO NOTHING`;
   const binding = (await tx`SELECT alliance_id FROM alliance_competition_bindings WHERE period_id=${period.id} AND user_id=${input.userId}`)[0];
   if (binding.alliance_id !== input.allianceId) return { points: 0, eligible: false };
-  const inserted = await tx`INSERT INTO alliance_competition_entries(source_id,period_id,user_id,alliance_id,alliance_name,points)
-    VALUES(${input.sourceId},${period.id},${input.userId},${input.allianceId},${alliance.name},${COMPETITION_POINTS_PER_MODULE})
+  const inserted = await tx`INSERT INTO alliance_competition_entries(source_id,period_id,user_id,alliance_id,alliance_name,points,created_at)
+    VALUES(${input.sourceId},${period.id},${input.userId},${input.allianceId},${alliance.name},${COMPETITION_POINTS_PER_MODULE},${acceptedAt})
     ON CONFLICT(source_id) DO NOTHING RETURNING source_id`;
   return { points: inserted.length ? COMPETITION_POINTS_PER_MODULE : 0, eligible: true };
 }

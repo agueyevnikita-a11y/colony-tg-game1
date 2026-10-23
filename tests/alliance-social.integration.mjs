@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
+import postgres from 'postgres';
 
 /** Runs only inside the launch suite's isolated PostgreSQL server and signed auth. */
 export async function runAllianceSocialIntegration({ t, sql, request, initData, playerId }) {
@@ -63,6 +65,82 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
     const reply = await post(player, { action: 'contribute', requestId, operationId, role });
     assert.equal(reply.status, 200, JSON.stringify(reply.data));
     return reply;
+  }
+
+  async function queuedBoundary(kind) {
+    const team = await group(0), operationId = await start(team.owner);
+    const game = await session(team.owner), periodId = game.alliance.competition.period.id;
+    const [originalPeriod] = await sql`SELECT starts_at,ends_at,finalized_at FROM alliance_competition_periods WHERE id=${periodId}`;
+    assert.equal(originalPeriod.finalized_at, null);
+    const before = await balances(team.owner), requestId = crypto.randomUUID();
+    // Separate connections are essential: the launch helper deliberately has max:1.
+    const probe = postgres(database.toString(), { max: 2, connect_timeout: 5, connection: {
+      application_name: 'colony_social_boundary_test', statement_timeout: 20000, lock_timeout: 15000,
+    } });
+    let unblock, signalReady, rejectReady, expireWeek = false, apiPromise;
+    const gate = new Promise(resolve => { unblock = resolve; });
+    const ready = new Promise((resolve, reject) => { signalReady = resolve; rejectReady = reject; });
+    const blocker = probe.begin(async tx => {
+      await tx`SELECT id FROM alliance_competition_periods WHERE id=${periodId} FOR UPDATE`;
+      signalReady();
+      await gate;
+      if (expireWeek) await tx`UPDATE alliance_competition_periods
+        SET starts_at=clock_timestamp()-interval '8 days',ends_at=clock_timestamp()-interval '1 second' WHERE id=${periodId}`;
+    });
+    blocker.catch(rejectReady);
+    try {
+      await ready;
+      let fixedOperationEnd;
+      if (kind === 'operation') {
+        const [shortened] = await sql`UPDATE alliance_cooperation_operations
+          SET started_at=clock_timestamp()-interval '1 hour',ends_at=clock_timestamp()+interval '8 seconds'
+          WHERE id=${operationId} RETURNING ends_at`;
+        fixedOperationEnd = shortened.ends_at;
+      }
+      let replySettled = false;
+      apiPromise = post(team.owner, { action: 'contribute', requestId, operationId, role: 'power' });
+      apiPromise.then(() => { replySettled = true; }, () => { replySettled = true; });
+      let queued = false;
+      const queueDeadline = Date.now() + 11000;
+      while (Date.now() < queueDeadline && !replySettled) {
+        const [waiting] = await probe`SELECT EXISTS(
+          SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'
+            AND application_name<>'colony_social_boundary_test'
+            AND query ILIKE '%SELECT finalized_at%alliance_competition_periods%FOR UPDATE%'
+        ) AS queued`;
+        if (waiting.queued) { queued = true; break; }
+        await delay(40);
+      }
+      assert.equal(queued, true, 'The real contribution must wait at the competition-record lock, after its initial checks');
+      if (kind === 'week') expireWeek = true;
+      else {
+        const clockDeadline = Date.now() + 11000;
+        let expired = false;
+        while (Date.now() < clockDeadline) {
+          const [clock] = await probe`SELECT clock_timestamp()>=${fixedOperationEnd} AS expired`;
+          if (clock.expired) { expired = true; break; }
+          await delay(40);
+        }
+        assert.equal(expired, true, 'The fixed operation deadline must pass while the real request is queued');
+      }
+      unblock();
+      await blocker;
+      const reply = await apiPromise;
+      assert.equal(reply.status, 400, JSON.stringify(reply.data));
+      assert.match(reply.data.error, kind === 'week' ? /Неделя лиги сменилась/ : /Операция добычи завершилась/);
+      assert.deepEqual(await balances(team.owner), before, 'A request accepted too late must roll back every charged resource');
+      assert.equal((await contributions(operationId)).length, 0);
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM alliance_competition_entries WHERE user_id=${team.owner.userId}`)[0].count), 0);
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM alliance_competition_bindings WHERE user_id=${team.owner.userId}`)[0].count), 0);
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM alliance_cooperation_requests WHERE user_id=${team.owner.userId} AND request_id=${requestId}`)[0].count), 0);
+    } finally {
+      unblock();
+      await blocker.catch(() => {});
+      if (apiPromise) await apiPromise.catch(() => {});
+      // Restore the real current week before any further API/session can finalize it.
+      await sql`UPDATE alliance_competition_periods SET starts_at=${originalPeriod.starts_at},ends_at=${originalPeriod.ends_at},finalized_at=${originalPeriod.finalized_at} WHERE id=${periodId}`;
+      await probe.end({ timeout: 2 });
+    }
   }
 
   try {
@@ -300,6 +378,14 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
       assert.equal(retry.data.result.count, 0);
       assert.deepEqual(await balances(team.owner), ownBeforeRetry);
       assert.deepEqual(await sql`SELECT cosmetic_id FROM user_cosmetics WHERE user_id=${team.owner.userId} AND source LIKE ${`competition_${periodId}%`} ORDER BY cosmetic_id`, ownerCosmetics);
+    });
+
+    await t.test('a contribution queued across the weekly cutoff rolls back resources, mining and competition receipts', async () => {
+      await queuedBoundary('week');
+    });
+
+    await t.test('a contribution queued until its fixed operation deadline rolls back the whole transaction', async () => {
+      await queuedBoundary('operation');
     });
   } finally {
     // New reward histories deliberately survive alliance deletion, so remove only

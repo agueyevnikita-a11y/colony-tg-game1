@@ -196,6 +196,12 @@ export async function runAllianceCooperationAction(userId: string, input: Cooper
         await tx`INSERT INTO alliance_cooperation_contributions(id,operation_id,user_id,role,cost_json,reward_json)
           VALUES(${contributionId},${operation.id},${userId},${role.id},${tx.json(role.cost)},${tx.json(reward)})`;
         const competition = await recordAllianceCompetitionContribution(tx, { userId, allianceId: member.alliance_id, sourceId: contributionId });
+        // The league period lock can queue this transaction past the mining deadline.
+        // Use a fresh database clock after that wait; rejecting rolls back every ledger and cost.
+        const [accepted] = await tx`SELECT clock_timestamp() AS accepted_at`;
+        if (new Date(accepted.accepted_at).getTime() >= new Date(operation.ends_at).getTime()) {
+          throw new Error('Операция добычи завершилась. Ресурсы не списаны — обнови альянс.');
+        }
         result = { contributionId, operationId: operation.id, role: role.id, cost: role.cost, reward, competition };
       }
     }
