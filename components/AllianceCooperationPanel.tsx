@@ -1,0 +1,154 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { GameAmount, GameIcon } from '@/components/GameIcon';
+import '@/app/alliance-cooperation.css';
+
+type Amounts = Partial<Record<'ore' | 'energy' | 'parts' | 'credits' | 'science', number>>;
+type Role = 'drilling' | 'power' | 'analysis';
+type Technology = { id: 'drilling' | 'analysis'; name: string; level: number; maxLevel: number; nextCost: number | null; effectText: string; canResearch: boolean };
+export type AllianceCooperationState = {
+  available: boolean;
+  current: null | {
+    id: string; allianceId: string; allianceName: string; status: 'active' | 'settled'; startedAt: string; endsAt: string;
+    participants: number; roles: string[]; teamBonusPercent: number; sharedScience: number;
+    technologySnapshot: { drilling: number; analysis: number }; myUnits: number; maxUnits: number;
+    myContributions: { id: string; role: string; cost: Amounts; reward: Amounts; claimedAt: string | null }[];
+    myReward: Amounts;
+  };
+  pending: { id: string; allianceName: string; endsAt: string; status: 'active' | 'ready'; units: number; reward: Amounts; canClaim: boolean; storageShortages: { ore: number } }[];
+  progress: null | { sharedScience: number; technologies: Technology[]; canResearch: boolean };
+  roleOptions: { id: Role; name: string; cost: Amounts; reward: Amounts }[];
+  rules: { durationSec: number; maxUnitsPerPlayer: number; sharedSciencePerUnit: number };
+};
+type Props = {
+  cooperation?: AllianceCooperationState;
+  view: 'mining' | 'technology';
+  resources: Partial<Record<keyof Amounts, number | string>>;
+  hasMembership: boolean;
+  ownerKey?: string;
+  allianceKey?: string;
+  busy: boolean;
+  onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
+  onRefresh?: () => void;
+};
+const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+const ROLE_ICONS: Record<Role, string> = { drilling: 'ore', power: 'energy', analysis: 'science' };
+const ROLE_LABELS: Record<Role, string> = { drilling: 'Бурение', power: 'Энергия', analysis: 'Анализ' };
+const RESOURCE_NAMES: Record<string, string> = { ore: 'руды', energy: 'энергии', parts: 'деталей', credits: 'кредитов', science: 'науки' };
+function date(value: string) { return new Date(value).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+function remaining(timestamp: string, now: number) {
+  const seconds = Math.max(0, Math.ceil((Date.parse(timestamp) - now) / 1000));
+  if (!Number.isFinite(seconds)) return 'Обнови состояние';
+  const roundedMinutes = Math.ceil(seconds / 60), hours = Math.floor(roundedMinutes / 60), minutes = roundedMinutes % 60;
+  return hours ? `${hours} ч. ${minutes} мин.` : seconds > 60 ? `${minutes} мин.` : `${seconds} сек.`;
+}
+function amounts(value: Amounts) {
+  return <span className="coopAmounts">{Object.entries(value).filter(([, amount]) => Number(amount) > 0).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{n(amount)}</GameAmount>)}</span>;
+}
+function newReceiptId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** A choice is sent only by its explicit action; failed intents keep their receipt ID. */
+export function AllianceCooperationPanel({ cooperation: state, view, resources, hasMembership, ownerKey = '', allianceKey = '', busy, onAction, onRefresh }: Props) {
+  const [role, setRole] = useState<Role>('drilling');
+  const [pendingKey, setPendingKey] = useState('');
+  const [feedback, setFeedback] = useState<Record<string, { text: string; error: boolean }>>({});
+  const [success, setSuccess] = useState<{ view: Props['view']; text: string } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [page, setPage] = useState(0);
+  const guard = useRef(false);
+  const receipts = useRef(new Map<string, string>());
+  const current = state?.current;
+  const active = current?.status === 'active' && Date.parse(current.endsAt) > now;
+  const selectedRole = state?.roleOptions.find(option => option.id === role) ?? state?.roleOptions[0];
+  const maxUnits = Number(current?.maxUnits ?? state?.rules.maxUnitsPerPlayer ?? 3);
+  const freeUnits = Math.max(0, maxUnits - Number(current?.myUnits ?? 0));
+  const locked = busy || Boolean(pendingKey);
+  const receive = (state?.pending ?? []).filter(item => item.status === 'ready' || item.id !== current?.id);
+  const timingKey = [current?.status === 'active' ? current.endsAt : '', ...(state?.pending ?? []).filter(item => item.status === 'active').map(item => item.endsAt)].filter(Boolean).join('|');
+  const pages = Math.max(1, Math.ceil(receive.length / 3)), currentPage = Math.min(page, pages - 1);
+  const shortages = selectedRole ? Object.entries(selectedRole.cost).filter(([resource, amount]) => Number(resources[resource as keyof Amounts] ?? 0) < Number(amount)) : [];
+
+  useEffect(() => {
+    setNow(Date.now());
+    if (!timingKey) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [timingKey]);
+  useEffect(() => { setFeedback({}); setSuccess(null); setRole('drilling'); setPage(0); }, [ownerKey, allianceKey]);
+
+  function status(key: string) {
+    const item = feedback[key];
+    return item ? <div className={`coopFeedback${item.error ? ' isError' : ''}`} role={item.error ? 'alert' : 'status'}>{item.text}</div> : null;
+  }
+  async function act(key: string, body: Record<string, unknown>, message: string | ((data: any) => string)) {
+    if (locked || guard.current) return;
+    guard.current = true; setPendingKey(key); setSuccess(null);
+    setFeedback(previous => { const next = { ...previous }; delete next[key]; return next; });
+    const storageKey = `colony:cooperation:${ownerKey}:${body.action === 'claim' ? 'earned' : allianceKey}:${key}`;
+    try {
+      let requestId = receipts.current.get(storageKey);
+      if (!requestId) {
+        try { requestId = sessionStorage.getItem(storageKey) ?? undefined; } catch { /* The in-memory receipt still guards this session. */ }
+        if (!requestId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) requestId = newReceiptId();
+        receipts.current.set(storageKey, requestId);
+        try { sessionStorage.setItem(storageKey, requestId); } catch { /* Continue with the in-memory receipt. */ }
+      }
+      const data = await onAction('/api/alliance/cooperation', { ...body, requestId });
+      setSuccess({ view, text: typeof message === 'function' ? message(data) : message });
+      receipts.current.delete(storageKey);
+      try { sessionStorage.removeItem(storageKey); } catch { /* A stale receipt only replays its original response. */ }
+    } catch (cause) {
+      setFeedback(previous => ({ ...previous, [key]: { text: cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Можно повторить попытку.', error: true } }));
+    } finally { guard.current = false; setPendingKey(''); }
+  }
+
+  if (view === 'technology') return <section className="card allianceCooperation" data-alliance-technologies>
+    <div className="cardTitleRow"><div><h2><GameIcon name="research" size={22} />Технологии альянса</h2><p>Общая наука развивается с каждой оплаченной сменой добычи.</p></div><span className="coopScience"><GameAmount resource="science">{n(state?.progress?.sharedScience)}</GameAmount><small>общая наука</small></span></div>
+    {state?.progress ? <>
+      <div className="coopTechnologyList">{state.progress.technologies.map(technology => {
+        const max = technology.nextCost === null || technology.level >= technology.maxLevel;
+        const key = `research:${technology.id}:${technology.level}`;
+        return <article className="coopTechnology" key={technology.id} data-coop-technology={technology.id}><div><h3>{technology.name}</h3><span>Ур. {technology.level}/{technology.maxLevel}</span></div><p>{technology.effectText}</p>
+          {!max && <p className="coopTechnologyCost">Следующий уровень: <GameAmount resource="science">{n(technology.nextCost)}</GameAmount> общей науки</p>}
+          {!max && Number(technology.nextCost) > Number(state.progress?.sharedScience ?? 0) && <p className="coopShortage">Не хватает {n(Number(technology.nextCost) - Number(state.progress?.sharedScience ?? 0))} общей науки.</p>}
+          <button type="button" className="action secondary" disabled={locked || !state.available || !hasMembership || max || !technology.canResearch || !state.progress?.canResearch || Number(state.progress.sharedScience) < Number(technology.nextCost)} onClick={() => { void act(key, { action: 'research', technologyId: technology.id, expectedLevel: technology.level }, 'Технология улучшена. Новый уровень применяется к следующим операциям.'); }}>{pendingKey === key ? 'Исследуем…' : max ? 'Максимальный уровень' : 'Исследовать'}</button>{status(key)}
+        </article>;
+      })}</div>
+      {!state.progress.canResearch && <p className="coopHint">Общую науку расходуют владелец и офицеры альянса.</p>}
+      <p className="coopHint">Уровни фиксируются при запуске операции. Новое исследование усилит следующую добычу; уже заработанная доля сохранится.</p>
+    </> : <p className="coopHint">Технологии развиваются внутри альянса. Вступи в команду, чтобы участвовать.</p>}
+    {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
+  </section>;
+
+  const contributeKey = `contribute:${current?.id}:${selectedRole?.id}`;
+  const startKey = `start:${current?.id ?? 'first'}`;
+  return <div className="allianceCooperation" data-alliance-cooperation>
+    {hasMembership && <section className="card coopOperation"><div className="cardTitleRow"><div><h2><GameIcon name="ore" size={22} />Полярный разрез</h2><p>Совместная шестичасовая добыча. Каждый выбирает, чем помочь команде.</p></div>{current && <span className="coopOperationStatus">{active ? remaining(current.endsAt, now) : 'Завершено'}</span>}</div>
+      {!state || !state.available ? <div className="coopFeedback" role="status">Совместная добыча пока недоступна. {onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить</button>}</div>
+        : current && active ? <>
+          <div className="coopTeamSummary"><span><GameIcon name="social" size={16} />Участников <b>{n(current.participants)}</b></span><span>Ролей <b>{current.roles.length}/3</b></span><span>Бонус руды <b>+{n(current.teamBonusPercent)}%</b></span></div>
+          <p className="coopHint">Два участника с двумя ролями дают +10% руды, три участника с тремя ролями — +20%. Бонус зафиксируется в конце добычи.</p>
+          <fieldset className="coopRoleField" disabled={locked || !freeUnits}><legend>Твоя следующая смена · {n(current.myUnits)} из {n(maxUnits)} оплачено</legend><div className="coopRoleChoices">{state.roleOptions.map(option => <label key={option.id} className={selectedRole?.id === option.id ? 'isSelected' : ''}><input type="radio" name={`coop-role-${current.id}`} value={option.id} checked={selectedRole?.id === option.id} aria-label={option.name} onChange={() => setRole(option.id)} /><GameIcon name={ROLE_ICONS[option.id]} size={24} /><span>{ROLE_LABELS[option.id]}</span></label>)}</div></fieldset>
+          {selectedRole && freeUnits > 0 ? <div className="coopSelectedRole"><h3>{selectedRole.name}</h3><div><span>Потратишь сразу</span>{amounts(selectedRole.cost)}</div><div><span>Базовая доля за смену</span>{amounts(selectedRole.reward)}</div><p className="coopHint">Одна смена даст {n(state.rules.sharedSciencePerUnit)} общей науки. Командный бонус добавится к руде.</p>
+            <button type="button" className="action" disabled={locked || shortages.length > 0} onClick={() => { void act(contributeKey, { action: 'contribute', operationId: current.id, role: selectedRole.id }, 'Смена оплачена. Доля будет доступна после завершения добычи.'); }}>{pendingKey === contributeKey ? 'Отправляем…' : 'Отправить одну смену'}</button>
+            {shortages.length > 0 && <p className="coopShortage" role="status">Не хватает {shortages.map(([resource, amount]) => `${n(Number(amount) - Number(resources[resource as keyof Amounts] ?? 0))} ${RESOURCE_NAMES[resource] ?? resource}`).join(', ')}.</p>}{status(contributeKey)}
+          </div> : <div className="coopFeedback" role="status">Твои {n(maxUnits)} смены уже оплачены. Можно вернуться за долей после завершения операции.</div>}
+          {current.myUnits > 0 && <div className="coopMyShare"><strong>Твоя доля · предварительно</strong>{amounts(current.myReward)}<small>Готовность: {date(current.endsAt)}. Добыча идёт при закрытой игре.</small></div>}
+        </> : current?.status === 'active' ? <div className="coopFeedback" role="status">Время добычи вышло. Обнови результат, чтобы получить готовую долю.{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить результат</button>}</div>
+          : <div className="coopStart"><p>Запуск бесплатный. Затем каждый участник может оплатить до {n(state.rules.maxUnitsPerPlayer)} смен с разными ролями.</p><button type="button" className="action" disabled={locked} onClick={() => { void act(startKey, { action: 'start' }, 'Совместная добыча началась. Теперь можно выбрать роль и оплатить смену.'); }}>{pendingKey === startKey ? 'Запускаем…' : current ? 'Начать следующую операцию' : 'Начать совместную добычу'}</button>{status(startKey)}</div>}
+    </section>}
+    {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
+    {receive.length > 0 && <section className="card coopRewards" data-coop-rewards><h2><GameIcon name="contracts" size={22} />Твои доли добычи</h2><p>Заработанные доли остаются доступными после выхода из альянса. Срока получения нет.</p><div className="coopRewardList">{receive.slice(currentPage * 3, currentPage * 3 + 3).map(item => {
+      const key = `claim:${item.id}`, ready = item.status === 'ready';
+      return <article className="coopReward" key={item.id}><div><strong>{item.allianceName}</strong><small>{ready ? 'Добыча завершена' : `До завершения ${remaining(item.endsAt, now)}`} · {n(item.units)} смены</small></div>{amounts(item.reward)}
+        <button type="button" className="action secondary" disabled={locked || !ready || !item.canClaim} onClick={() => { void act(key, { action: 'claim', operationId: item.id }, data => `Добыча получена: ${Object.entries(data.result?.reward ?? item.reward).filter(([, value]) => Number(value) > 0).map(([resource, value]) => `${n(value)} ${RESOURCE_NAMES[resource] ?? resource}`).join(', ')}.`); }}>{pendingKey === key ? 'Получаем…' : ready ? 'Забрать долю' : 'Добыча идёт'}</button>
+        {Number(item.storageShortages?.ore) > 0 && <p className="coopShortage">Освободи на складе ещё {n(item.storageShortages.ore)} руды. Доля сохранится целиком.</p>}{status(key)}</article>;
+    })}</div>{pages > 1 && <div className="coopPagination"><button type="button" className="miniButton" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Назад</button><span>{currentPage + 1}/{pages}</span><button type="button" className="miniButton" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Далее</button></div>}</section>}
+  </div>;
+}

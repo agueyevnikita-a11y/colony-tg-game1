@@ -1,0 +1,23 @@
+.allianceCompetition { min-width:0; }
+.allianceCompetition h2 { display:flex; align-items:center; gap:7px; font-size:18px; }.allianceCompetition h3 { margin:0; font-size:13px; line-height:1.5; }
+.allianceCompetition .cardTitleRow { flex-wrap:wrap; align-items:flex-start; gap:10px; }.allianceCompetition .cardTitleRow>div { flex:1 1 190px; min-width:0; }
+.allianceCompetition .cardTitleRow p { font-size:12px; line-height:1.55; }.allianceCompetition .competitionDeadline { color:#b5ecd7; font-size:11px; }
+.competitionWeekPoints { display:flex; align-items:center; flex-direction:column; gap:3px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; }.competitionWeekPoints b { font-size:19px; }.competitionWeekPoints small { font-size:10px; color:var(--muted); }
+.competitionMyResult { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:12px 10px; border:1px solid rgba(133,221,191,.24); border-radius:12px; background:rgba(133,221,191,.04); }
+.competitionMyResult>div { display:flex; align-items:flex-start; flex-direction:column; gap:6px; font-size:15px; min-width:0; }.competitionMyResult>div>span:first-child { font-size:10px; color:var(--muted); line-height:1.4; }.competitionMyResult>small { grid-column:1/-1; color:var(--muted); font-size:10px; line-height:1.5; }
+.allianceCompetition .competitionHint,.allianceCompetition .competitionBinding { margin:9px 0; color:var(--muted); font-size:11px; line-height:1.6; }.competitionBinding strong { color:var(--text); }
+.allianceCompetition .sectionTabs { margin:14px 0 4px; }.allianceCompetition .sectionTab { font-size:12px; }
+.competitionRows,.competitionAwards { min-width:0; }
+.competitionRow { display:grid; grid-template-columns:26px minmax(0,1fr) auto; align-items:center; gap:8px; min-width:0; padding:12px 0; border-bottom:1px solid var(--line); }.competitionRow:last-child { border-bottom:0; }
+.competitionRank { color:#b5ecd7; font-size:14px; text-align:center; }.competitionRow>div { display:flex; flex-direction:column; gap:4px; min-width:0; }.competitionRow strong { font-size:12px; line-height:1.4; overflow-wrap:anywhere; }.competitionRow small { color:var(--muted); font-size:10px; line-height:1.5; }
+.competitionRowPrize { display:flex; flex-direction:column; align-items:flex-end; gap:5px; font-size:12px; }.competitionRowPrize small { font-size:9px; }
+.allianceCompetition .competitionEmpty { margin:0; padding:15px 0; color:var(--muted); font-size:12px; line-height:1.6; }
+.competitionAward { display:grid; gap:10px; margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.02); }
+.competitionAwardLine { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px; font-size:12px; line-height:1.5; }.competitionAwardLine small { grid-column:1/-1; color:var(--muted); font-size:10px; line-height:1.5; }
+.allianceCompetition .action,.allianceCompetition .miniButton { min-width:0; min-height:44px; white-space:normal; }.allianceCompetition .action { font-size:12px; }
+.competitionFeedback { display:grid; gap:8px; margin:10px 0; padding:10px; border:1px solid rgba(133,221,191,.25); border-radius:10px; background:rgba(133,221,191,.05); font-size:12px; line-height:1.6; }.competitionFeedback.isError { border-color:rgba(240,126,126,.4); color:#ffc3c3; background:rgba(240,126,126,.06); }
+.competitionPagination { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; margin-top:10px; color:var(--muted); font-size:12px; text-align:center; }
+.competitionRules { margin-top:14px; border-top:1px solid var(--line); padding-top:11px; }.competitionRules>summary { cursor:pointer; color:var(--muted); font-size:12px; line-height:1.5; padding:8px 0; }.competitionRules>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:4px; }
+.competitionPrizeHead,.competitionPrizeRow { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr); gap:8px; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:11px; }.competitionPrizeHead { color:var(--muted); font-size:10px; }.competitionPrizeRow>.gameAmount { justify-self:start; }
+.competitionRules>p { font-size:11px; color:var(--muted); line-height:1.6; }
+@media(max-width:360px) { .allianceCompetition h2 { font-size:16px; }.competitionMyResult { padding:10px 8px; gap:6px; }.competitionMyResult>div { font-size:13px; }.competitionRow { grid-template-columns:22px minmax(0,1fr) auto; gap:6px; }.competitionRowPrize small { max-width:75px; text-align:right; }.competitionAward { padding:10px; } }

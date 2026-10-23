@@ -656,3 +656,94 @@ END $$;
 INSERT INTO cosmetics(id,name,category,achievement_key,metadata)
 VALUES('frame_garden','Рамка: Живая колония','frame','comfort_50','{"icon":"comfort","comfort":true}'::jsonb)
 ON CONFLICT(id) DO NOTHING;
+
+-- Prize standings use new paid cooperative contributions, never legacy SP/AP.
+CREATE TABLE IF NOT EXISTS alliance_competition_periods (
+  id TEXT PRIMARY KEY, starts_at TIMESTAMPTZ NOT NULL, ends_at TIMESTAMPTZ NOT NULL,
+  finalized_at TIMESTAMPTZ, CHECK(ends_at > starts_at)
+);
+CREATE TABLE IF NOT EXISTS alliance_competition_bindings (
+  period_id TEXT NOT NULL REFERENCES alliance_competition_periods(id),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  alliance_id UUID NOT NULL, alliance_name TEXT NOT NULL,
+  PRIMARY KEY(period_id,user_id)
+);
+CREATE TABLE IF NOT EXISTS alliance_competition_entries (
+  source_id UUID PRIMARY KEY,
+  period_id TEXT NOT NULL REFERENCES alliance_competition_periods(id),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  alliance_id UUID NOT NULL, alliance_name TEXT NOT NULL,
+  points INT NOT NULL CHECK(points=10), created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS alliance_competition_entries_period_idx ON alliance_competition_entries(period_id,alliance_id,user_id);
+CREATE TABLE IF NOT EXISTS alliance_competition_standings (
+  period_id TEXT NOT NULL REFERENCES alliance_competition_periods(id),
+  kind TEXT NOT NULL CHECK(kind IN ('personal','alliance')), entity_id UUID NOT NULL,
+  name TEXT NOT NULL, points BIGINT NOT NULL CHECK(points>=0), rank INT CHECK(rank>0),
+  PRIMARY KEY(period_id,kind,entity_id), UNIQUE(period_id,kind,rank)
+);
+CREATE TABLE IF NOT EXISTS alliance_competition_awards (
+  period_id TEXT NOT NULL REFERENCES alliance_competition_periods(id),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK(kind IN ('personal','alliance')), rank INT NOT NULL CHECK(rank>0),
+  crystals INT NOT NULL CHECK(crystals>=0), cosmetic_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  alliance_name TEXT, claimed_at TIMESTAMPTZ,
+  PRIMARY KEY(period_id,user_id,kind)
+);
+INSERT INTO cosmetics(id,name,category,metadata) VALUES
+('badge_coop_champion','Знак чемпиона лунной лиги','badge','{"social":true}'::jsonb),
+('frame_coop_orbit','Рамка лидера лунной лиги','frame','{"social":true}'::jsonb),
+('frame_coop_team','Рамка ведущего альянса','frame','{"social":true}'::jsonb),
+('title_coop_vanguard','Авангард лунной лиги','title','{"social":true}'::jsonb),
+('title_coop_team','Первопроходец альянса','title','{"social":true}'::jsonb)
+ON CONFLICT(id) DO NOTHING;
+
+-- Cooperative rewards survive leaving, removal and deletion of their alliance.
+CREATE TABLE IF NOT EXISTS alliance_cooperation_progress (
+  alliance_id UUID PRIMARY KEY REFERENCES alliances(id) ON DELETE CASCADE,
+  shared_science BIGINT NOT NULL DEFAULT 0 CHECK(shared_science >= 0),
+  drilling_level INT NOT NULL DEFAULT 0 CHECK(drilling_level BETWEEN 0 AND 3),
+  analysis_level INT NOT NULL DEFAULT 0 CHECK(analysis_level BETWEEN 0 AND 3),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS alliance_cooperation_operations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- Deliberately no alliance FK: deletion cannot destroy paid personal rewards.
+  alliance_id UUID NOT NULL,
+  alliance_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','settled')),
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ends_at TIMESTAMPTZ NOT NULL,
+  drilling_level INT NOT NULL DEFAULT 0 CHECK(drilling_level BETWEEN 0 AND 3),
+  analysis_level INT NOT NULL DEFAULT 0 CHECK(analysis_level BETWEEN 0 AND 3),
+  team_bonus_percent INT NOT NULL DEFAULT 0 CHECK(team_bonus_percent IN (0,10,20)),
+  shared_science_awarded BIGINT NOT NULL DEFAULT 0 CHECK(shared_science_awarded >= 0),
+  settled_at TIMESTAMPTZ,
+  CHECK(ends_at > started_at),
+  CHECK((status='active' AND settled_at IS NULL) OR (status='settled' AND settled_at IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS alliance_cooperation_one_active_idx ON alliance_cooperation_operations(alliance_id) WHERE status='active';
+CREATE INDEX IF NOT EXISTS alliance_cooperation_operations_alliance_idx ON alliance_cooperation_operations(alliance_id,started_at DESC);
+
+CREATE TABLE IF NOT EXISTS alliance_cooperation_contributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  operation_id UUID NOT NULL REFERENCES alliance_cooperation_operations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK(role IN ('drilling','power','analysis')),
+  cost_json JSONB NOT NULL CHECK(jsonb_typeof(cost_json)='object'),
+  reward_json JSONB NOT NULL CHECK(jsonb_typeof(reward_json)='object'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  claimed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS alliance_cooperation_contributions_operation_idx ON alliance_cooperation_contributions(operation_id,user_id);
+CREATE INDEX IF NOT EXISTS alliance_cooperation_pending_user_idx ON alliance_cooperation_contributions(user_id,operation_id) WHERE claimed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS alliance_cooperation_requests (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  request_id UUID NOT NULL,
+  fingerprint TEXT NOT NULL,
+  result_json JSONB NOT NULL CHECK(jsonb_typeof(result_json)='object'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY(user_id,request_id)
+);

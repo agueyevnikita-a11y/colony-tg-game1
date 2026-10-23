@@ -4,6 +4,8 @@ import { grantCosmetic } from '@/lib/server/cosmetics';
 import { analyticsEvent } from '@/lib/server/progression';
 import { ACTIVE_SEASON_ID } from '@/lib/game/season';
 import { getAllianceDailyState } from '@/lib/server/alliance-daily';
+import { getAllianceCooperationState } from '@/lib/server/alliance-cooperation';
+import { getAllianceCompetitionState } from '@/lib/server/alliance-competition';
 import {
   ALLIANCE_CREATE_COST,
   ALLIANCE_DAILY_GOALS,
@@ -91,6 +93,9 @@ async function allianceLeaderboard(tx: any) {
 }
 
 export async function getAllianceState(tx: any, userId: string) {
+  // Keep cooperation's guild/operation locks before the competition period lock.
+  const cooperation = await getAllianceCooperationState(tx, userId);
+  const competition = await getAllianceCompetitionState(tx, userId);
   const m = await membership(tx, userId);
   const [players, alliancesTop] = await Promise.all([playerLeaderboard(tx), allianceLeaderboard(tx)]);
 
@@ -109,6 +114,8 @@ export async function getAllianceState(tx: any, userId: string) {
     `;
     return {
       membership: null,
+      cooperation,
+      competition,
       recommended,
       playerLeaderboard: players,
       allianceLeaderboard: alliancesTop,
@@ -161,6 +168,8 @@ export async function getAllianceState(tx: any, userId: string) {
 
   return {
     membership: m,
+    cooperation,
+    competition,
     alliance: {
       id: m.alliance_id,
       name: m.alliance_name,

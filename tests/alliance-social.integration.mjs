@@ -1,0 +1,317 @@
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+
+/** Runs only inside the launch suite's isolated PostgreSQL server and signed auth. */
+export async function runAllianceSocialIntegration({ t, sql, request, initData, playerId }) {
+  const database = new URL(process.env.DATABASE_URL || '');
+  assert.equal(process.env.COLONY_TEST_DATABASE, '1');
+  assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(database.hostname));
+  assert.match(database.pathname, /^\/colony_(ci|test)$/);
+  const telegramIds = [], userIds = [], allianceIds = [], periodIds = [];
+  let sequence = playerId + 12000;
+  const post = (player, body) => request('/api/alliance/cooperation', { method: 'POST', auth: initData(player.telegramId), body });
+  const action = (player, type, body = {}) => post(player, { action: type, requestId: crypto.randomUUID(), ...body });
+  const session = async player => {
+    const reply = await request('/api/session', { method: 'POST', auth: initData(player.telegramId) });
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    return reply.data;
+  };
+  const balances = async player => Object.fromEntries(Object.entries((await sql`
+    SELECT ore,energy,parts,credits,science,crystals FROM game_states WHERE user_id=${player.userId}
+  `)[0]).map(([key, value]) => [key, Number(value)]));
+  const contributions = operationId => sql`SELECT * FROM alliance_cooperation_contributions WHERE operation_id=${operationId} ORDER BY id`;
+  async function player() {
+    const telegramId = sequence++;
+    telegramIds.push(telegramId);
+    const [row] = await sql`INSERT INTO users(telegram_id,first_name,colony_name,profile_completed_at)
+      VALUES(${telegramId},'Social CI',${`Социальный тест ${telegramId}`},now()) RETURNING id`;
+    userIds.push(row.id);
+    await sql`INSERT INTO game_states(user_id,hq_level,ore,energy,parts,credits,science,crystals,last_tick_at)
+      VALUES(${row.id},3,0,10000,1000,20000,1000,0,now()+interval '1 day')`;
+    await sql`INSERT INTO player_stats(user_id) VALUES(${row.id})`;
+    await sql`INSERT INTO buildings(user_id,type,level,x,y,status) VALUES(${row.id},'hq',3,2,2,'active')`;
+    await sql`INSERT INTO beta_access(user_id,source) VALUES(${row.id},'integration_test')`;
+    return { userId: row.id, telegramId };
+  }
+  async function group(memberCount = 2) {
+    const owner = await player(), members = [];
+    const reply = await request('/api/alliance/create', {
+      method: 'POST', auth: initData(owner.telegramId), body: { name: `CI ${owner.telegramId}` },
+    });
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    const [alliance] = await sql`SELECT id,code FROM alliances WHERE owner_user_id=${owner.userId}`;
+    assert.ok(alliance);
+    allianceIds.push(alliance.id);
+    for (let i = 0; i < memberCount; i++) {
+      const member = await player();
+      const joined = await request('/api/alliance/join', { method: 'POST', auth: initData(member.telegramId), body: { code: alliance.code } });
+      assert.equal(joined.status, 200, JSON.stringify(joined.data));
+      members.push(member);
+    }
+    return { owner, members, ...alliance };
+  }
+  async function start(owner) {
+    const reply = await action(owner, 'start');
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    assert.ok(reply.data.result.operationId);
+    return reply.data.result.operationId;
+  }
+  async function finish(operationId) {
+    await sql`UPDATE alliance_cooperation_operations SET started_at=now()-interval '7 hours',ends_at=now()-interval '1 hour' WHERE id=${operationId}`;
+  }
+  async function unit(player, operationId, role = 'power', requestId = crypto.randomUUID()) {
+    const reply = await post(player, { action: 'contribute', requestId, operationId, role });
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    return reply;
+  }
+
+  try {
+    await t.test('cooperative operations require membership and concurrent free starts create one six-hour operation', async () => {
+      const outsider = await player(), team = await group(1);
+      const outsideBefore = await balances(outsider);
+      assert.equal((await action(outsider, 'start')).status, 400);
+      assert.deepEqual(await balances(outsider), outsideBefore);
+      const before = await balances(team.owner);
+      const replies = await Promise.all([action(team.owner, 'start'), action(team.members[0], 'start')]);
+      assert.ok(replies.every(reply => reply.status === 200), JSON.stringify(replies));
+      const rows = await sql`SELECT * FROM alliance_cooperation_operations WHERE alliance_id=${team.id}`;
+      assert.equal(rows.length, 1);
+      assert.equal(new Date(rows[0].ends_at).getTime() - new Date(rows[0].started_at).getTime(), 6 * 3600_000);
+      assert.deepEqual(await balances(team.owner), before);
+      assert.deepEqual(replies.map(reply => reply.data.result.operationId), [rows[0].id, rows[0].id]);
+    });
+
+    await t.test('contribution receipts charge once, reject conflicting replay and cap concurrent units at three', async () => {
+      const team = await group(0), operationId = await start(team.owner);
+      const requestId = crypto.randomUUID(), before = await balances(team.owner);
+      const body = { action: 'contribute', requestId, operationId, role: 'drilling' };
+      const replies = await Promise.all([post(team.owner, body), post(team.owner, body)]);
+      assert.ok(replies.every(reply => reply.status === 200), JSON.stringify(replies));
+      assert.equal((await contributions(operationId)).length, 1);
+      assert.deepEqual(await balances(team.owner), { ...before, energy: before.energy - 100, parts: before.parts - 10 });
+      const conflicting = await post(team.owner, { ...body, role: 'power' });
+      assert.equal(conflicting.status, 400, JSON.stringify(conflicting.data));
+      const more = await Promise.all(Array.from({ length: 4 }, () => action(team.owner, 'contribute', { operationId, role: 'power' })));
+      assert.equal(more.filter(reply => reply.status === 200).length, 2, JSON.stringify(more));
+      assert.ok(more.every(reply => [200, 400].includes(reply.status)), JSON.stringify(more));
+      assert.equal((await contributions(operationId)).length, 3);
+      assert.deepEqual(await balances(team.owner), { ...before, energy: before.energy - 500, parts: before.parts - 10 });
+      const retry = await post(team.owner, body);
+      assert.equal(retry.status, 200, JSON.stringify(retry.data));
+      assert.equal(retry.data.result.contributionId, replies[0].data.result.contributionId);
+      assert.equal((await contributions(operationId)).length, 3);
+    });
+
+    await t.test('malformed, foreign and unaffordable cooperative requests preserve balances and ledgers', async () => {
+      const team = await group(1), other = await group(0), operationId = await start(team.owner);
+      const before = await balances(team.members[0]), otherBefore = await balances(other.owner);
+      for (const body of [null, [], {}, { action: 'contribute' }, { action: 'contribute', requestId: crypto.randomUUID(), operationId, role: 'unknown' },
+        { action: 'contribute', requestId: 'invalid', operationId, role: 'power' }, { action: 'claim', requestId: crypto.randomUUID(), operationId: 'invalid' }]) {
+        assert.equal((await post(team.members[0], body)).status, 400, JSON.stringify(body));
+      }
+      assert.equal((await action(other.owner, 'contribute', { operationId, role: 'power' })).status, 400);
+      await sql`UPDATE game_states SET energy=199 WHERE user_id=${team.members[0].userId}`;
+      const shortBefore = await balances(team.members[0]);
+      assert.equal((await action(team.members[0], 'contribute', { operationId, role: 'power' })).status, 400);
+      assert.deepEqual(await balances(team.members[0]), shortBefore);
+      assert.equal((await contributions(operationId)).length, 0);
+      assert.deepEqual(await balances(other.owner), otherBefore);
+      assert.equal(before.parts, shortBefore.parts);
+    });
+
+    await t.test('three real participants and roles settle one team bonus and award shared science once', async () => {
+      const team = await group(2), operationId = await start(team.owner);
+      await unit(team.owner, operationId, 'drilling');
+      await unit(team.members[0], operationId, 'power');
+      await unit(team.members[1], operationId, 'analysis');
+      assert.equal((await action(team.owner, 'claim', { operationId })).status, 400, 'The six-hour operation cannot be claimed early');
+      await finish(operationId);
+      await Promise.all([session(team.owner), session(team.members[0]), session(team.members[1])]);
+      const [operation] = await sql`SELECT * FROM alliance_cooperation_operations WHERE id=${operationId}`;
+      assert.equal(operation.status, 'settled');
+      assert.equal(Number(operation.team_bonus_percent), 20);
+      assert.equal(Number(operation.shared_science_awarded), 6);
+      const [progress] = await sql`SELECT * FROM alliance_cooperation_progress WHERE alliance_id=${team.id}`;
+      assert.equal(Number(progress.shared_science), 6);
+      await session(team.owner);
+      assert.equal(Number((await sql`SELECT shared_science FROM alliance_cooperation_progress WHERE alliance_id=${team.id}`)[0].shared_science), 6);
+      const before = await balances(team.owner);
+      const claimed = await action(team.owner, 'claim', { operationId });
+      assert.equal(claimed.status, 200, JSON.stringify(claimed.data));
+      assert.deepEqual(claimed.data.result.reward, { ore: 420, credits: 50, science: 5 });
+      assert.deepEqual(await balances(team.owner), { ...before, ore: before.ore + 420, credits: before.credits + 50, science: before.science + 5 });
+    });
+
+    await t.test('full storage keeps the whole mining reward pending and concurrent claims pay it once', async () => {
+      const team = await group(0), operationId = await start(team.owner);
+      await unit(team.owner, operationId, 'drilling');
+      await finish(operationId);
+      await sql`UPDATE game_states SET ore=2000 WHERE user_id=${team.owner.userId}`;
+      await session(team.owner);
+      const blockedBefore = await balances(team.owner);
+      const blocked = await action(team.owner, 'claim', { operationId });
+      assert.equal(blocked.status, 400, JSON.stringify(blocked.data));
+      assert.deepEqual(await balances(team.owner), blockedBefore);
+      assert.ok((await contributions(operationId)).every(row => row.claimed_at === null));
+      await sql`UPDATE game_states SET ore=0 WHERE user_id=${team.owner.userId}`;
+      const before = await balances(team.owner);
+      const claimBody = { action: 'claim', requestId: crypto.randomUUID(), operationId };
+      const replies = await Promise.all([post(team.owner, claimBody), post(team.owner, claimBody)]);
+      assert.ok(replies.every(reply => reply.status === 200), JSON.stringify(replies));
+      assert.deepEqual(await balances(team.owner), { ...before, ore: 350, credits: before.credits + 50, science: before.science + 5 });
+      assert.ok((await contributions(operationId)).every(row => row.claimed_at));
+    });
+
+    await t.test('leaving and deletion of a small alliance cannot remove already funded mining rewards', async () => {
+      const team = await group(1), member = team.members[0], operationId = await start(team.owner);
+      const requestId = crypto.randomUUID();
+      await unit(member, operationId, 'power', requestId);
+      const leave = await request('/api/alliance/leave', { method: 'POST', auth: initData(member.telegramId), body: {} });
+      assert.equal(leave.status, 200, JSON.stringify(leave.data));
+      const ownerLeave = await request('/api/alliance/leave', { method: 'POST', auth: initData(team.owner.telegramId), body: {} });
+      assert.equal(ownerLeave.status, 200, JSON.stringify(ownerLeave.data));
+      assert.equal((await sql`SELECT id FROM alliances WHERE id=${team.id}`).length, 0);
+      assert.equal((await contributions(operationId)).length, 1);
+      const before = await balances(member);
+      const replay = await post(member, { action: 'contribute', requestId, operationId, role: 'power' });
+      assert.equal(replay.status, 200, JSON.stringify(replay.data));
+      assert.deepEqual(await balances(member), before);
+      await finish(operationId);
+      await session(member);
+      const claim = await action(member, 'claim', { operationId });
+      assert.equal(claim.status, 200, JSON.stringify(claim.data));
+      assert.deepEqual(await balances(member), { ...before, ore: before.ore + 240, credits: before.credits + 50, science: before.science + 5 });
+    });
+
+    await t.test('alliance research is role-gated, replay-safe and snapshots benefits only into new operations', async () => {
+      const team = await group(1), operationId = await start(team.owner);
+      await sql`UPDATE alliance_cooperation_progress SET shared_science=1000 WHERE alliance_id=${team.id}`;
+      const denied = await action(team.members[0], 'research', { technologyId: 'drilling', expectedLevel: 0 });
+      assert.equal(denied.status, 400, JSON.stringify(denied.data));
+      assert.equal(Number((await sql`SELECT shared_science FROM alliance_cooperation_progress WHERE alliance_id=${team.id}`)[0].shared_science), 1000);
+      const body = { action: 'research', requestId: crypto.randomUUID(), technologyId: 'drilling', expectedLevel: 0 };
+      const replies = await Promise.all([post(team.owner, body), post(team.owner, body)]);
+      assert.ok(replies.every(reply => reply.status === 200), JSON.stringify(replies));
+      const [progress] = await sql`SELECT * FROM alliance_cooperation_progress WHERE alliance_id=${team.id}`;
+      assert.equal(Number(progress.drilling_level), 1);
+      assert.equal(Number(progress.shared_science), 900);
+      const stale = await action(team.owner, 'research', { technologyId: 'drilling', expectedLevel: 0 });
+      assert.equal(stale.status, 400, 'A fresh UUID cannot spend twice from a stale displayed level');
+      assert.equal(Number((await sql`SELECT shared_science FROM alliance_cooperation_progress WHERE alliance_id=${team.id}`)[0].shared_science), 900);
+      assert.equal(Number((await sql`SELECT drilling_level FROM alliance_cooperation_operations WHERE id=${operationId}`)[0].drilling_level), 0);
+      const during = (await session(team.owner)).alliance.cooperation;
+      assert.equal(during.progress.technologies.find(technology => technology.id === 'drilling').level, 1);
+      assert.equal(during.current.technologySnapshot.drilling, 0);
+      assert.equal(during.roleOptions.find(role => role.id === 'drilling').reward.ore, 350);
+      const accepted = await unit(team.owner, operationId, 'drilling');
+      assert.equal(accepted.data.result.reward.ore, 350, 'The displayed quote and paid unit both use the operation snapshot');
+      await finish(operationId);
+      await session(team.owner);
+      const nextId = await start(team.owner);
+      assert.notEqual(nextId, operationId);
+      assert.equal(Number((await sql`SELECT drilling_level FROM alliance_cooperation_operations WHERE id=${nextId}`)[0].drilling_level), 1);
+      assert.equal((await session(team.owner)).alliance.cooperation.roleOptions.find(role => role.id === 'drilling').reward.ore, 367);
+    });
+
+    await t.test('weekly credit stays with the first alliance instead of moving legacy SP or following a new membership', async () => {
+      const first = await group(1), second = await group(0), member = first.members[0];
+      await sql`INSERT INTO season_progress(user_id,season_id,points) VALUES(${member.userId},'s1_first_signal',999999)
+        ON CONFLICT(user_id,season_id) DO UPDATE SET points=EXCLUDED.points`;
+      await sql`INSERT INTO alliance_season_points(alliance_id,season_id,points) VALUES(${first.id},'s1_first_signal',999999)
+        ON CONFLICT(alliance_id,season_id) DO UPDATE SET points=EXCLUDED.points`;
+      const initial = await session(member);
+      assert.equal(initial.alliance.competition.me.points, 0);
+      const firstOperation = await start(first.owner);
+      const accepted = await unit(member, firstOperation);
+      assert.deepEqual(accepted.data.result.competition, { points: 10, eligible: true });
+      let competition = (await session(member)).alliance.competition;
+      assert.equal(competition.me.points, 10);
+      assert.equal(competition.binding.allianceId, first.id);
+      const left = await request('/api/alliance/leave', { method: 'POST', auth: initData(member.telegramId), body: {} });
+      assert.equal(left.status, 200, JSON.stringify(left.data));
+      // Only this isolated test identity passes the already-tested rejoin timer.
+      await sql`UPDATE users SET alliance_left_at=now()-interval '25 hours' WHERE id=${member.userId}`;
+      const joined = await request('/api/alliance/join', { method: 'POST', auth: initData(member.telegramId), body: { code: second.code } });
+      assert.equal(joined.status, 200, JSON.stringify(joined.data));
+      const secondOperation = await start(second.owner), before = await balances(member);
+      const helped = await unit(member, secondOperation);
+      assert.deepEqual(helped.data.result.competition, { points: 0, eligible: false });
+      assert.equal((await contributions(secondOperation)).length, 1, 'Mining help remains useful after changing alliances');
+      assert.equal((await balances(member)).energy, before.energy - 200);
+      competition = (await session(member)).alliance.competition;
+      assert.equal(competition.me.points, 10);
+      assert.equal(competition.binding.allianceId, first.id);
+      assert.equal(competition.alliances.find(row => row.allianceId === first.id).points, 10);
+      assert.equal(competition.alliances.some(row => row.allianceId === second.id), false);
+      const current = competition.period.id;
+      assert.equal(Number((await sql`SELECT count(*) AS count FROM alliance_competition_entries WHERE period_id=${current} AND user_id=${member.userId}`)[0].count), 1);
+    });
+
+    await t.test('ended weekly ranks and the finite team pool freeze once, surviving membership changes and concurrent claims', async () => {
+      const team = await group(2), solo = await group(0), [early, late] = team.members;
+      const periodId = `test-social-${crypto.randomUUID()}`;
+      periodIds.push(periodId);
+      const startsAt = new Date(Date.now() - 15 * 86_400_000), endsAt = new Date(Date.now() - 8 * 86_400_000);
+      await sql`INSERT INTO alliance_competition_periods(id,starts_at,ends_at) VALUES(${periodId},${startsAt},${endsAt})`;
+      async function entry(player, index, minute, alliance = team) {
+        const createdAt = new Date(startsAt.getTime() + minute * 60_000 + index);
+        await sql`INSERT INTO alliance_competition_entries(source_id,period_id,user_id,alliance_id,alliance_name,points,created_at)
+          VALUES(${crypto.randomUUID()},${periodId},${player.userId},${alliance.id},'Snapshot CI',10,${createdAt})`;
+      }
+      for (let i = 0; i < 4; i++) await entry(team.owner, i, 10);
+      for (let i = 0; i < 2; i++) await entry(early, i, 20);
+      for (let i = 0; i < 2; i++) await entry(late, i, 30);
+      for (let i = 0; i < 2; i++) await entry(solo.owner, i, 40, solo);
+      await Promise.all([session(team.owner), session(early)]);
+      const frozen = await sql`SELECT * FROM alliance_competition_standings WHERE period_id=${periodId} ORDER BY kind,rank`;
+      assert.deepEqual(frozen.filter(row => row.kind === 'personal').map(row => [row.entity_id, Number(row.points), Number(row.rank)]),
+        [[team.owner.userId, 40, 1], [early.userId, 20, 2], [late.userId, 20, 3], [solo.owner.userId, 20, 4]]);
+      assert.deepEqual(frozen.filter(row => row.kind === 'alliance').map(row => [row.entity_id, Number(row.points), row.rank === null ? null : Number(row.rank)]), [[team.id, 80, 1], [solo.id, 20, null]]);
+      const awards = await sql`SELECT * FROM alliance_competition_awards WHERE period_id=${periodId} ORDER BY user_id,kind`;
+      assert.equal(awards.length, 7);
+      assert.equal(awards.some(row => row.user_id === solo.owner.userId && row.kind === 'alliance'), false, 'A one-person alliance cannot take a team prize pool');
+      assert.equal(Number(awards.find(row => row.user_id === solo.owner.userId && row.kind === 'personal').crystals), 50);
+      assert.equal(awards.filter(row => row.kind === 'alliance').reduce((sum, row) => sum + Number(row.crystals), 0), 600);
+      assert.deepEqual(awards.filter(row => row.kind === 'alliance').map(row => Number(row.crystals)).sort((a, b) => a - b), [170, 170, 260]);
+      assert.ok((await sql`SELECT finalized_at FROM alliance_competition_periods WHERE id=${periodId}`)[0].finalized_at);
+
+      const claim = player => request('/api/alliance/competition/claim', { method: 'POST', auth: initData(player.telegramId), body: { periodId } });
+      const before = await balances(team.owner);
+      const replies = await Promise.all([claim(team.owner), claim(team.owner)]);
+      assert.ok(replies.every(reply => reply.status === 200), JSON.stringify(replies));
+      assert.equal(replies.reduce((sum, reply) => sum + reply.data.result.count, 0), 2);
+      assert.equal(replies.reduce((sum, reply) => sum + reply.data.result.crystals, 0), 360);
+      assert.deepEqual(await balances(team.owner), { ...before, crystals: before.crystals + 360 });
+      const ownerCosmetics = await sql`SELECT cosmetic_id FROM user_cosmetics WHERE user_id=${team.owner.userId} AND source LIKE ${`competition_${periodId}%`} ORDER BY cosmetic_id`;
+      assert.deepEqual(ownerCosmetics.map(row => row.cosmetic_id), ['badge_coop_champion', 'frame_coop_team', 'title_coop_vanguard']);
+
+      // The source history can no longer be used to recalculate awarded places.
+      await entry(late, 0, 40);
+      await sql`DELETE FROM alliances WHERE id=${team.id}`;
+      await session(early);
+      assert.deepEqual(await sql`SELECT * FROM alliance_competition_standings WHERE period_id=${periodId} ORDER BY kind,rank`, frozen);
+      const earlyBefore = await balances(early), ownBeforeRetry = await balances(team.owner);
+      const earned = await claim(early);
+      assert.equal(earned.status, 200, JSON.stringify(earned.data));
+      assert.equal(earned.data.result.crystals, 245);
+      assert.deepEqual(await balances(early), { ...earlyBefore, crystals: earlyBefore.crystals + 245 });
+      const retry = await claim(team.owner);
+      assert.equal(retry.status, 200, JSON.stringify(retry.data));
+      assert.equal(retry.data.result.count, 0);
+      assert.deepEqual(await balances(team.owner), ownBeforeRetry);
+      assert.deepEqual(await sql`SELECT cosmetic_id FROM user_cosmetics WHERE user_id=${team.owner.userId} AND source LIKE ${`competition_${periodId}%`} ORDER BY cosmetic_id`, ownerCosmetics);
+    });
+  } finally {
+    // New reward histories deliberately survive alliance deletion, so remove only
+    // this helper's own operations and request receipts before its random users.
+    if (allianceIds.length) await sql`DELETE FROM alliance_cooperation_operations WHERE alliance_id=ANY(${sql.array(allianceIds)}::uuid[])`;
+    if (telegramIds.length) await sql`DELETE FROM users WHERE telegram_id=ANY(${sql.array(telegramIds)}::bigint[])`;
+    for (const periodId of periodIds) {
+      await sql`DELETE FROM alliance_competition_awards WHERE period_id=${periodId}`;
+      await sql`DELETE FROM alliance_competition_standings WHERE period_id=${periodId}`;
+      await sql`DELETE FROM alliance_competition_entries WHERE period_id=${periodId}`;
+      await sql`DELETE FROM alliance_competition_bindings WHERE period_id=${periodId}`;
+      await sql`DELETE FROM alliance_competition_periods WHERE id=${periodId}`;
+    }
+  }
+}

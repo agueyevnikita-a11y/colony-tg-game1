@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.0-beta.1 — Work Together on the Moon
+- Added shared six-hour mining operations with three support roles, up to three paid modules per participant, a bonus for different people and roles, and personal cargo that survives leaving, removal or deletion of its alliance. Cargo waits for full warehouse space and does not expire.
+- Operations generate shared alliance science. Officers and owners can develop drilling and sample-analysis technologies; each operation snapshots its levels and research purchases use expected-level checks and replay receipts.
+- Added a weekly cooperative league, separate from historical SP/AP: new paid participation earns points for the alliance chosen by the first contribution that week. Membership changes cannot move past points. Prize-eligible teams need three contributors with at least two modules each.
+- Weekly standings freeze once. Personal prizes include bounded crystals, titles, badges and frames; alliance crystal pools are split 40% equally and 60% by qualified contribution, with exact finite totals. Earned claims survive leaving the team and cannot be paid twice.
+- Integrated mining and technology subsections into Alliances and a paged league/reward view into Rankings. Existing megaprojects, daily goals and historical standings remain available. Added additive schema migrations and concurrency/expiry/storage/replay tests; existing cities, balances, purchases and production rules are preserved.
 ## 1.12.3-beta.1 — Plan Production on the Map
 - Added an optional production overlay to the city map: active neighbouring mines and energy suppliers connect visually to foundries. Planning highlights useful free cells, suppliers and a ghost of the proposed workshop; roads remain decorative.
 - Foundry construction and relocation now preview a cell before a separate confirmation. Exact single-cycle alternatives come from the real quote: one supplier link per order, no stacking or combined discount. Construction costs and missing resources sit beside confirmation; relocation remains free and preserves paid jobs.

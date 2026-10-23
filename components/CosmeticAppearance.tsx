@@ -3,14 +3,17 @@ import { GameIcon } from '@/components/GameIcon';
 import { DecorArt } from '@/components/DecorArt';
 import { cityStyleClass, type AppearanceObject } from '@/lib/game/appearance';
 import '@/app/cosmetics.css';
+import '@/app/competition-rewards.css';
 
 const LABELS: Record<string, string> = {
+  badge_coop_champion: 'Знак чемпиона лунной лиги', frame_coop_orbit: 'Рамка лидера лунной лиги', frame_coop_team: 'Рамка ведущего альянса',
+  title_coop_vanguard: 'Авангард лунной лиги', title_coop_team: 'Первопроходец альянса',
   theme_neon: 'Неоновый город', theme_first_signal: 'Тема Первого сигнала', weather_aurora: 'Северное сияние', frame_orbit: 'Орбитальная рамка',
   founder_pack: 'Набор основателя', founder_badge: 'Знак основателя', founder_monument: 'Монумент основателя',
   founder_frame: 'Рамка основателя', founder_sky: 'Небо основателя',
   monument_network: 'Монумент сети', relay_legend: 'Маяк легенды', frame_garden: 'Рамка живого города',
 };
-const FRAME_IDS = new Set(['frame_orbit', 'founder_frame', 'frame_first_signal', 'frame_exchange', 'frame_researcher', 'frame_pathfinder', 'frame_garden']);
+const FRAME_IDS = new Set(['frame_orbit', 'founder_frame', 'frame_first_signal', 'frame_exchange', 'frame_researcher', 'frame_pathfinder', 'frame_garden', 'frame_coop_orbit', 'frame_coop_team']);
 const SIGNAL_IDS = new Set(['effect_signal', 'effect_alliance_signal', 'effect_relay_veteran']);
 
 export function cosmeticFrameClass(frame?: string) {
@@ -61,11 +64,11 @@ export function CosmeticMonument({ id, decorative = true }: { id: string; decora
 }
 
 export function CosmeticBadge({ id, label, decorative = false }: { id: string; label?: string; decorative?: boolean }) {
-  const founder = id === 'founder_badge';
-  return <span className={`cosmeticBadge ${founder ? 'isFounderBadge' : 'isEarnedBadge'}`}
+  const founder = id === 'founder_badge', champion = id === 'badge_coop_champion';
+  return <span className={`cosmeticBadge ${founder ? 'isFounderBadge' : champion ? 'isChampionBadge' : 'isEarnedBadge'}`}
     title={label ?? LABELS[id] ?? 'Знак колонии'} aria-label={decorative ? undefined : label ?? LABELS[id] ?? 'Знак колонии'}
     role={decorative ? undefined : 'img'} aria-hidden={decorative ? true : undefined}>
-    <GameIcon name="star" size={founder ? 15 : 13} />
+    <GameIcon name={champion ? 'trophy' : 'star'} size={founder || champion ? 15 : 13} />
   </span>;
 }
 

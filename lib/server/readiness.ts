@@ -19,6 +19,15 @@ export const REQUIRED_SCHEMA: Readonly<Record<string, readonly string[]>> = {
   notification_preferences: ['user_id', 'enabled'],
   notification_jobs: ['processing_at', 'sent_at', 'cancelled_at'],
   player_feedback: ['user_id', 'client_version'],
+  alliance_cooperation_progress: ['alliance_id', 'shared_science', 'drilling_level', 'analysis_level'],
+  alliance_cooperation_operations: ['id', 'ends_at', 'settled_at', 'team_bonus_percent'],
+  alliance_cooperation_contributions: ['id', 'user_id', 'cost_json', 'reward_json', 'claimed_at'],
+  alliance_cooperation_requests: ['user_id', 'request_id', 'fingerprint', 'result_json'],
+  alliance_competition_periods: ['id', 'ends_at', 'finalized_at'],
+  alliance_competition_bindings: ['period_id', 'user_id', 'alliance_id'],
+  alliance_competition_entries: ['source_id', 'period_id', 'user_id', 'points'],
+  alliance_competition_standings: ['period_id', 'kind', 'entity_id', 'rank'],
+  alliance_competition_awards: ['period_id', 'user_id', 'kind', 'crystals', 'claimed_at'],
 };
 
 export function schemaIsReady(columns: { table_name: string; column_name: string }[]) {

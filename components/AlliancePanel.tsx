@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { contributionPoints, type AllianceResource } from '@/lib/game/alliance';
+import { AllianceCooperationPanel, type AllianceCooperationState } from '@/components/AllianceCooperationPanel';
+import { SectionTabs } from '@/components/SectionTabs';
 import '@/app/alliance-panel.css';
 
 type AllianceMember = {
@@ -17,8 +19,10 @@ type AllianceMember = {
 };
 
 type AllianceState = {
+  cooperation?: AllianceCooperationState;
   membership?: { role: 'owner' | 'officer' | 'member' } | null;
   alliance?: {
+    id?: string;
     name: string;
     code: string;
     members?: AllianceMember[];
@@ -59,7 +63,8 @@ type AllianceState = {
 
 type Props = {
   alliance?: AllianceState;
-  resources: Partial<Record<AllianceResource | 'credits', number | string>>;
+  cooperation?: AllianceCooperationState;
+  resources: Partial<Record<AllianceResource | 'credits' | 'science', number | string>>;
   hqLevel: number;
   telegramId?: number | string;
   busy: boolean;
@@ -68,11 +73,12 @@ type Props = {
   onShare: () => void;
   onViewCity: (telegramId: number) => void;
   onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
+  onRefresh?: () => void;
 };
 
 type Feedback = { text: string; error: boolean };
 type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; telegramId: string | number; name: string };
-type AllianceSection = 'project' | 'goals' | 'members';
+type AllianceSection = 'mining' | 'technology' | 'project' | 'goals' | 'members';
 const MEMBERS_PER_PAGE = 5;
 const RESOURCES: AllianceResource[] = ['ore', 'energy', 'parts'];
 const RESOURCE_LABELS = { ore: 'руды', energy: 'энергии', parts: 'деталей' };
@@ -87,7 +93,7 @@ function timeRemaining(timestamp: string | null | undefined, now: number) {
   return minutes >= 60 ? `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.` : `${minutes} мин.`;
 }
 
-export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction }: Props) {
+export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onRefresh }: Props) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState('');
   const [resource, setResource] = useState<AllianceResource>('ore');
@@ -96,12 +102,13 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [membershipFeedback, setMembershipFeedback] = useState<Feedback | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const [section, setSection] = useState<AllianceSection>('project');
+  const [section, setSection] = useState<AllianceSection>('mining');
   const [memberSearch, setMemberSearch] = useState('');
   const [memberPage, setMemberPage] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const submittingRef = useRef(false);
   useEffect(() => { setCode(initialCode); }, [initialCode]);
+  useEffect(() => { setSection('mining'); setConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code]);
   useEffect(() => {
     if (alliance?.project?.status !== 'completed' || !alliance.project.restartAvailableAt) return;
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -126,6 +133,7 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   const readyGoals = dailyGoals.filter((goal) => goal.completed_at && !goal.my_claimed_at && Number(goal.my_contribution ?? 0) > 0).length;
   const myRole = alliance?.membership?.role;
   const hasMembership = !!alliance?.membership && !!group;
+  const cooperationState = cooperation ?? alliance?.cooperation;
   const ownerMustTransfer = myRole === 'owner' && members.length > 1;
   const available = Math.max(0, Math.floor(Number(resources[resource] ?? 0)));
   const needed = project ? Math.max(0, Number(project.stageConfig.target[resource] ?? 0) - Number(project[RESOURCE_COLUMNS[resource]] ?? 0)) : 0;
@@ -223,7 +231,7 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
   return <div className="alliancePanel">
     {hasMembership && group ? <>
       <section className="card allianceHero">
-        <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{group.name}</h2><p>Код: <b>{group.code}</b> · {members.length}/{group.memberLimit} участников · престиж {n(group.prestige)}</p></div><div className="seasonPoints">{n(group.seasonPoints)}<span>AP</span></div></div>
+        <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{group.name}</h2><p>Код: <b>{group.code}</b> · {members.length}/{group.memberLimit} участников · престиж {n(group.prestige)}</p></div><div className="coopHeroScience"><GameAmount resource="science" size={22}>{n(cooperationState?.progress?.sharedScience)}</GameAmount><span>общая наука</span></div></div>
         <div className="allianceHeroActions"><button type="button" className="action" disabled={locked} onClick={onShare}><GameIcon name="share" size={15} />Пригласить</button><button type="button" className="action secondary" disabled={locked || ownerMustTransfer} onClick={() => { setConfirmation({ kind: 'leave' }); setFeedback((previous) => { const next = { ...previous }; delete next.leave; return next; }); }}>Выйти</button></div>
         {ownerMustTransfer && <p className="finePrint">Чтобы выйти, сначала передай руководство в разделе «Участники».</p>}
         {confirmation?.kind === 'leave' && confirmationBox(confirmation)}
@@ -232,11 +240,15 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
         {hiddenSectionFeedback.map((key) => <div key={key}>{status(key)}</div>)}
       </section>
 
-      <nav className="allianceSections" aria-label="Разделы альянса">
-        <button type="button" aria-pressed={section === 'project'} aria-controls="alliance-project-section" onClick={() => changeSection('project')}>Проект</button>
-        <button type="button" aria-pressed={section === 'goals'} aria-controls="alliance-goals-section" onClick={() => changeSection('goals')}>Цели <span className="allianceSectionBadge" aria-label={`Готовых наград: ${readyGoals}`}>{readyGoals}</span></button>
-        <button type="button" aria-pressed={section === 'members'} aria-controls="alliance-members-section" onClick={() => changeSection('members')}>Участники <span className="allianceSectionBadge" aria-label={`Участников: ${members.length}`}>{members.length}</span></button>
-      </nav>
+      <SectionTabs label="Разделы альянса" items={[
+        { key: 'mining', label: 'Добыча', icon: 'ore', badge: cooperationState?.pending.filter(item => item.status === 'ready').length },
+        { key: 'technology', label: 'Технологии', icon: 'research' },
+        { key: 'project', label: 'Проект', icon: 'signal' },
+        { key: 'goals', label: 'Цели', icon: 'target', badge: readyGoals },
+        { key: 'members', label: 'Участники', icon: 'social', badge: members.length },
+      ]} value={section} onChange={key => changeSection(key as AllianceSection)} />
+
+      <div hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} /></div>
 
       {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><div className="stack">{dailyGoals.map((goal) => {
         const done = !!goal.completed_at;
@@ -295,6 +307,7 @@ export function AlliancePanel({ alliance, resources, hqLevel, telegramId, busy, 
         <div className="allianceMemberPagination" aria-label="Страницы участников"><button type="button" className="miniButton" disabled={currentMemberPage === 0} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage - 1); }}>Назад</button><span aria-live="polite">{currentMemberPage + 1}/{memberPages}</span><button type="button" className="miniButton" disabled={currentMemberPage + 1 >= memberPages} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage + 1); }}>Далее</button></div>
       </section>}
     </> : <>
+      {cooperationState && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(telegramId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
       <section className="card allianceEntry"><h2><GameIcon name="shield" />Альянсы</h2><p>Объединяйтесь, чтобы строить мегапроекты и получать командные награды. Вступление — с центра ур. {joinLevel}, создание — с ур. {createLevel}. Stars здесь ничего не ускоряют.</p>
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}
         <form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (!joinIssue && !locked) join(code); }}><label htmlFor="alliance-join-code">Вступить по коду<input id="alliance-join-code" aria-describedby="alliance-join-help" value={code} maxLength={80} autoCapitalize="characters" autoComplete="off" disabled={locked} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="Код альянса" /></label><button type="submit" className="action" disabled={locked || !!joinIssue}>{pendingKey === 'join' ? 'Вступаем…' : 'Вступить'}</button><p className="finePrint" id="alliance-join-help">{joinIssue || 'Вступление бесплатное.'}</p>{status('join')}</form>

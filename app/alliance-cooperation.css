@@ -1,0 +1,37 @@
+.allianceCooperation { display:grid; gap:12px; min-width:0; }
+.coopHeroScience { display:flex; align-items:center; flex-direction:column; flex:none; gap:5px; min-width:64px; color:var(--text); font-size:19px; font-weight:800; }.coopHeroScience>span:last-child { color:var(--muted); font-size:10px; font-weight:400; }
+.allianceCooperation .card { margin:0; min-width:0; }
+.allianceCooperation h2,.allianceCooperation h3 { display:flex; align-items:center; gap:7px; }
+.allianceCooperation h2 { font-size:18px; }.allianceCooperation h3 { margin:0; font-size:14px; }
+.allianceCooperation p { font-size:12px; line-height:1.6; }
+.allianceCooperation .cardTitleRow { flex-wrap:wrap; align-items:flex-start; gap:10px; }
+.allianceCooperation .cardTitleRow>div { flex:1 1 180px; min-width:0; }
+.coopOperationStatus { padding:6px 8px; border:1px solid var(--line); border-radius:8px; font-size:12px; color:#b5ecd7; }
+.coopTeamSummary { display:flex; flex-wrap:wrap; gap:7px 12px; padding:10px; border:1px solid var(--line); border-radius:11px; background:rgba(133,221,191,.045); }
+.coopTeamSummary>span { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:11px; }.coopTeamSummary b { color:var(--text); }
+.allianceCooperation .coopHint { margin:8px 0; color:var(--muted); font-size:11px; line-height:1.55; }
+.coopRoleField { min-width:0; margin:14px 0 0; padding:0; border:0; }
+.coopRoleField legend { margin-bottom:8px; color:var(--text); font-size:12px; font-weight:700; }
+.coopRoleChoices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.allianceCooperation .coopRoleChoices label { position:relative; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; min-width:0; min-height:80px; padding:10px 6px; border:1px solid var(--line); border-radius:11px; background:var(--panel2); color:var(--muted); font-size:11px; line-height:1.4; text-align:center; overflow-wrap:anywhere; cursor:pointer; }
+.coopRoleChoices label.isSelected { border-color:var(--accent); color:var(--text); background:rgba(133,221,191,.08); }
+.allianceCooperation .coopRoleChoices input { position:absolute; width:1px; min-height:0; height:1px; opacity:0; margin:0; padding:0; }
+.coopRoleChoices label:has(input:focus-visible) { outline:2px solid var(--accent); outline-offset:2px; }.coopRoleField:disabled label { cursor:default; opacity:.65; }
+.coopSelectedRole { display:grid; gap:10px; margin-top:10px; padding:12px; border:1px solid rgba(133,221,191,.25); border-radius:12px; background:rgba(133,221,191,.035); }
+.coopSelectedRole>div { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:7px; font-size:12px; }.coopSelectedRole>div>span:first-child { color:var(--muted); }
+.coopAmounts { display:inline-flex; align-items:center; flex-wrap:wrap; gap:5px 11px; color:var(--text); }
+.allianceCooperation .action,.allianceCooperation .miniButton { min-width:0; min-height:44px; white-space:normal; }
+.allianceCooperation .action { font-size:12px; }.coopSelectedRole .coopHint { margin:0; }
+.allianceCooperation .coopFeedback { display:grid; gap:8px; margin-top:10px; padding:10px; border:1px solid rgba(133,221,191,.23); border-radius:10px; background:rgba(133,221,191,.055); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.coopFeedback.isError { border-color:rgba(240,126,126,.4); color:#ffc3c3; background:rgba(240,126,126,.06); }
+.allianceCooperation .coopShortage { margin:0; color:#efd19a; font-size:11px; line-height:1.6; }
+.coopMyShare { display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin-top:13px; padding-top:12px; border-top:1px solid var(--line); font-size:12px; }.coopMyShare small { color:var(--muted); line-height:1.5; }
+.coopStart { display:grid; gap:8px; }.coopStart p { color:var(--muted); }
+.coopRewardList,.coopTechnologyList { display:grid; gap:10px; margin-top:12px; }
+.coopReward,.coopTechnology { display:grid; gap:10px; min-width:0; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.02); }
+.coopReward>div:first-child { display:flex; flex-direction:column; gap:5px; font-size:13px; }.coopReward small { color:var(--muted); font-size:11px; line-height:1.5; }.coopReward>.coopAmounts { font-size:13px; }
+.coopScience { display:flex; flex-direction:column; gap:4px; padding:8px; border:1px solid var(--line); border-radius:9px; font-size:14px; }.coopScience small { color:var(--muted); font-size:10px; }
+.coopTechnology>div:first-child { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; }.coopTechnology>div:first-child>span { color:var(--muted); font-size:11px; }.coopTechnology p { margin:0; }
+.coopTechnologyCost { display:flex; align-items:center; flex-wrap:wrap; gap:6px; color:var(--muted); font-size:11px!important; }
+.coopPagination { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; margin-top:12px; font-size:12px; text-align:center; color:var(--muted); }
+@media(max-width:360px) { .allianceCooperation h2 { font-size:16px; }.coopRoleChoices { gap:5px; }.allianceCooperation .coopRoleChoices label { padding:8px 4px; font-size:10px; }.coopSelectedRole,.coopReward,.coopTechnology { padding:10px; } }
