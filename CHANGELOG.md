@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.7-beta.1 — From Finds to Flight Routes
+- Each artifact's source now opens and focuses its exact expedition route, with the selected find's per-flight chance, launch price and access requirements visible together. A return button leads back to the collection.
+- Locked routes can be inspected from the collection before opening expeditions. Research, HQ, centre, slot, resource and feature restrictions still block launch; viewing never starts a flight or spends resources.
+- Route focus clears on ordinary navigation or player changes, respects reduced motion and does not steal focus during background refresh. No migration, dependency, economy or saved-city change is required.
+
 ## 1.14.6-beta.1 — Give Development a Purpose
 - Connected the city guide to a concrete research step or selected supply stage. It shows the immediate cost, shortages, stage reward and optional resource help; prepaid foundry outputs reduce new production needs without becoming spendable stock. Supply stages accept partial deliveries without demanding storage for the whole stage.
 - Added a production supply comparison: actual active mine and power income versus one selected workshop's uninterrupted recipe demand, including research and Premium. This explains raw-material bottlenecks without promising a completion time or changing rates.

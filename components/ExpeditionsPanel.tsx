@@ -5,11 +5,14 @@ import { BuildingArt } from '@/components/BuildingArt';
 import { ArtifactArt } from '@/components/ArtifactArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { MechanicGuide } from '@/components/MechanicGuide';
-import { ARTIFACTS, EXPEDITIONS } from '@/lib/game/expeditions';
+import { ARTIFACTS, EXPEDITIONS, artifactDropChance, type ArtifactId, type ExpeditionKey } from '@/lib/game/expeditions';
 import { RESEARCH_TREE } from '@/lib/game/research';
+import { FEATURE_RESEARCH } from '@/lib/game/unlocks';
 import { quoteExpeditionSettlement } from '@/lib/game/expedition-quote';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/expeditions-panel.css';
+
+export type ArtifactExpeditionFocus = { routeKey: ExpeditionKey; artifactId: ArtifactId; requestId: number };
 
 type Props = {
   expeditions: any;
@@ -18,6 +21,9 @@ type Props = {
   hqLevel: number;
   featureEnabled: boolean;
   busy: boolean;
+  accessUnlocked?: boolean;
+  artifactFocus?: ArtifactExpeditionFocus | null;
+  onArtifacts?: () => void;
   onStart: (key: string) => Promise<unknown>;
   onResolve: (id: string, choiceId?: string) => Promise<unknown>;
   onBuild: () => void;
@@ -70,6 +76,8 @@ export function ExpeditionsPanel(props: Props) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [receipt, setReceipt] = useState<{ runId: string; name: string; result: Values } | null>(null);
   const guard = useRef(false);
+  const focusedRouteRef = useRef<HTMLElement>(null);
+  const handledFocus = useRef<ArtifactExpeditionFocus | null>(null);
   const data = record(props.expeditions);
   const runs: any[] = Array.isArray(data.runs) ? data.runs : [];
   const catalog: any[] = Array.isArray(data.catalog) ? data.catalog : [];
@@ -80,6 +88,18 @@ export function ExpeditionsPanel(props: Props) {
   const activeCount = Number(data.activeCount ?? runs.length);
   const slotsFull = activeCount >= slots;
   const returnedCount = runs.filter((run) => run.status === 'ready' || run.status === 'event').length;
+  const accessLocked = props.accessUnlocked === false;
+  const focusedArtifact = props.artifactFocus && artifactDropChance(props.artifactFocus.routeKey, props.artifactFocus.artifactId) > 0
+    ? ARTIFACTS.find(artifact => artifact.id === props.artifactFocus?.artifactId) : undefined;
+  const focusedRouteAvailable = !!focusedArtifact && catalog.some(option => option.key === props.artifactFocus?.routeKey);
+
+  useEffect(() => {
+    if (!props.artifactFocus) { handledFocus.current = null; return; }
+    if (!focusedRouteAvailable || !focusedRouteRef.current || handledFocus.current === props.artifactFocus) return;
+    handledFocus.current = props.artifactFocus;
+    focusedRouteRef.current.focus({ preventScroll: true });
+    focusedRouteRef.current.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [props.artifactFocus, focusedRouteAvailable]);
 
   useEffect(() => {
     if (!hasActive) return;
@@ -96,7 +116,7 @@ export function ExpeditionsPanel(props: Props) {
     return <div className={`xpFeedback ${feedback.error ? 'isError' : 'isSuccess'}`} role={feedback.error ? 'alert' : 'status'}><span>{feedback.text}</span>{feedback.error && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить данные</button>}</div>;
   }
   async function start(option: any) {
-    if (locked || guard.current || !props.featureEnabled || !data.enabled || !option.unlocked || slotsFull) return;
+    if (locked || guard.current || accessLocked || !props.featureEnabled || !data.enabled || !option.unlocked || slotsFull) return;
     const launchQuote = quoteExpeditionSettlement({}, {}, option.cost ?? {}, props.resources, props.capacities);
     if (!launchQuote.canClaim) return;
     const target = `start:${option.key}`;
@@ -166,21 +186,23 @@ export function ExpeditionsPanel(props: Props) {
       const centerLocked = !data.enabled;
       const researchLocked = !hqLocked && !centerLocked && !option.unlocked && option.requiredResearch;
       const researchName = RESEARCH_TREE.find((item) => item.key === option.requiredResearch)?.name ?? 'нужная технология';
-      const gateText = hqLocked ? `Нужна база ур. ${option.unlockHq}.` : centerLocked ? 'Нужен действующий центр экспедиций.' : researchLocked ? `Нужно исследование «${researchName}».` : !option.unlocked ? String(option.lockReason ?? 'Маршрут пока недоступен.').replace(/HQ(\d+)/g, 'база ур. $1') : '';
+      const gateText = accessLocked ? `Нужно исследование «${FEATURE_RESEARCH.expeditions.name}».` : hqLocked ? `Нужна база ур. ${option.unlockHq}.` : centerLocked ? 'Нужен действующий центр экспедиций.' : researchLocked ? `Нужно исследование «${researchName}».` : !option.unlocked ? String(option.lockReason ?? 'Маршрут пока недоступен.').replace(/HQ(\d+)/g, 'база ур. $1') : '';
       const target = `start:${option.key}`;
       const reward = record(option.reward);
-      return <article className="xpRoute" key={option.key} data-expedition-catalog={option.key} aria-labelledby={`${id}-route-${option.key}`}>
+      const isFocused = !!focusedArtifact && option.key === props.artifactFocus?.routeKey;
+      return <article className={`xpRoute${isFocused ? ' isArtifactTarget' : ''}`} key={option.key} ref={isFocused ? focusedRouteRef : undefined} tabIndex={isFocused ? -1 : undefined} data-expedition-catalog={option.key} aria-labelledby={`${id}-route-${option.key}`}>
         <div className="xpRouteHeading"><h4 id={`${id}-route-${option.key}`}><GameIcon name="rocket" size={18} />{option.name}</h4><span><GameIcon name="clock" size={13} />{duration(Number(option.durationSec ?? 0))}</span></div>
+        {isFocused && <div className="xpArtifactTarget"><ArtifactArt artifactId={focusedArtifact.id} size={40} /><div><strong>Ищем: {focusedArtifact.name}</strong><span>Шанс этой находки за вылет: {(artifactDropChance(option.key, focusedArtifact.id) * 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}%. Находка не гарантирована.</span>{props.onArtifacts && <button type="button" className="miniButton" onClick={props.onArtifacts}>К коллекции<GameIcon name="arrow" size={13} /></button>}</div></div>}
         <div className="xpRouteRewards"><span className="xpMetaLabel">Базовая добыча за вылет</span><div>{['ore', 'credits', 'science'].flatMap((resource) => Array.isArray(reward[resource]) ? [<GameAmount key={resource} resource={resource}>{number(Number(reward[resource][0]))}–{number(Number(reward[resource][1]))}</GameAmount>] : [])}</div>
           {Array.isArray(reward.crystals) && Number(reward.crystalsChance) > 0 && <small><GameAmount resource="crystals">{number(Number(reward.crystals[0]))}–{number(Number(reward.crystals[1]))}</GameAmount> · шанс {Math.round(Number(reward.crystalsChance) * 100)}%</small>}
         </div>
         <details className="xpRouteDetails"><summary>О маршруте и шансах находок<GameIcon name="arrow" size={14} /></summary><p>{option.description}</p><div className="xpProbabilities"><span><GameIcon name="artifact_lens" size={18} />Шанс артефакта: {Math.round(Number(option.artifactChance ?? 0) * 100)}%</span><span>Шанс события: {Math.round(Number(option.eventChance ?? 0) * 100)}%</span></div><p>Исследования могут увеличить науку. Диапазоны и шансы указаны за один вылет; точная добыча станет известна после возвращения.</p></details>
         <div className="xpLaunchCost"><span className="xpMetaLabel">Спишется при запуске</span><Amounts value={option.cost} /></div>
-        {gateText && <div className="xpGate"><span>{gateText}</span>{hqLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeHq}>Показать улучшение базы</button> : centerLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onBuild}>Показать центр экспедиций</button> : researchLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(option.requiredResearch)}>Показать исследование</button> : null}</div>}
+        {gateText && <div className="xpGate"><span>{gateText}</span>{accessLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(FEATURE_RESEARCH.expeditions.researchKey)}>Показать исследование</button> : hqLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeHq}>Показать улучшение базы</button> : centerLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onBuild}>Показать центр экспедиций</button> : researchLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(option.requiredResearch)}>Показать исследование</button> : null}</div>}
         {missingResources && <div className="xpWarning"><span>Не хватает для запуска:</span><Amounts value={shortages} /></div>}
         {!launchQuote.canClaim && !missingResources && <div className="xpFeedback isError"><span>Стоимость запуска пришла не полностью.</span><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить маршруты</button></div>}
         {slotsFull && <p className="xpLaunchBlocker">{returnedCount > 0 ? 'Получи добычу вернувшейся экспедиции, чтобы освободить слот.' : 'Дождись возвращения экспедиции и забери добычу, чтобы освободить слот.'}</p>}
-        <button type="button" className="action secondary xpLaunch" disabled={locked || !props.featureEnabled || !option.unlocked || centerLocked || hqLocked || slotsFull || !launchQuote.canClaim} data-expedition-start={option.key} onClick={() => void start(option)}>{pending === target ? 'Отправляем…' : !props.featureEnabled ? 'Запуски приостановлены' : gateText ? 'Маршрут пока недоступен' : slotsFull ? 'Все слоты заняты' : missingResources ? 'Не хватает ресурсов' : 'Отправить экспедицию'}<GameIcon name="arrow" size={15} /></button>
+        <button type="button" className="action secondary xpLaunch" disabled={locked || accessLocked || !props.featureEnabled || !option.unlocked || centerLocked || hqLocked || slotsFull || !launchQuote.canClaim} data-expedition-start={option.key} onClick={() => void start(option)}>{pending === target ? 'Отправляем…' : !props.featureEnabled ? 'Запуски приостановлены' : gateText ? 'Маршрут пока недоступен' : slotsFull ? 'Все слоты заняты' : missingResources ? 'Не хватает ресурсов' : 'Отправить экспедицию'}<GameIcon name="arrow" size={15} /></button>
         {notice(target)}
       </article>;
     })}</div>

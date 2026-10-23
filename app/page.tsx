@@ -33,7 +33,7 @@ import type { SupplyProjectState } from '@/lib/game/supply-projects';
 import { DailyLoginPanel } from '@/components/DailyLoginPanel';
 import { QuestPanel } from '@/components/QuestPanel';
 import { SeasonPanel } from '@/components/SeasonPanel';
-import { ExpeditionsPanel } from '@/components/ExpeditionsPanel';
+import { ExpeditionsPanel, type ArtifactExpeditionFocus } from '@/components/ExpeditionsPanel';
 import { ArtifactsPanel } from '@/components/ArtifactsPanel';
 import { MarketPanel } from '@/components/MarketPanel';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -146,6 +146,8 @@ export default function Home() {
   const pendingProduction = useRef<{ key: string; requestId: string } | null>(null);
   const [focusedResearch, setFocusedResearch] = useState<string | null>(null);
   const [researchFocusVersion, setResearchFocusVersion] = useState(0);
+  const [artifactExpedition, setArtifactExpedition] = useState<(ArtifactExpeditionFocus & { owner: string }) | null>(null);
+  const artifactExpeditionVersion = useRef(0);
   const [researchTarget, setResearchTarget] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
   const [supplyView, setSupplyView] = useState<'projects' | 'contracts'>('projects');
@@ -182,6 +184,7 @@ export default function Home() {
   const awaitingProducts = premiumAwaiting
     ? [...awaitingCosmetics, 'premium_30d'] : awaitingCosmetics;
   const planOwner = purchaseUser ? String(purchaseUser) : '';
+  const artifactExpeditionFocus = artifactExpedition?.owner === planOwner ? artifactExpedition : null;
   const settingsOwner = useRef(planOwner);
   settingsOwner.current = planOwner;
   const supplyProjects = (game?.supplyProjects?.projects ?? []) as SupplyProjectState[];
@@ -193,6 +196,8 @@ export default function Home() {
   const [guideFocus, setGuideFocus] = useState<{ owner: string; kind: 'research' | 'supplies' | null }>({ owner: '', kind: null });
   const activeGuideFocus = guideFocus.owner === planOwner && guideFocus.kind ? guideFocus.kind
     : plannedResearchKey ? 'research' : selectedSupply?.started && !selectedSupply.completed ? 'supplies' : 'research';
+
+  useEffect(() => { setArtifactExpedition(null); }, [planOwner]);
 
   useEffect(() => {
     if (!planOwner) return;
@@ -306,6 +311,7 @@ export default function Home() {
 
   function openSubsection(section: string) {
     if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
+    setArtifactExpedition(null);
     if (tab === 'missions' && section === 'achievements') setAchievementFocus(previous => ({ category: 'all', requestId: previous.requestId + 1 }));
     navigationToTop.current = true;
     guideNavigationPending.current = null;
@@ -319,6 +325,7 @@ export default function Home() {
   }
 
   function openSection(nextTab: Tab) {
+    setArtifactExpedition(null);
     setInspectorOpen(false);
     navigationToTop.current = true;
     setFocusedResearch(null);
@@ -367,6 +374,7 @@ export default function Home() {
   }, [tab, subsections, guideNavigationVersion, inspectorOpen]);
 
   function navigateGuide(action: string) {
+    setArtifactExpedition(null);
     setInspectorOpen(false);
     setHelpOpen(false);
     setConstructionFeedback(null);
@@ -1137,9 +1145,11 @@ export default function Home() {
         </section>
         </div>}
         {subsections.build === 'expeditions' && <div data-section-panel="build-expeditions">
-{expeditionsLocked ? <FeatureUnlock feature="expeditions" busy={busy} onResearch={chooseResearchTarget} /> : <ExpeditionsPanel key={planOwner}
+{expeditionsLocked && !artifactExpeditionFocus ? <FeatureUnlock feature="expeditions" busy={busy} onResearch={chooseResearchTarget} /> : <ExpeditionsPanel key={planOwner}
           expeditions={game.expeditions} resources={s} hqLevel={Number(s.hq_level)}
           featureEnabled={game.flags?.expeditions !== false} busy={busy}
+          accessUnlocked={!expeditionsLocked} artifactFocus={artifactExpeditionFocus}
+          onArtifacts={() => navigateGuide('artifacts')}
           capacities={{
             ore: Math.max(0, Number(game.caps?.ore ?? 0) - Number(game.escrow?.ore ?? 0)),
             energy: Math.max(0, Number(game.caps?.energy ?? 0) - Number(game.escrow?.energy ?? 0)),
@@ -1160,7 +1170,12 @@ export default function Home() {
         />}
         </div>}
         {subsections.build === 'artifacts' && <div data-section-panel="build-artifacts">
-<ArtifactsPanel artifacts={game.expeditions?.artifacts} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')} />
+<ArtifactsPanel artifacts={game.expeditions?.artifacts} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')}
+  onShowRoute={(routeKey, artifactId) => {
+    navigateGuide('expeditions');
+    navigationToTop.current = false;
+    setArtifactExpedition({ owner: planOwner, routeKey, artifactId, requestId: ++artifactExpeditionVersion.current });
+  }} />
         </div>}
       </>}
 

@@ -41,7 +41,14 @@
 .xpChoiceExchange { display:grid; grid-template-columns:1fr 1fr; gap:9px; font-size:11px; }.xpChoiceExchange > div { min-width:0; }
 .xpChoiceTotal { border-top:1px solid var(--line); padding-top:8px; margin-top:8px; color:#c0dfcb; font-size:12px; }
 .xpCatalog > h3 { margin:16px 0 10px; font-size:14px; line-height:1.5; }
-.xpRoute { min-width:0; padding:13px 12px; margin-top:10px; border:1px solid var(--line); border-radius:13px; background:rgba(12,28,39,.25); }
+.xpRoute { min-width:0; padding:13px 12px; margin-top:10px; border:1px solid var(--line); border-radius:13px; background:rgba(12,28,39,.25); scroll-margin-top:14px; scroll-margin-bottom:110px; }
+.xpRoute.isArtifactTarget { border-color:#78c4b7; background:linear-gradient(140deg,rgba(68,123,114,.17),rgba(12,28,39,.4)); }
+.xpRoute.isArtifactTarget:focus { outline:2px solid var(--accent); outline-offset:3px; }
+.xpArtifactTarget { display:flex; align-items:flex-start; gap:8px; margin-top:10px; padding:10px; border:1px solid #537b7759; border-radius:10px; }
+.xpArtifactTarget > div { min-width:0; flex:1; }
+.xpArtifactTarget strong,.xpArtifactTarget span { display:block; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.xpArtifactTarget span { margin-top:4px; color:#b7d0ce; }
+.xpArtifactTarget .miniButton { display:flex; align-items:center; gap:6px; margin-top:7px; }
 .xpRouteHeading { display:flex; align-items:flex-start; flex-wrap:wrap; justify-content:space-between; gap:5px 9px; }
 .xpRouteHeading h4 { display:flex; align-items:center; gap:6px; margin:0; font-size:13px; line-height:1.4; }.xpRouteHeading > span { display:flex; align-items:center; gap:4px; color:var(--muted); font-size:11px; line-height:1.5; }
 .expeditionsPanel .xpRoute > p { color:var(--muted); font-size:12px; line-height:1.5; margin:8px 0 10px; }
