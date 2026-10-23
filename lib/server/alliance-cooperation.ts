@@ -110,9 +110,22 @@ export async function getAllianceCooperationState(tx: any, userId: string) {
   const currentRows = currentRow ? await contributionRows(tx, currentRow.id) : [];
   const currentTeam = teamOf(currentRows), currentMine = currentRows.filter((row: any) => row.user_id === userId);
   const currentBonus = currentRow?.status === 'settled' ? Number(currentRow.team_bonus_percent) : currentTeam.bonus;
+  // Detailed teamwork is visible only for the viewer's current alliance, never pending cargo.
+  const participantIds = [...new Set<string>(currentRows.map((row: any) => row.user_id))];
+  const participantProfiles = participantIds.length ? await tx`SELECT u.id,
+    COALESCE(NULLIF(u.colony_name,''),NULLIF(u.first_name,''),NULLIF(u.username,''),'Колонист') AS name,
+    EXISTS(SELECT 1 FROM alliance_members am WHERE am.user_id=u.id AND am.alliance_id=${member.alliance_id}) AS is_current_member
+    FROM users u WHERE u.id IN ${tx(participantIds)}` : [];
+  const team = participantIds.map(participantId => {
+    const profile = participantProfiles.find((row: any) => row.id === participantId);
+    const modules = currentRows.filter((row: any) => row.user_id === participantId);
+    return { name: String(profile?.name ?? 'Колонист'), isMe: participantId === userId,
+      isCurrentMember: Boolean(profile?.is_current_member), units: modules.length,
+      roles: COOPERATION_ROLES.map(role => ({ id: role.id, units: modules.filter((row: any) => row.role === role.id).length })).filter(role => role.units > 0) };
+  });
   const current = currentRow ? { id: currentRow.id, allianceId: currentRow.alliance_id, allianceName: currentRow.alliance_name,
     status: currentRow.status, startedAt: timestamp(currentRow.started_at), endsAt: timestamp(currentRow.ends_at), participants: currentTeam.participants,
-    roles: currentTeam.roles, teamBonusPercent: currentBonus, sharedScience: currentRows.length * ALLIANCE_COOPERATION_SHARED_SCIENCE,
+    roles: currentTeam.roles, team, teamBonusPercent: currentBonus, sharedScience: currentRows.length * ALLIANCE_COOPERATION_SHARED_SCIENCE,
     technologySnapshot: { drilling: Number(currentRow.drilling_level), analysis: Number(currentRow.analysis_level) },
     myUnits: currentMine.length, maxUnits: ALLIANCE_COOPERATION_MAX_UNITS,
     myContributions: currentMine.map((row: any) => ({ id: row.id, role: row.role, cost: json(row.cost_json),

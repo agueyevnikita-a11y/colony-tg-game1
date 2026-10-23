@@ -15,6 +15,7 @@ export type AllianceCooperationState = {
     technologySnapshot: { drilling: number; analysis: number }; myUnits: number; maxUnits: number;
     myContributions: { id: string; role: string; cost: Amounts; reward: Amounts; claimedAt: string | null }[];
     myReward: Amounts;
+    team?: { name: string; isMe: boolean; isCurrentMember: boolean; units: number; roles: { id: Role; units: number }[] }[];
   };
   pending: { id: string; allianceName: string; endsAt: string; status: 'active' | 'ready'; units: number; reward: Amounts; canClaim: boolean; storageShortages: { ore: number } }[];
   progress: null | { sharedScience: number; technologies: Technology[]; canResearch: boolean };
@@ -61,6 +62,7 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   const [success, setSuccess] = useState<{ view: Props['view']; text: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [page, setPage] = useState(0);
+  const [teamPage, setTeamPage] = useState(0);
   const guard = useRef(false);
   const receipts = useRef(new Map<string, string>());
   const current = state?.current;
@@ -73,6 +75,11 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   const timingKey = [current?.status === 'active' ? current.endsAt : '', ...(state?.pending ?? []).filter(item => item.status === 'active').map(item => item.endsAt)].filter(Boolean).join('|');
   const pages = Math.max(1, Math.ceil(receive.length / 3)), currentPage = Math.min(page, pages - 1);
   const shortages = selectedRole ? Object.entries(selectedRole.cost).filter(([resource, amount]) => Number(resources[resource as keyof Amounts] ?? 0) < Number(amount)) : [];
+  const team = hasMembership ? current?.team ?? [] : [];
+  const teamPages = Math.max(1, Math.ceil(team.length / 5)), currentTeamPage = Math.min(teamPage, teamPages - 1);
+  const missingRoles = (Object.keys(ROLE_LABELS) as Role[]).filter(id => !current?.roles.includes(id));
+  const nextBonus = Number(current?.teamBonusPercent ?? 0) >= 10 ? 20 : 10;
+  const nextTarget = nextBonus === 20 ? 3 : 2;
 
   useEffect(() => {
     setNow(Date.now());
@@ -81,6 +88,7 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
     return () => window.clearInterval(timer);
   }, [timingKey]);
   useEffect(() => { setFeedback({}); setSuccess(null); setRole('drilling'); setPage(0); }, [ownerKey, allianceKey]);
+  useEffect(() => { setTeamPage(0); }, [current?.id, ownerKey, allianceKey]);
 
   function status(key: string) {
     const item = feedback[key];
@@ -134,6 +142,7 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
         : current && active ? <>
           <div className="coopTeamSummary"><span><GameIcon name="social" size={16} />Участников <b>{n(current.participants)}</b></span><span>Ролей <b>{current.roles.length}/3</b></span><span>Бонус руды <b>+{n(current.teamBonusPercent)}%</b></span></div>
           <p className="coopHint">Два участника с двумя ролями дают +10% руды, три участника с тремя ролями — +20%. Бонус зафиксируется в конце добычи.</p>
+          <div className="coopNextBonus" data-coop-next-bonus>{current.teamBonusPercent >= 20 ? <><GameIcon name="check" size={17} /><span>Все роли собраны. Максимальный командный бонус — +20% руды.</span></> : <><GameIcon name="network" size={17} /><span>До +{nextBonus}%: участников {Math.min(current.participants, nextTarget)}/{nextTarget}, ролей {Math.min(current.roles.length, nextTarget)}/{nextTarget}.{missingRoles.length > 0 ? ` Свободные роли: ${missingRoles.map(id => ROLE_LABELS[id].toLocaleLowerCase('ru-RU')).join(', ')}.` : ' Нужен вклад ещё одного участника.'}</span></>}</div>
           <fieldset className="coopRoleField" disabled={locked || !freeUnits}><legend>Твоя следующая смена · {n(current.myUnits)} из {n(maxUnits)} оплачено</legend><div className="coopRoleChoices">{state.roleOptions.map(option => <label key={option.id} className={selectedRole?.id === option.id ? 'isSelected' : ''}><input type="radio" name={`coop-role-${current.id}`} value={option.id} checked={selectedRole?.id === option.id} aria-label={option.name} onChange={() => setRole(option.id)} /><GameIcon name={ROLE_ICONS[option.id]} size={24} /><span>{ROLE_LABELS[option.id]}</span></label>)}</div></fieldset>
           {selectedRole && freeUnits > 0 ? <div className="coopSelectedRole"><h3>{selectedRole.name}</h3><div><span>Потратишь сразу</span>{amounts(selectedRole.cost)}</div><div><span>Базовая доля за смену</span>{amounts(selectedRole.reward)}</div><p className="coopHint">Одна смена даст {n(state.rules.sharedSciencePerUnit)} общей науки. Командный бонус добавится к руде.</p>
             <button type="button" className="action" disabled={locked || shortages.length > 0} onClick={() => { void act(contributeKey, { action: 'contribute', operationId: current.id, role: selectedRole.id }, data => {
@@ -145,6 +154,7 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
           {current.myUnits > 0 && <div className="coopMyShare"><strong>Твоя доля · предварительно</strong>{amounts(current.myReward)}<small>Готовность: {date(current.endsAt)}. Добыча идёт при закрытой игре.</small></div>}
         </> : current?.status === 'active' ? <div className="coopFeedback" role="status">Время добычи вышло. Обнови результат, чтобы получить готовую долю.{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить результат</button>}</div>
           : <div className="coopStart"><p>Запуск бесплатный. Затем каждый участник может оплатить до {n(state.rules.maxUnitsPerPlayer)} смен с разными ролями.</p><button type="button" className="action" disabled={locked} onClick={() => { void act(startKey, { action: 'start' }, 'Совместная добыча началась. Теперь можно выбрать роль и оплатить смену.'); }}>{pendingKey === startKey ? 'Запускаем…' : current ? 'Начать следующую операцию' : 'Начать совместную добычу'}</button>{status(startKey)}</div>}
+      {team.length > 0 && <details className="coopTeamRoster" data-coop-team><summary>{current?.status === 'active' ? 'Кто участвует в добыче' : 'Участники завершённой добычи'} · {n(team.length)}</summary><p className="coopHint">Здесь только принятые смены этой операции. Вклад сохраняется, даже если участник покинул альянс.</p><div className="coopTeamList">{team.slice(currentTeamPage * 5, currentTeamPage * 5 + 5).map((member, index) => <article className="coopTeamMember" key={currentTeamPage * 5 + index}><div><strong>{member.name}{member.isMe && <span> · ты</span>}</strong><b>{n(member.units)} / {n(maxUnits)} смены</b></div><div className="coopTeamRoles">{member.roles.map(role => <span key={role.id}><GameIcon name={ROLE_ICONS[role.id]} size={15} />{ROLE_LABELS[role.id]} · {n(role.units)}</span>)}</div>{!member.isCurrentMember && <small>Покинул альянс · вклад сохранён</small>}</article>)}</div>{teamPages > 1 && <div className="coopPagination"><button type="button" className="miniButton" disabled={currentTeamPage === 0} onClick={() => setTeamPage(currentTeamPage - 1)}>Назад</button><span>{currentTeamPage + 1}/{teamPages}</span><button type="button" className="miniButton" disabled={currentTeamPage + 1 >= teamPages} onClick={() => setTeamPage(currentTeamPage + 1)}>Далее</button></div>}</details>}
     </section>}
     {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
     {receive.length > 0 && <section className="card coopRewards" data-coop-rewards><h2><GameIcon name="contracts" size={22} />Твои доли добычи</h2><p>Заработанные доли остаются доступными после выхода из альянса. Срока получения нет.</p><div className="coopRewardList">{receive.slice(currentPage * 3, currentPage * 3 + 3).map(item => {

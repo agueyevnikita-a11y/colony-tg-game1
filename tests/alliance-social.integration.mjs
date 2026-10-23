@@ -35,10 +35,10 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
     await sql`INSERT INTO beta_access(user_id,source) VALUES(${row.id},'integration_test')`;
     return { userId: row.id, telegramId };
   }
-  async function group(memberCount = 2) {
+  async function group(memberCount = 2, name) {
     const owner = await player(), members = [];
     const reply = await request('/api/alliance/create', {
-      method: 'POST', auth: initData(owner.telegramId), body: { name: `CI ${owner.telegramId}` },
+      method: 'POST', auth: initData(owner.telegramId), body: { name: name ?? `CI ${owner.telegramId}` },
     });
     assert.equal(reply.status, 200, JSON.stringify(reply.data));
     const [alliance] = await sql`SELECT id,code FROM alliances WHERE owner_user_id=${owner.userId}`;
@@ -65,6 +65,12 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
     const reply = await post(player, { action: 'contribute', requestId, operationId, role });
     assert.equal(reply.status, 200, JSON.stringify(reply.data));
     return reply;
+  }
+  async function directory(player, body = {}) {
+    const reply = await request('/api/alliance/directory', { method: 'POST', auth: initData(player.telegramId), body });
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    assert.equal(reply.data.ok, true);
+    return reply.data.directory;
   }
 
   async function queuedBoundary(kind) {
@@ -378,6 +384,142 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
       assert.equal(retry.data.result.count, 0);
       assert.deepEqual(await balances(team.owner), ownBeforeRetry);
       assert.deepEqual(await sql`SELECT cosmetic_id FROM user_cosmetics WHERE user_id=${team.owner.userId} AND source LIKE ${`competition_${periodId}%`} ORDER BY cosmetic_id`, ownerCosmetics);
+    });
+
+    await t.test('alliance discovery validates requests, excludes full groups and exposes the real rejoin deadline', async () => {
+      const visitor = await player(), full = await group(1), team = await group(1);
+      const before = await balances(visitor);
+      for (const body of [null, [], 'bad', { query: 1 }, { query: 'x'.repeat(65) },
+        { page: -1 }, { page: 100 }, { page: 0.5 }, { page: '1' }, { page: null }]) {
+        const reply = await request('/api/alliance/directory', { method: 'POST', auth: initData(visitor.telegramId), body });
+        assert.equal(reply.status, 400, JSON.stringify({ body, reply }));
+      }
+      assert.equal((await request('/api/alliance/directory', { method: 'POST', body: {} })).status, 400);
+      await sql`UPDATE alliances SET member_limit=2 WHERE id=${full.id}`;
+      assert.equal((await directory(visitor, { query: full.code })).items.length, 0);
+      const initial = await session(visitor);
+      assert.equal(initial.alliance.entry.availableAt, null);
+      assert.equal(initial.alliance.directory.query, '');
+      assert.equal(initial.alliance.directory.page, 0);
+      assert.ok(initial.alliance.directory.items.length <= 5);
+      assert.deepEqual(await balances(visitor), before);
+
+      const member = team.members[0];
+      assert.equal((await session(member)).alliance.entry.availableAt, null);
+      const left = await request('/api/alliance/leave', { method: 'POST', auth: initData(member.telegramId), body: {} });
+      assert.equal(left.status, 200, JSON.stringify(left.data));
+      const [leftAt] = await sql`SELECT alliance_left_at FROM users WHERE id=${member.userId}`;
+      const entry = (await session(member)).alliance.entry;
+      assert.equal(Date.parse(entry.availableAt), new Date(leftAt.alliance_left_at).getTime() + 24 * 3_600_000);
+      assert.equal((await request('/api/alliance/join', { method: 'POST', auth: initData(member.telegramId), body: { code: team.code } })).status, 400);
+    });
+
+    await t.test('alliance discovery searches names and codes literally and pages matching Unicode names without overlap', async () => {
+      const visitor = await player(), prefix = `ЛуНа ${crypto.randomBytes(4).toString('hex')}`;
+      const teams = [];
+      for (let index = 0; index < 7; index++) teams.push(await group(0, `${prefix}${index === 0 ? '_' : 'Х'}${index}`));
+      const first = await directory(visitor, { query: `  ${prefix.toLocaleLowerCase('ru-RU')}  `, page: 0 });
+      const second = await directory(visitor, { query: prefix.toLocaleUpperCase('ru-RU'), page: 1 });
+      assert.equal(first.query, prefix.toLocaleLowerCase('ru-RU'));
+      assert.equal(first.page, 0);
+      assert.equal(first.items.length, 5);
+      assert.equal(first.hasMore, true);
+      assert.equal(second.page, 1);
+      assert.equal(second.items.length, 2);
+      assert.equal(second.hasMore, false);
+      const ids = [...first.items, ...second.items].map(item => item.id);
+      assert.equal(new Set(ids).size, 7);
+      assert.deepEqual([...ids].sort(), teams.map(team => team.id).sort());
+      assert.deepEqual((await directory(visitor, { query: `${prefix}_` })).items.map(item => item.id), [teams[0].id]);
+      assert.deepEqual((await directory(visitor, { query: '%' })).items, []);
+      assert.deepEqual((await directory(visitor, { query: `${prefix}\\` })).items, []);
+      assert.deepEqual((await directory(visitor, { query: teams[0].code.toLowerCase() })).items.map(item => item.id), [teams[0].id]);
+      const last = await directory(visitor, { query: prefix, page: 99 });
+      assert.equal(last.page, 99);
+      assert.deepEqual(last.items, []);
+      assert.equal(last.hasMore, false);
+    });
+
+    await t.test('alliance discovery counts real seven-day modules independently and ranks distinct contributors before member count', async () => {
+      const visitor = await player(), prefix = `Руда ${crypto.randomBytes(4).toString('hex')}`;
+      const single = await group(2, `${prefix} А`), shared = await group(2, `${prefix} Б`), idle = await group(3, `${prefix} В`);
+      const singleOperation = await start(single.owner), sharedOperation = await start(shared.owner);
+      const idleOperation = await start(idle.owner), receipt = crypto.randomUUID();
+      await unit(single.owner, singleOperation, 'power', receipt);
+      await unit(single.owner, singleOperation, 'power', receipt);
+      await unit(single.owner, singleOperation, 'drilling');
+      await unit(single.owner, singleOperation, 'analysis');
+      await unit(shared.owner, sharedOperation, 'power');
+      await unit(shared.members[0], sharedOperation, 'drilling');
+      await unit(shared.members[1], sharedOperation, 'analysis');
+      await sql`UPDATE alliance_season_points SET points=999999 WHERE alliance_id=${single.id}`;
+      const [old] = await sql`INSERT INTO alliance_cooperation_operations(alliance_id,alliance_name,status,started_at,ends_at,settled_at)
+        VALUES(${single.id},'Old CI','settled',now()-interval '10 days',now()-interval '9 days',now()-interval '9 days') RETURNING id`;
+      await sql`INSERT INTO alliance_cooperation_contributions(operation_id,user_id,role,cost_json,reward_json,created_at)
+        VALUES(${old.id},${single.members[0].userId},'power','{"energy":200}'::jsonb,'{"ore":240,"credits":50,"science":5}'::jsonb,now()-interval '8 days'),
+          (${old.id},${single.members[1].userId},'power','{"energy":200}'::jsonb,'{"ore":240,"credits":50,"science":5}'::jsonb,now()+interval '1 day')`;
+      await sql`UPDATE alliance_cooperation_contributions SET claimed_at=now() WHERE operation_id=${singleOperation} AND role='analysis'`;
+      const found = await directory(visitor, { query: prefix });
+      assert.deepEqual(found.items.map(item => [item.id, item.modules7d, item.contributors7d, item.members]),
+        [[shared.id, 3, 3, 3], [single.id, 3, 1, 3], [idle.id, 0, 0, 4]]);
+      for (const item of found.items) {
+        assert.deepEqual(Object.keys(item).sort(), ['code', 'contributors7d', 'id', 'memberLimit', 'members', 'modules7d', 'name', 'operation'].sort());
+        assert.deepEqual(Object.keys(item.operation).sort(), ['endsAt', 'participants', 'roles']);
+      }
+      assert.equal(found.items[0].operation.participants, 3);
+      assert.deepEqual([...found.items[0].operation.roles].sort(), ['analysis', 'drilling', 'power']);
+      assert.equal(found.items[1].operation.participants, 1);
+      assert.equal(found.items[2].operation.participants, 0);
+      assert.deepEqual(found.items[2].operation.roles, []);
+      assert.ok(idleOperation);
+    });
+
+    await t.test('mining team breakdown retains paid leavers without leaking old teammates into personal cargo or another guild', async () => {
+      const team = await group(2), member = team.members[0], outsider = await player(), operationId = await start(team.owner);
+      await unit(team.owner, operationId, 'drilling');
+      await unit(team.owner, operationId, 'power');
+      await unit(member, operationId, 'analysis');
+      const own = (await session(team.owner)).alliance.cooperation.current;
+      assert.equal(own.team.length, 2, 'Idle members must not appear as funded participants');
+      assert.equal(own.team.reduce((sum, row) => sum + row.units, 0), 3);
+      const self = own.team.find(row => row.isMe), teammate = own.team.find(row => !row.isMe);
+      assert.equal(self.units, 2);
+      assert.deepEqual(self.roles.map(role => [role.id, role.units]).sort(), [['drilling', 1], ['power', 1]]);
+      assert.equal(teammate.name, `Социальный тест ${member.telegramId}`);
+      assert.equal(teammate.units, 1);
+      assert.deepEqual(teammate.roles, [{ id: 'analysis', units: 1 }]);
+      for (const row of own.team) {
+        assert.equal(row.isCurrentMember, true);
+        assert.equal(row.roles.reduce((sum, role) => sum + role.units, 0), row.units);
+        assert.deepEqual(Object.keys(row).sort(), ['isCurrentMember', 'isMe', 'name', 'roles', 'units']);
+      }
+      const publicState = (await session(outsider)).alliance.cooperation;
+      assert.equal(publicState.current, null);
+      assert.deepEqual(publicState.pending, []);
+      const left = await request('/api/alliance/leave', { method: 'POST', auth: initData(member.telegramId), body: {} });
+      assert.equal(left.status, 200, JSON.stringify(left.data));
+      const afterLeave = (await session(team.owner)).alliance.cooperation.current;
+      assert.equal(afterLeave.team.length, 2);
+      assert.equal(afterLeave.team.find(row => row.name === teammate.name).isCurrentMember, false);
+      assert.equal(afterLeave.team.reduce((sum, row) => sum + row.units, 0), 3);
+      const cargo = (await session(member)).alliance.cooperation;
+      assert.equal(cargo.current, null);
+      assert.equal(cargo.pending.length, 1);
+      assert.equal(cargo.pending[0].units, 1);
+      assert.ok(cargo.pending.every(row => !Object.hasOwn(row, 'team')));
+      assert.equal(JSON.stringify(cargo.pending).includes(self.name), false);
+      const next = await group(0);
+      await start(next.owner);
+      await sql`UPDATE users SET alliance_left_at=now()-interval '25 hours' WHERE id=${member.userId}`;
+      const joined = await request('/api/alliance/join', { method: 'POST', auth: initData(member.telegramId), body: { code: next.code } });
+      assert.equal(joined.status, 200, JSON.stringify(joined.data));
+      const moved = (await session(member)).alliance.cooperation;
+      assert.equal(moved.current.allianceId, next.id);
+      assert.deepEqual(moved.current.team, []);
+      assert.equal(moved.pending.length, 1);
+      assert.equal(moved.pending[0].id, operationId);
+      assert.ok(moved.pending.every(row => !Object.hasOwn(row, 'team')));
+      assert.equal(JSON.stringify(moved).includes(self.name), false);
     });
 
     await t.test('a contribution queued across the weekly cutoff rolls back resources, mining and competition receipts', async () => {

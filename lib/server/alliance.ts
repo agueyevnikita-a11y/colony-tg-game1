@@ -6,6 +6,7 @@ import { ACTIVE_SEASON_ID } from '@/lib/game/season';
 import { getAllianceDailyState } from '@/lib/server/alliance-daily';
 import { getAllianceCooperationState } from '@/lib/server/alliance-cooperation';
 import { getAllianceCompetitionState } from '@/lib/server/alliance-competition';
+import { getAllianceDirectory } from '@/lib/server/alliance-directory';
 import {
   ALLIANCE_CREATE_COST,
   ALLIANCE_DAILY_GOALS,
@@ -97,6 +98,11 @@ export async function getAllianceState(tx: any, userId: string) {
   const cooperation = await getAllianceCooperationState(tx, userId);
   const competition = await getAllianceCompetitionState(tx, userId);
   const m = await membership(tx, userId);
+  const [entryRow] = await tx<any[]>`SELECT CASE
+    WHEN alliance_left_at+make_interval(hours=>${ALLIANCE_REJOIN_COOLDOWN_HOURS})>now()
+    THEN alliance_left_at+make_interval(hours=>${ALLIANCE_REJOIN_COOLDOWN_HOURS}) ELSE NULL END AS available_at
+    FROM users WHERE id=${userId}`;
+  const entry = { availableAt: entryRow?.available_at ? new Date(entryRow.available_at).toISOString() : null };
   const [players, alliancesTop] = await Promise.all([playerLeaderboard(tx), allianceLeaderboard(tx)]);
 
   if (!m) {
@@ -112,10 +118,13 @@ export async function getAllianceState(tx: any, userId: string) {
       ORDER BY COALESCE(asp.points,0) DESC, a.prestige DESC, count(am.user_id) DESC, a.created_at ASC
       LIMIT 12
     `;
+    const directory = await getAllianceDirectory(tx);
     return {
       membership: null,
+      entry,
       cooperation,
       competition,
+      directory,
       recommended,
       playerLeaderboard: players,
       allianceLeaderboard: alliancesTop,
@@ -168,6 +177,7 @@ export async function getAllianceState(tx: any, userId: string) {
 
   return {
     membership: m,
+    entry,
     cooperation,
     competition,
     alliance: {

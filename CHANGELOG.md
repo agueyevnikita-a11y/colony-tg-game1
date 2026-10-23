@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.1-beta.1 — Find Your Lunar Crew
+- Added a searchable, paged directory of open alliances with real funded mining activity over the last seven days, independent of historical AP. Public listings expose team aggregates rather than player identities or private cargo.
+- Split joining into Find / By Code / Create views, with the actual rejoin deadline shown before submission. Search and paging do not change the player's game session or join a team automatically.
+- Cooperative operations now show a compact contributor breakdown with accepted modules and support roles. Former members' paid contributions remain visible to their original team; personal pending cargo never exposes another team's roster.
+- Kept production, rewards, league scoring, technology balance and saved cities unchanged. No migration or new dependency is required.
+
 ## 1.13.0-beta.1 — Work Together on the Moon
 - Added shared six-hour mining operations with three support roles, up to three paid modules per participant, a bonus for different people and roles, and personal cargo that survives leaving, removal or deletion of its alliance. Cargo waits for full warehouse space and does not expire.
 - Operations generate shared alliance science. Officers and owners can develop drilling and sample-analysis technologies; each operation snapshots its levels and research purchases use expected-level checks and replay receipts.

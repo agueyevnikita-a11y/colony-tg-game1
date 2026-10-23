@@ -1154,6 +1154,7 @@ export default function Home() {
         {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
           <AlliancePanel key={planOwner} alliance={game.alliance} cooperation={game.alliance?.cooperation} resources={s} hqLevel={Number(s.hq_level)} telegramId={game.telegramUser?.id} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
             onShare={shareAlliance} onViewCity={viewCity} onRefresh={() => { void refresh(); }}
+            onDirectorySearch={async (query, page) => { try { return (await api('/api/alliance/directory', { query, page })).directory; } catch (error) { setMessage(''); throw error; } }}
             onAction={async (path, body) => { try { return await api(path, body); } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'rating' && <div data-section-panel="social-rating">

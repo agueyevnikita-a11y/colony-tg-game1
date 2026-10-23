@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { contributionPoints, type AllianceResource } from '@/lib/game/alliance';
 import { AllianceCooperationPanel, type AllianceCooperationState } from '@/components/AllianceCooperationPanel';
+import { AllianceDirectory } from '@/components/AllianceDirectory';
 import { SectionTabs } from '@/components/SectionTabs';
+import type { AllianceDirectoryState } from '@/lib/game/alliance-directory';
 import '@/app/alliance-panel.css';
 
 type AllianceMember = {
@@ -20,6 +22,8 @@ type AllianceMember = {
 
 type AllianceState = {
   cooperation?: AllianceCooperationState;
+  directory?: AllianceDirectoryState;
+  entry?: { availableAt: string | null };
   membership?: { role: 'owner' | 'officer' | 'member' } | null;
   alliance?: {
     id?: string;
@@ -73,12 +77,14 @@ type Props = {
   onShare: () => void;
   onViewCity: (telegramId: number) => void;
   onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
+  onDirectorySearch?: (query: string, page: number) => Promise<AllianceDirectoryState>;
   onRefresh?: () => void;
 };
 
 type Feedback = { text: string; error: boolean };
 type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; telegramId: string | number; name: string };
 type AllianceSection = 'mining' | 'technology' | 'project' | 'goals' | 'members';
+type EntrySection = 'find' | 'code' | 'create';
 const MEMBERS_PER_PAGE = 5;
 const RESOURCES: AllianceResource[] = ['ore', 'energy', 'parts'];
 const RESOURCE_LABELS = { ore: 'руды', energy: 'энергии', parts: 'деталей' };
@@ -93,7 +99,7 @@ function timeRemaining(timestamp: string | null | undefined, now: number) {
   return minutes >= 60 ? `${Math.floor(minutes / 60)} ч. ${minutes % 60} мин.` : `${minutes} мин.`;
 }
 
-export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onRefresh }: Props) {
+export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh }: Props) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState('');
   const [resource, setResource] = useState<AllianceResource>('ore');
@@ -103,17 +109,19 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const [membershipFeedback, setMembershipFeedback] = useState<Feedback | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [section, setSection] = useState<AllianceSection>('mining');
+  const [entrySection, setEntrySection] = useState<EntrySection>(() => initialCode ? 'code' : 'find');
   const [memberSearch, setMemberSearch] = useState('');
   const [memberPage, setMemberPage] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const submittingRef = useRef(false);
-  useEffect(() => { setCode(initialCode); }, [initialCode]);
+  useEffect(() => { setCode(initialCode); if (initialCode) setEntrySection('code'); }, [initialCode]);
   useEffect(() => { setSection('mining'); setConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code]);
   useEffect(() => {
-    if (alliance?.project?.status !== 'completed' || !alliance.project.restartAvailableAt) return;
+    setNow(Date.now());
+    if (!(alliance?.project?.status === 'completed' && alliance.project.restartAvailableAt) && !alliance?.entry?.availableAt) return;
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
-  }, [alliance?.project?.status, alliance?.project?.restartAvailableAt]);
+  }, [alliance?.project?.status, alliance?.project?.restartAvailableAt, alliance?.entry?.availableAt]);
 
   const locked = busy || !!pendingKey;
   const rules = alliance?.rules;
@@ -121,6 +129,10 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const createLevel = Number(rules?.createHq ?? 3);
   const createCost = Number(rules?.createCost ?? 5000);
   const cooldown = Number(rules?.rejoinCooldownHours ?? 24);
+  const entryAvailableAt = alliance?.entry?.availableAt;
+  const entryWaiting = !!entryAvailableAt && Date.parse(entryAvailableAt) > now;
+  const entryWaitMessage = entryWaiting ? `После выхода действует перерыв. Осталось ${timeRemaining(entryAvailableAt, now)}.` : '';
+  const directoryJoinIssue = entryWaitMessage || (hqLevel < joinLevel ? `Для вступления нужен центр колонии ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : '');
   const group = alliance?.alliance;
   const project = alliance?.project;
   const members = group?.members ?? [];
@@ -151,9 +163,9 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const nameIssue = cleanName.length < 3 || cleanName.length > 28 ? 'Название должно содержать от 3 до 28 символов.'
     : !/^[\p{L}\p{N} ._\-]+$/u.test(cleanName) ? 'Используй буквы, цифры, пробел, точку, дефис или знак подчёркивания.' : '';
   const createDeficit = Math.max(0, createCost - Number(resources.credits ?? 0));
-  const joinIssue = hqLevel < joinLevel ? `Улучши центр колонии до ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : !code.trim() ? 'Введи код, которым поделился участник альянса.' : '';
-  const createIssue = hqLevel < createLevel ? `Для создания нужен центр колонии ур. ${createLevel}. Сейчас ур. ${hqLevel}.`
-    : createDeficit > 0 ? `Нужно ${n(createCost)} кредитов, в наличии ${n(resources.credits)}. Не хватает ${n(createDeficit)}.` : nameIssue;
+  const joinIssue = entryWaitMessage || (hqLevel < joinLevel ? `Улучши центр колонии до ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : !code.trim() ? 'Введи код, которым поделился участник альянса.' : '');
+  const createIssue = entryWaitMessage || (hqLevel < createLevel ? `Для создания нужен центр колонии ур. ${createLevel}. Сейчас ур. ${hqLevel}.`
+    : createDeficit > 0 ? `Нужно ${n(createCost)} кредитов, в наличии ${n(resources.credits)}. Не хватает ${n(createDeficit)}.` : nameIssue);
   const restartWaiting = !!project?.restartAvailableAt && new Date(project.restartAvailableAt).getTime() > now;
   const hiddenMemberFeedback = Object.keys(feedback).filter((key) => key.startsWith('member-') && !visibleMembers.some((member) => key === `member-${member.telegram_id}`));
   const hiddenSectionFeedback = Object.keys(feedback).filter((key) =>
@@ -197,7 +209,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   }
 
   function join(joinCode: string, key = 'join', allianceName?: string) {
-    if (hqLevel < joinLevel || !joinCode.trim()) return;
+    if (entryWaiting || hqLevel < joinLevel || !joinCode.trim()) return;
     void act(key, '/api/alliance/join', { code: joinCode.trim().toUpperCase() }, () => allianceName ? `Ты вступил в «${allianceName}».` : 'Ты вступил в альянс.', true);
   }
 
@@ -221,7 +233,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
     const leave = target.kind === 'leave';
     return <div className="allianceConfirm" role="group" aria-label="Подтверждение действия">
       <strong>{leave ? `Выйти из «${group?.name ?? 'альянса'}»?` : target.kind === 'kick' ? `Исключить «${target.name}»?` : `Передать руководство игроку «${target.name}»?`}</strong>
-      <p>{leave ? `${myRole === 'owner' ? 'Альянс будет удалён, поскольку в нём остался только ты. ' : ''}Внесённые ресурсы не возвращаются. Вступить в другой альянс или создать свой можно через ${cooldown} ч.` : target.kind === 'kick' ? `Игрок потеряет членство и сможет вступить в альянс снова через ${cooldown} ч. Внесённые ресурсы останутся в проекте.` : 'Ты станешь обычным участником и потеряешь управление альянсом. Новый владелец сможет назначать офицеров и передавать руководство.'}</p>
+      <p>{leave ? `${myRole === 'owner' ? 'Альянс будет удалён, поскольку в нём остался только ты. ' : ''}Взносы в проект не возвращаются. Оплаченные доли добычи и заработанные призы лиги сохранятся. Вступить в другой альянс или создать свой можно через ${cooldown} ч.` : target.kind === 'kick' ? `Игрок потеряет членство и сможет вступить в альянс снова через ${cooldown} ч. Взносы останутся в проекте. Его оплаченная добыча и заработанные призы лиги сохранятся.` : 'Ты станешь обычным участником и потеряешь управление альянсом. Новый владелец сможет назначать офицеров и передавать руководство.'}</p>
       <div className="allianceConfirmActions"><button type="button" className="miniButton" disabled={locked} onClick={() => setConfirmation(null)}>Отмена</button><button type="button" className={`miniButton ${target.kind === 'transfer' ? '' : 'dangerMini'}`} disabled={locked} onClick={confirmAction}>{pendingKey ? 'Выполняем…' : leave ? 'Да, выйти' : target.kind === 'kick' ? 'Да, исключить' : 'Да, передать'}</button></div>
     </div>;
   }
@@ -295,7 +307,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
           const canKick = (myRole === 'owner' && !isMe && member.role !== 'owner') || (myRole === 'officer' && !isMe && member.role === 'member');
           const key = `member-${member.telegram_id}`;
           const officerLimitReached = member.role !== 'officer' && Number(group.officerCount ?? members.filter((entry) => entry.role === 'officer').length) >= Number(rules?.officerLimit ?? 5);
-          return <div className="memberCard" data-alliance-member={String(member.telegram_id)} key={member.telegram_id}><div><strong>{currentMemberPage * MEMBERS_PER_PAGE + index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · вклад {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(Number(member.telegram_id))}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
+          return <div className="memberCard" data-alliance-member={String(member.telegram_id)} key={member.telegram_id}><div><strong>{currentMemberPage * MEMBERS_PER_PAGE + index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · проект {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(Number(member.telegram_id))}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
             void act(key, '/api/alliance/manage/role', { telegramId: member.telegram_id, role: member.role === 'officer' ? 'member' : 'officer' }, () => member.role === 'officer' ? `«${memberName(member)}» теперь обычный участник.` : `«${memberName(member)}» назначен офицером.`);
           }}>{member.role === 'officer' ? 'Снять офицера' : 'Офицер'}</button>}{myRole === 'owner' && !isMe && <button type="button" className="miniButton" disabled={locked} onClick={() => setConfirmation({ kind: 'transfer', telegramId: member.telegram_id, name: memberName(member) })}>Передать</button>}{canKick && <button type="button" className="miniButton dangerMini" disabled={locked} onClick={() => setConfirmation({ kind: 'kick', telegramId: member.telegram_id, name: memberName(member) })}>Исключить</button>}</div>
             {myRole === 'owner' && !isMe && officerLimitReached && <p className="finePrint allianceMemberNote">Все места офицеров заняты. Сначала сними роль с одного из действующих офицеров.</p>}
@@ -308,13 +320,18 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
       </section>}
     </> : <>
       {cooperationState && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(telegramId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
-      <section className="card allianceEntry"><h2><GameIcon name="shield" />Альянсы</h2><p>Объединяйтесь, чтобы строить мегапроекты и получать командные награды. Вступление — с центра ур. {joinLevel}, создание — с ур. {createLevel}. Stars здесь ничего не ускоряют.</p>
+      <section className="card allianceEntry"><h2><GameIcon name="shield" />Найди свою команду</h2><p>Добывайте ресурсы вместе, развивайте общие технологии и боритесь за призы недельной лиги.</p>
+        <div className="allianceEntryBenefits"><span><GameIcon name="ore" size={19} /><b>Личная добыча</b><small>За твою помощь команде</small></span><span><GameIcon name="research" size={19} /><b>Общая наука</b><small>Для технологий альянса</small></span><span><GameIcon name="trophy" size={19} /><b>Призы лиги</b><small>За личный и общий вклад</small></span></div>
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}
-        <form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (!joinIssue && !locked) join(code); }}><label htmlFor="alliance-join-code">Вступить по коду<input id="alliance-join-code" aria-describedby="alliance-join-help" value={code} maxLength={80} autoCapitalize="characters" autoComplete="off" disabled={locked} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="Код альянса" /></label><button type="submit" className="action" disabled={locked || !!joinIssue}>{pendingKey === 'join' ? 'Вступаем…' : 'Вступить'}</button><p className="finePrint" id="alliance-join-help">{joinIssue || 'Вступление бесплатное.'}</p>{status('join')}</form>
-        <form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (createIssue || locked) return; void act('create', '/api/alliance/create', { name: cleanName }, () => `Альянс «${cleanName}» создан. Списано ${n(createCost)} кредитов.`, true); }}><label htmlFor="alliance-create-name">Создать свой альянс<input id="alliance-create-name" aria-describedby="alliance-create-help" value={name} maxLength={28} disabled={locked} onChange={(event) => setName(event.target.value)} placeholder="Название нового альянса" /></label><button type="submit" className="action secondary" disabled={locked || !!createIssue}>{pendingKey === 'create' ? 'Создаём…' : <>Создать · <GameAmount resource="credits">{n(createCost)}</GameAmount></>}</button><p className="finePrint" id="alliance-create-help">{createIssue || `В наличии ${n(resources.credits)} кредитов. При создании спишется ${n(createCost)}.`}</p>{status('create')}</form>
-        <p className="finePrint">После выхода или исключения нужно подождать {cooldown} ч., прежде чем вступить в альянс или создать свой. Вместимость — {rules?.memberLimit ?? 30} участников.</p>
+        {entryWaiting && <div className="allianceEntryWait" role="status"><GameIcon name="clock" size={19} /><div><strong>Перерыв перед новой командой</strong><p>{entryWaitMessage}</p><small>Доступно {new Date(entryAvailableAt!).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Список можно изучать сейчас.</small></div></div>}
+        <SectionTabs label="Вступление в альянс" value={entrySection} items={[{ key: 'find', label: 'Найти', icon: 'network' }, { key: 'code', label: 'По коду', icon: 'share' }, { key: 'create', label: 'Создать', icon: 'shield' }]} onChange={key => setEntrySection(key as EntrySection)} />
+        <div hidden={entrySection !== 'find'}>
+          {alliance?.directory ? <AllianceDirectory initial={alliance.directory} busy={locked} joinIssue={directoryJoinIssue} pendingJoin={pendingKey} onSearch={onDirectorySearch} onJoin={entry => join(entry.code, `join-${entry.id}`, entry.name)} renderFeedback={id => status(`join-${id}`)} /> : <div className="allianceRecommended"><h3>Открытые альянсы</h3>{directoryJoinIssue && <p className="finePrint">{directoryJoinIssue}</p>}<div className="stack">{(alliance?.recommended ?? []).map(entry => <div className="allianceRecommendedRow" key={entry.id}><div><strong>{entry.name}</strong><small>{entry.code} · {entry.members}/{entry.member_limit} участников</small></div><button type="button" className="miniButton" disabled={locked || !!directoryJoinIssue || entry.members >= entry.member_limit} onClick={() => join(entry.code, `join-${entry.id}`, entry.name)}>{pendingKey === `join-${entry.id}` ? 'Вступаем…' : entry.members >= entry.member_limit ? 'Мест нет' : 'Вступить'}</button><div className="allianceRecommendedFeedback">{status(`join-${entry.id}`)}</div></div>)}</div>{!alliance?.recommended?.length && <p className="finePrint">Список пока пуст. Можно вступить по коду или создать команду.</p>}</div>}
+        </div>
+        <div hidden={entrySection !== 'code'}><form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (!joinIssue && !locked) join(code); }}><label htmlFor="alliance-join-code">Код из приглашения<input id="alliance-join-code" aria-describedby="alliance-join-help" value={code} maxLength={80} autoCapitalize="characters" autoComplete="off" disabled={locked} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="Код альянса" /></label><button type="submit" className="action" disabled={locked || !!joinIssue}>{pendingKey === 'join' ? 'Вступаем…' : 'Вступить бесплатно'}</button><p className="finePrint" id="alliance-join-help">{joinIssue || `Нужен центр ур. ${joinLevel}. Ресурсы за вступление не списываются.`}</p>{status('join')}</form></div>
+        <div hidden={entrySection !== 'create'}><form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (createIssue || locked) return; void act('create', '/api/alliance/create', { name: cleanName }, () => `Альянс «${cleanName}» создан. Списано ${n(createCost)} кредитов.`, true); }}><p className="finePrint">Создание — с центра ур. {createLevel}. Собери друзей или пригласи новых участников.</p><label htmlFor="alliance-create-name">Название команды<input id="alliance-create-name" aria-describedby="alliance-create-help" value={name} maxLength={28} disabled={locked} onChange={(event) => setName(event.target.value)} placeholder="Название нового альянса" /></label><button type="submit" className="action secondary" disabled={locked || !!createIssue}>{pendingKey === 'create' ? 'Создаём…' : <>Создать · <GameAmount resource="credits">{n(createCost)}</GameAmount></>}</button><p className="finePrint" id="alliance-create-help">{createIssue || `В наличии ${n(resources.credits)} кредитов. При создании спишется ${n(createCost)}.`}</p>{status('create')}</form></div>
+        <details className="allianceEntryRules"><summary>Правила вступления</summary><p className="finePrint">Вступление бесплатное с центра ур. {joinLevel}. После выхода или исключения действует перерыв {cooldown} ч. Вместимость — {rules?.memberLimit ?? 30} участников. Оплаченная добыча и заработанные призы сохраняются после выхода.</p></details>
       </section>
-      {!!alliance?.recommended?.length && <section className="card allianceRecommended"><h2><GameIcon name="network" />Открытые альянсы</h2>{hqLevel < joinLevel && <p className="finePrint">Для вступления нужен центр ур. {joinLevel}.</p>}<div className="stack">{alliance.recommended.map((entry) => <div className="allianceRecommendedRow" key={entry.id}><div><strong>{entry.name}</strong><small>{entry.code} · {entry.members}/{entry.member_limit} участников · {n(entry.season_points)} AP</small></div><button type="button" className="miniButton" disabled={locked || hqLevel < joinLevel || entry.members >= entry.member_limit} onClick={() => join(entry.code, `join-${entry.id}`, entry.name)}>{pendingKey === `join-${entry.id}` ? 'Вступаем…' : entry.members >= entry.member_limit ? 'Мест нет' : 'Вступить'}</button><div className="allianceRecommendedFeedback">{status(`join-${entry.id}`)}</div></div>)}</div></section>}
     </>}
   </div>;
 }

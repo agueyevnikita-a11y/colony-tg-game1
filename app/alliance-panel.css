@@ -54,6 +54,28 @@
 .colonyApp .alliancePanel .miniButton,.colonyApp .alliancePanel .action { min-height:44px; white-space:normal; }
 .alliancePanel input,.alliancePanel select { min-height:44px; }
 .alliancePanel .projectComplete>b { display:flex; align-items:center; gap:7px; }
+.allianceEntry .sectionTabs { margin:15px 0 12px; }
+.allianceEntry .sectionTabsStrip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:visible; }
+.allianceEntry .sectionTab { min-width:0; justify-content:center; gap:5px; padding:9px 5px; font-size:12px; }
+.allianceEntry .sectionTab>span:not(.sectionTabIcon) { overflow-wrap:anywhere; }
+.allianceEntryBenefits { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:14px 0; }
+.allianceEntryBenefits>span { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; background:rgba(133,221,191,.035); line-height:1.4; }
+.allianceEntryBenefits b { font-size:11px; font-weight:700; overflow-wrap:anywhere; }.allianceEntryBenefits small { color:var(--muted); font-size:10px; }
+.allianceEntryWait { display:flex; align-items:flex-start; gap:9px; margin:12px 0; padding:11px; border:1px solid rgba(244,197,111,.28); border-radius:11px; background:rgba(244,197,111,.045); color:#efd19a; }
+.allianceEntryWait>.gameIcon { flex:none; margin-top:2px; }.allianceEntryWait>div { min-width:0; }.allianceEntryWait strong { font-size:12px; }.allianceEntryWait p { margin:5px 0!important; font-size:12px; line-height:1.55; }.allianceEntryWait small { color:var(--muted); font-size:11px; line-height:1.55; }
+.allianceEntry .allianceEntryForm { margin-top:0; padding-top:0; border-top:0; }
+.allianceEntryRules { margin-top:15px; padding-top:8px; border-top:1px solid var(--line); }.allianceEntryRules>summary { min-height:44px; align-content:center; cursor:pointer; color:var(--muted); font-size:12px; }.allianceEntryRules>summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.allianceDirectory { display:grid; gap:10px; min-width:0; }
+.allianceDirectorySearch { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:end; min-width:0; }
+.allianceDirectoryTools { display:flex; align-items:center; flex-wrap:wrap; gap:7px; color:var(--muted); font-size:11px; line-height:1.5; }.allianceDirectoryTools>span { flex:1 1 130px; min-width:0; overflow-wrap:anywhere; }.allianceDirectoryTools>.miniButton { padding:7px 9px; font-size:11px; }
+.allianceDirectory .allianceDirectoryHint { margin:0; color:var(--muted); font-size:11px; line-height:1.55; }.allianceDirectory .allianceDirectoryIssue { margin:0; color:#efd19a; font-size:12px; line-height:1.55; }
+.allianceDirectoryList { display:grid; gap:10px; min-width:0; }
+.allianceDirectoryCard { display:grid; gap:10px; min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.025); }
+.allianceDirectoryIdentity { display:flex; gap:9px; align-items:flex-start; min-width:0; }.allianceDirectoryIdentity>.gameIcon { flex:none; margin-top:2px; }.allianceDirectoryIdentity>div { display:grid; gap:5px; min-width:0; }.allianceDirectoryIdentity h3 { margin:0; font-size:14px; line-height:1.5; overflow-wrap:anywhere; }.allianceDirectoryIdentity small { color:var(--muted); font-size:11px; line-height:1.5; }
+.allianceDirectoryActivity { display:flex; align-items:center; flex-wrap:wrap; gap:8px 13px; }.allianceDirectoryActivity>span { display:inline-flex; align-items:center; flex-wrap:wrap; gap:4px; color:var(--muted); font-size:11px; line-height:1.5; }.allianceDirectoryActivity b { color:var(--text); font-weight:700; }
+.allianceDirectory .allianceDirectoryOperation { display:flex; align-items:flex-start; gap:6px; margin:0; color:#b5ecd7; font-size:11px; line-height:1.55; }.allianceDirectoryOperation>.gameIcon { flex:none; margin-top:1px; }.allianceDirectoryOperation.isQuiet { color:var(--muted); }
+.allianceDirectoryCard .action { font-size:12px; }.allianceDirectoryCard>.allianceFeedback { margin:0; }
+.allianceDirectoryEmpty { display:flex; flex-direction:column; align-items:flex-start; gap:9px; padding:15px 0; color:var(--muted); }.allianceDirectoryEmpty strong { color:var(--text); font-size:14px; }.allianceDirectoryEmpty p { margin:0; font-size:12px; line-height:1.6; }
 @media(max-width:360px) {
   .alliancePanel .card { padding:14px; }
   .alliancePanel .cardTitleRow>div:first-child { flex-basis:155px; }
