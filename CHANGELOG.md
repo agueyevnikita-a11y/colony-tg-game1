@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.9-beta.1 — Turn Team Goals into Actions
+- Unfinished alliance goals now open the matching building catalog, workshops or colony contracts. Viewing a destination spends nothing; completed goals retain their explicit contribution and reward checks.
+- The weekly league leads to joint mining or alliance discovery. It explains when a previous alliance is still bound to this week's score, so a change of team does not promise ineligible points. Ended weeks keep the results-refresh path.
+- Alliance technologies separate spendable shared science from the current operation's expected science, with a countdown and an explicit refresh when settlement is due. Opening joint mining brings its controls into view without starting an operation or paying for a shift.
+- No migration, dependency, economy, reward or saved-city change is required.
+
 ## 1.14.8-beta.1 — Follow Every Find
 - Expedition route details now show each possible main artifact, its actual per-flight chance and known collection count. Each find opens its own collection card, which is highlighted, focused and expanded without spending resources.
 - Claim receipts bring the result into view and link saved artifacts to their collection cards, including event finds and history. Repeated items keep their quantities; no first-discovery or guaranteed-drop claim is invented.

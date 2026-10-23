@@ -80,6 +80,7 @@ type Props = {
   onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
   onDirectorySearch?: (query: string, page: number) => Promise<AllianceDirectoryState>;
   onRefresh?: () => void;
+  onNavigate?: (action: 'build' | 'production' | 'contracts') => void;
 };
 
 type Feedback = { text: string; error: boolean };
@@ -93,13 +94,18 @@ const RESOURCE_COLUMNS = { ore: 'ore_contributed', energy: 'energy_contributed',
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU');
 const pct = (value: unknown, target: unknown) => Math.min(100, Math.max(0, Number(value ?? 0) / Math.max(1, Number(target ?? 1)) * 100));
 const memberName = (member: AllianceMember) => member.colony_name || member.first_name || member.username || String(member.telegram_id);
+const DAILY_GOAL_ACTIONS: Record<string, { action: 'build' | 'production' | 'contracts'; label: string }> = {
+  team_build: { action: 'build', label: 'К постройкам' },
+  team_foundry: { action: 'production', label: 'К цехам' },
+  team_contracts: { action: 'contracts', label: 'К контрактам' },
+};
 
 function timeRemaining(timestamp: string | null | undefined, now: number) {
   if (!timestamp) return '';
   return durationText((Date.parse(timestamp) - now) / 1000);
 }
 
-export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh }: Props) {
+export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh, onNavigate }: Props) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState('');
   const [resource, setResource] = useState<AllianceResource>('ore');
@@ -115,6 +121,15 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const [memberPage, setMemberPage] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const submittingRef = useRef(false);
+  const miningNavigationPending = useRef(false);
+  const cooperationPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (section !== 'mining' || !miningNavigationPending.current) return;
+    miningNavigationPending.current = false;
+    const element = cooperationPanelRef.current;
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [section]);
   useEffect(() => { setCode(initialCode); if (initialCode) setEntrySection('code'); }, [initialCode]);
   useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code, telegramId]);
   useEffect(() => {
@@ -276,13 +291,23 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
         { key: 'members', label: 'Участники', icon: 'social', badge: members.length },
       ]} value={section} onChange={key => changeSection(key as AllianceSection)} />
 
-      <div hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} /></div>
+      <div ref={cooperationPanelRef} tabIndex={-1} hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} onMining={() => { miningNavigationPending.current = true; changeSection('mining'); }} /></div>
 
-      {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><div className="stack">{dailyGoals.map((goal) => {
+      {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p>{onNavigate && <p className="finePrint">Кнопки открывают нужный раздел. Ресурсы расходуются при подтверждении выбранного действия.</p>}<div className="stack">{dailyGoals.map((goal) => {
         const done = !!goal.completed_at;
         const contributed = Number(goal.my_contribution ?? 0) > 0;
         const key = `daily-${goal.goal_key}`;
-        return <div className="mission" key={goal.goal_key}><div className="missionHead"><div><strong>{goal.title ?? goal.goal_key}</strong><small>{goal.description?.replace('NPC-контрактов', 'контрактов с колонией')}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(goal.reward_crystals)}</GameAmount><GameAmount resource="credits">{n(goal.reward_credits)}</GameAmount></span></div><div className="progress"><i style={{ width: `${pct(goal.progress, goal.target)}%` }} /></div><div className="missionFoot"><span>{n(goal.progress)}/{n(goal.target)} · твой вклад {n(goal.my_contribution)}</span><button type="button" className="miniButton" disabled={locked || !done || !contributed || !!goal.my_claimed_at} onClick={() => { void act(key, '/api/alliance/daily/claim', { goalKey: goal.goal_key }, (data) => `Награда получена: ${n(data.result?.credits ?? goal.reward_credits)} кредитов и ${n(data.result?.crystals ?? goal.reward_crystals)} кристаллов.`); }}>{pendingKey === key ? 'Получаем…' : goal.my_claimed_at ? 'Получено' : done ? contributed ? 'Забрать' : 'Нет вклада' : 'В процессе'}</button></div>{done && !contributed && <p className="finePrint">В эту цель нужно было внести вклад до её завершения. Участвуй в следующих целях.</p>}{status(key)}</div>;
+        const destination = DAILY_GOAL_ACTIONS[goal.goal_key];
+        return <div className="mission" key={goal.goal_key} data-alliance-goal={goal.goal_key}>
+          <div className="missionHead"><div><strong>{goal.title ?? goal.goal_key}</strong><small>{goal.description?.replace('NPC-контрактов', 'контрактов с колонией')}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(goal.reward_crystals)}</GameAmount><GameAmount resource="credits">{n(goal.reward_credits)}</GameAmount></span></div>
+          <div className="progress"><i style={{ width: `${pct(goal.progress, goal.target)}%` }} /></div>
+          <div className="missionFoot"><span>{n(goal.progress)}/{n(goal.target)} · твой вклад {n(goal.my_contribution)}</span>
+            {!done && destination && onNavigate
+              ? <button type="button" className="miniButton" disabled={locked} onClick={() => onNavigate(destination.action)}>{destination.label}<GameIcon name="arrow" size={13} /></button>
+              : <button type="button" className="miniButton" disabled={locked || !done || !contributed || !!goal.my_claimed_at} onClick={() => { void act(key, '/api/alliance/daily/claim', { goalKey: goal.goal_key }, (data) => `Награда получена: ${n(data.result?.credits ?? goal.reward_credits)} кредитов и ${n(data.result?.crystals ?? goal.reward_crystals)} кристаллов.`); }}>{pendingKey === key ? 'Получаем…' : goal.my_claimed_at ? 'Получено' : done ? contributed ? 'Забрать' : 'Нет вклада' : 'В процессе'}</button>}
+          </div>
+          {done && !contributed && <p className="finePrint">В эту цель нужно было внести вклад до её завершения. Участвуй в следующих целях.</p>}{status(key)}
+        </div>;
       })}</div>{!dailyGoals.length && <p className="finePrint">Командные цели появятся здесь после обновления дня.</p>}</section>}
 
       {section === 'project' && (project ? <section className="card allianceProject" id="alliance-project-section">

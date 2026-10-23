@@ -31,6 +31,16 @@
 .coopReward,.coopTechnology { display:grid; gap:10px; min-width:0; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.02); }
 .coopReward>div:first-child { display:flex; flex-direction:column; gap:5px; font-size:13px; }.coopReward small { color:var(--muted); font-size:11px; line-height:1.5; }.coopReward>.coopAmounts { font-size:13px; }
 .coopScience { display:flex; flex-direction:column; gap:4px; padding:8px; border:1px solid var(--line); border-radius:9px; font-size:14px; }.coopScience small { color:var(--muted); font-size:10px; }
+.coopSciencePending { display:grid; gap:8px; min-width:0; padding:11px; border:1px solid rgba(196,183,135,.25); border-radius:11px; background:rgba(196,183,135,.035); }
+.coopSciencePending>div { display:flex; align-items:center; flex-wrap:wrap; gap:6px; color:#e4d29c; font-size:12px; line-height:1.5; }
+.coopSciencePending>div>.gameIcon { flex:none; }.coopSciencePending strong { min-width:0; overflow-wrap:anywhere; }
+.allianceCooperation .coopSciencePending p { margin:0; color:var(--muted); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.coopSciencePending .miniButton,.coopMiningLink .miniButton { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:6px; min-height:44px; max-width:100%; text-align:center; font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.allianceCooperation .coopSciencePending button.miniButton,.allianceCooperation .coopMiningLink button.miniButton { min-height:44px; }
+.coopSciencePending .miniButton>.gameIcon,.coopMiningLink .miniButton>.gameIcon { flex:none; }
+.coopSciencePending .miniButton:focus-visible,.coopMiningLink .miniButton:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.coopMiningLink { display:grid; gap:6px; min-width:0; }
+.coopMiningLink small { color:var(--muted); font-size:10px; line-height:1.6; overflow-wrap:anywhere; }
 .coopTechnology>div:first-child { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; }.coopTechnology>div:first-child>span { color:var(--muted); font-size:11px; }.coopTechnology p { margin:0; }
 .coopTechnologyCost { display:flex; align-items:center; flex-wrap:wrap; gap:6px; color:var(--muted); font-size:11px!important; }
 .coopPagination { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; margin-top:12px; font-size:12px; text-align:center; color:var(--muted); }

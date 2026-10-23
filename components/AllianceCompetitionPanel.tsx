@@ -7,7 +7,7 @@ import { SectionTabs } from '@/components/SectionTabs';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import '@/app/alliance-competition.css';
 
-type Props = { state?: AllianceCompetitionState; busy: boolean; onClaim: (periodId: string) => Promise<any>; onRefresh?: () => void };
+type Props = { state?: AllianceCompetitionState; busy: boolean; onClaim: (periodId: string) => Promise<any>; onRefresh?: () => void; currentAllianceId?: string | null; onOpenAlliance?: () => void };
 type View = 'players' | 'alliances' | 'rewards';
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU');
 const COSMETIC_NAMES: Record<string, string> = {
@@ -19,7 +19,7 @@ function dateUTC(timestamp: string) {
   return `${new Date(timestamp).toLocaleString('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} UTC`;
 }
 
-export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh }: Props) {
+export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh, currentAllianceId, onOpenAlliance }: Props) {
   const [view, setView] = useState<View>(() => state?.rewards.some(award => !award.claimedAt && Date.parse(award.endsAt) <= Date.now()) ? 'rewards' : 'players');
   const [page, setPage] = useState(0);
   const [pending, setPending] = useState('');
@@ -67,12 +67,21 @@ export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh }: Pr
   const ended = Date.parse(state.period.endsAt) <= now;
   const missing = Math.max(0, state.minimumRewardPoints - state.me.points);
   const myAlliance = state.binding ? state.alliances.find(alliance => alliance.allianceId === state.binding!.allianceId) : null;
+  const differentTeam = state.binding && currentAllianceId !== undefined && state.binding.allianceId !== currentAllianceId;
   return <section className="card allianceCompetition" data-alliance-competition>
     <div className="cardTitleRow"><div><h2><GameIcon name="trophy" size={22} />Лига кооперации</h2><p>Новая неделя — новый зачёт игроков и альянсов.</p><p className="competitionDeadline">{ended ? 'Неделя завершена' : 'Итоги'} · {dateUTC(state.period.endsAt)}</p></div><span className="competitionWeekPoints"><b>{n(state.me.points)}</b><small>твоих очков</small></span></div>
     {ended && onRefresh && <div className="competitionFeedback" role="status">Обнови рейтинг, чтобы увидеть окончательные места и награды.<button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Проверить итоги</button></div>}
     <div className="competitionMyResult"><div><span>Твоё место</span><strong>{state.me.rank ? `№${n(state.me.rank)}` : '—'}</strong></div><div><span>Личная награда</span><GameAmount resource="crystals">{n(state.me.estimatedPersonalCrystals)}</GameAmount></div><div><span>Доля команды</span><GameAmount resource="crystals">{n(state.me.estimatedTeamCrystals)}</GameAmount></div><small>Предварительно: если закончить неделю с текущим результатом.</small></div>
     <p className="competitionHint">Личный порог: {n(Math.min(state.me.points, state.minimumRewardPoints))}/{n(state.minimumRewardPoints)} очков.{missing > 0 ? ` Осталось ${n(missing)} очков · смен до порога: ${n(Math.ceil(missing / Math.max(1, state.pointsPerModule)))}.` : ' Порог выполнен.'} Награда также зависит от призового места.</p>
     <p className="competitionBinding">{state.binding ? <>Команда недели: <strong>{state.binding.allianceName}</strong>. В рейтинг засчитывается добыча этого альянса.</> : 'Первая оплаченная смена закрепит команду для рейтинга этой недели.'}</p>
+    {!ended && onOpenAlliance && <div className="competitionNextStep" data-competition-next-step>
+      <p>{differentTeam
+        ? 'Команда недели уже закреплена. Смены в другом альянсе принесут обычные награды добычи, но не очки этой недели. Заработанные очки и призы сохраняются.'
+        : currentAllianceId === null
+          ? 'Вступи в альянс, затем выбери оплачиваемую смену совместной добычи. Просмотр альянсов и условий добычи бесплатный.'
+          : 'Открой совместную добычу и выбери смену. До подтверждения можно бесплатно посмотреть стоимость и награды.'}</p>
+      <button type="button" className="miniButton" disabled={locked} onClick={onOpenAlliance}>{currentAllianceId === null ? 'Найти альянс' : currentAllianceId === undefined ? 'Открыть альянсы' : differentTeam ? 'Открыть мой альянс' : 'К совместной добыче'}<GameIcon name="arrow" size={13} /></button>
+    </div>}
     <MechanicGuide steps={[
       `Рейтинг можно смотреть бесплатно. Оплаченная смена совместной добычи даёт ${n(state.pointsPerModule)} очков; первая закрепляет команду до конца недели.`,
       `Личный приз требует ${n(state.minimumRewardPoints)} очков и призового места. Для командного фонда нужны ${n(state.minimumTeamContributors)} участника с таким вкладом и призовое место альянса.`,

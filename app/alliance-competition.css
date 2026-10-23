@@ -7,6 +7,9 @@
 .competitionMyResult>div { display:flex; align-items:flex-start; flex-direction:column; gap:6px; font-size:15px; min-width:0; }.competitionMyResult>div>span:first-child { font-size:10px; color:var(--muted); line-height:1.4; }.competitionMyResult>small { grid-column:1/-1; color:var(--muted); font-size:10px; line-height:1.5; }
 .allianceCompetition .competitionHint,.allianceCompetition .competitionBinding { margin:9px 0; color:var(--muted); font-size:11px; line-height:1.6; }.competitionBinding strong { color:var(--text); }
 .allianceCompetition .sectionTabs { margin:14px 0 4px; }.allianceCompetition .sectionTab { font-size:12px; }
+.competitionNextStep { display:grid; gap:8px; min-width:0; margin:10px 0; padding:12px; border:1px solid rgba(133,221,191,.24); border-radius:12px; background:rgba(133,221,191,.04); }
+.competitionNextStep p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.competitionNextStep button.miniButton { min-height:44px; justify-self:start; max-width:100%; }
 .competitionRows,.competitionAwards { min-width:0; }
 .competitionRow { display:grid; grid-template-columns:26px minmax(0,1fr) auto; align-items:center; gap:8px; min-width:0; padding:12px 0; border-bottom:1px solid var(--line); }.competitionRow:last-child { border-bottom:0; }
 .competitionRank { color:#b5ecd7; font-size:14px; text-align:center; }.competitionRow>div { display:flex; flex-direction:column; gap:4px; min-width:0; }.competitionRow strong { font-size:12px; line-height:1.4; overflow-wrap:anywhere; }.competitionRow small { color:var(--muted); font-size:10px; line-height:1.5; }

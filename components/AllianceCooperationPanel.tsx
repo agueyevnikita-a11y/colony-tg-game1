@@ -34,6 +34,7 @@ type Props = {
   busy: boolean;
   onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
   onRefresh?: () => void;
+  onMining?: () => void;
 };
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
 const ROLE_ICONS: Record<Role, string> = { drilling: 'ore', power: 'energy', analysis: 'science' };
@@ -56,7 +57,7 @@ function newReceiptId() {
 }
 
 /** A choice is sent only by its explicit action; failed intents keep their receipt ID. */
-export function AllianceCooperationPanel({ cooperation: state, view, resources, hasMembership, ownerKey = '', allianceKey = '', busy, onAction, onRefresh }: Props) {
+export function AllianceCooperationPanel({ cooperation: state, view, resources, hasMembership, ownerKey = '', allianceKey = '', busy, onAction, onRefresh, onMining }: Props) {
   const [role, setRole] = useState<Role>('drilling');
   const [pendingKey, setPendingKey] = useState('');
   const [feedback, setFeedback] = useState<Record<string, { text: string; error: boolean }>>({});
@@ -67,7 +68,9 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   const guard = useRef(false);
   const receipts = useRef(new Map<string, string>());
   const current = state?.current;
-  const active = current?.status === 'active' && Date.parse(current.endsAt) > now;
+  const currentEndsAt = current ? Date.parse(current.endsAt) : Number.NaN;
+  const active = current?.status === 'active' && currentEndsAt > now;
+  const pendingSharedScience = current?.status === 'active' && Number.isFinite(Number(current.sharedScience)) ? Math.max(0, Number(current.sharedScience)) : 0;
   const selectedRole = state?.roleOptions.find(option => option.id === role) ?? state?.roleOptions[0];
   const maxUnits = Number(current?.maxUnits ?? state?.rules.maxUnitsPerPlayer ?? 3);
   const freeUnits = Math.max(0, maxUnits - Number(current?.myUnits ?? 0));
@@ -118,13 +121,23 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   }
 
   if (view === 'technology') return <section className="card allianceCooperation" data-alliance-technologies>
-    <div className="cardTitleRow"><div><h2><GameIcon name="research" size={22} />Технологии альянса</h2><p>Усиливают будущую совместную добычу всей команды.</p></div>{state?.progress && <span className="coopScience"><GameAmount resource="science">{n(state.progress.sharedScience)}</GameAmount><small>общая наука</small></span>}</div>
+    <div className="cardTitleRow"><div><h2><GameIcon name="research" size={22} />Технологии альянса</h2><p>Усиливают будущую совместную добычу всей команды.</p></div>{state?.progress && <span className="coopScience" data-coop-science-available><GameAmount resource="science">{n(state.progress.sharedScience)}</GameAmount><small>доступно сейчас</small></span>}</div>
     <MechanicGuide steps={[
       state ? `Каждая оплаченная смена создаёт ${n(state.rules.sharedSciencePerUnit)} общей науки. В запас альянса она поступит после завершения добычи.` : 'Оплаченные смены создают общую науку. В запас альянса она поступит после завершения добычи.',
       'Владелец или офицер расходует общую науку на исследования. Личная наука игроков при этом не списывается.',
       'Новый уровень действует с запуска следующей операции. Текущая добыча сохраняет прежние условия.',
     ]} />
+    {hasMembership && onMining && <div className="coopMiningLink"><button type="button" className="miniButton" onClick={onMining}><GameIcon name="ore" size={17} />Открыть добычу · бесплатно<GameIcon name="arrow" size={14} /></button><small>Просмотр не списывает ресурсы. Оплата смены — отдельное действие в добыче.</small></div>}
     {state?.progress ? <>
+      {hasMembership && current?.status === 'active' && <div className="coopSciencePending" data-coop-science-pending>
+        <div><GameIcon name="clock" size={18} /><strong>Ожидается от текущей добычи</strong><GameAmount resource="science">{n(pendingSharedScience)}</GameAmount></div>
+        <p>Эта общая наука ещё не входит в доступный запас и пока не расходуется на технологии.{pendingSharedScience === 0 ? ' В текущую добычу ещё не отправлены оплаченные смены.' : ''}</p>
+        {active ? <p>Начислится после завершения операции: {date(current.endsAt)}. Осталось {remaining(current.endsAt, now)}.</p> : <>
+          <p>{Number.isFinite(currentEndsAt) ? 'Время добычи вышло. Обнови состояние, чтобы завершить расчёт и увидеть начисление общей науки.' : 'Не удалось определить время завершения добычи. Обнови состояние перед проверкой начисления.'}</p>
+          {onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить общую науку<GameIcon name="arrow" size={14} /></button>}
+        </>}
+      </div>}
+      {hasMembership && current?.status === 'settled' && <p className="coopHint" data-coop-science-settled>Общая наука завершённой операции уже учтена в запасе альянса. Личные доли добычи забираются отдельно и не задерживают её начисление.</p>}
       <div className="coopTechnologyList">{state.progress.technologies.map(technology => {
         const max = technology.nextCost === null || technology.level >= technology.maxLevel;
         const key = `research:${technology.id}:${technology.level}`;
@@ -136,7 +149,7 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
           <button type="button" className="action secondary" disabled={locked || !state.available || !hasMembership || max || !technology.canResearch || !state.progress?.canResearch || Number(state.progress.sharedScience) < Number(technology.nextCost)} onClick={() => { void act(key, { action: 'research', technologyId: technology.id, expectedLevel: technology.level }, 'Технология улучшена. Новый уровень применяется к следующим операциям.'); }}>{pendingKey === key ? 'Исследуем…' : max ? 'Максимальный уровень' : !state.progress?.canResearch ? 'Нужен владелец или офицер' : 'Исследовать за общую науку'}</button>{status(key)}
         </article>;
       })}</div>
-    </> : <p className="coopHint">Технологии развиваются внутри альянса. Вступи в команду, чтобы участвовать.</p>}
+    </> : <p className="coopHint">{hasMembership ? 'Данные общей науки пока недоступны. Проверь состояние совместной добычи.' : 'Технологии развиваются внутри альянса. Вступи в команду, чтобы участвовать.'}</p>}
     {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
   </section>;
 
