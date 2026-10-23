@@ -9,6 +9,7 @@ import { getAllianceCompetitionState } from '@/lib/server/alliance-competition';
 import { getAllianceDirectory } from '@/lib/server/alliance-directory';
 import {
   ALLIANCE_CREATE_COST,
+  ALLIANCE_CREATE_CURRENCY,
   ALLIANCE_DAILY_GOALS,
   ALLIANCE_CREATE_HQ,
   ALLIANCE_JOIN_HQ,
@@ -130,6 +131,7 @@ export async function getAllianceState(tx: any, userId: string) {
       allianceLeaderboard: alliancesTop,
       rules: {
         createCost: ALLIANCE_CREATE_COST,
+        createCurrency: ALLIANCE_CREATE_CURRENCY,
         createHq: ALLIANCE_CREATE_HQ,
         joinHq: ALLIANCE_JOIN_HQ,
         memberLimit: ALLIANCE_MEMBER_LIMIT,
@@ -208,6 +210,7 @@ export async function getAllianceState(tx: any, userId: string) {
     allianceLeaderboard: alliancesTop,
     rules: {
       createCost: ALLIANCE_CREATE_COST,
+      createCurrency: ALLIANCE_CREATE_CURRENCY,
       createHq: ALLIANCE_CREATE_HQ,
       joinHq: ALLIANCE_JOIN_HQ,
       memberLimit: ALLIANCE_MEMBER_LIMIT,
@@ -218,15 +221,18 @@ export async function getAllianceState(tx: any, userId: string) {
   };
 }
 
-export async function createAlliance(userId: string, rawName: string) {
+export async function createAlliance(userId: string, rawName: string, expected: { cost: unknown; currency: unknown }) {
+  if (expected.cost !== ALLIANCE_CREATE_COST || expected.currency !== ALLIANCE_CREATE_CURRENCY) {
+    throw new Error('Условия создания альянса изменились. Обнови игру и подтверди цену ещё раз.');
+  }
   const name = validateAllianceName(rawName);
   return sql.begin(async (tx) => {
     const state = (await tx<any[]>`SELECT * FROM game_states WHERE user_id=${userId} FOR UPDATE`)[0];
     if (!state) throw new Error('Игровой профиль не найден');
-    if (Number(state.hq_level) < ALLIANCE_CREATE_HQ) throw new Error(`Создание альянса доступно с HQ${ALLIANCE_CREATE_HQ}`);
-    if (Number(state.credits) < ALLIANCE_CREATE_COST) throw new Error(`Нужно ${ALLIANCE_CREATE_COST} кредитов`);
+    if (Number(state.hq_level) < ALLIANCE_CREATE_HQ) throw new Error(`Для создания альянса нужен центр колонии ур. ${ALLIANCE_CREATE_HQ}`);
     if (await membership(tx, userId)) throw new Error('Вы уже состоите в альянсе');
     await assertCooldown(tx, userId);
+    if (Number(state.crystals) < ALLIANCE_CREATE_COST) throw new Error(`Нужно ${ALLIANCE_CREATE_COST} кристаллов. Не хватает ${ALLIANCE_CREATE_COST - Number(state.crystals)}.`);
 
     const id = crypto.randomUUID();
     let code = allianceCode(name, id);
@@ -243,8 +249,8 @@ export async function createAlliance(userId: string, rawName: string) {
     await tx`INSERT INTO alliance_members (alliance_id,user_id,role) VALUES (${id},${userId},'owner')`;
     await tx`INSERT INTO alliance_projects (alliance_id,project_key,cycle,stage,status) VALUES (${id},${ORBITAL_RELAY_PROJECT.key},1,1,'active')`;
     await tx`INSERT INTO alliance_season_points(alliance_id,season_id,points) VALUES(${id},${ACTIVE_SEASON_ID},0) ON CONFLICT DO NOTHING`;
-    await tx`UPDATE game_states SET credits=credits-${ALLIANCE_CREATE_COST},updated_at=now() WHERE user_id=${userId}`;
-    await analyticsEvent(tx, userId, 'alliance_created', { alliance_id: id, code });
+    await tx`UPDATE game_states SET crystals=crystals-${ALLIANCE_CREATE_COST},updated_at=now() WHERE user_id=${userId}`;
+    await analyticsEvent(tx, userId, 'alliance_created', { alliance_id: id, code, cost: ALLIANCE_CREATE_COST, currency: ALLIANCE_CREATE_CURRENCY });
     return inserted[0];
   });
 }

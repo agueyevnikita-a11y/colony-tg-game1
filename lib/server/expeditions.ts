@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { sql, type Transaction, type JsonValue } from './db';
 import { requireColonyFeature } from './feature-access';
-import { ARTIFACTS, EXPEDITION_EVENTS, EXPEDITIONS, expeditionByKey, expeditionSlots } from '@/lib/game/expeditions';
+import { ARTIFACTS, EXPEDITION_EVENTS, EXPEDITIONS, artifactByRoll, expeditionByKey, expeditionSlots } from '@/lib/game/expeditions';
 import { productionMultipliers } from '@/lib/game/research';
 import { storageCaps } from '@/lib/game/economy';
 import { analyticsEvent, recordProgressEvent } from './progression';
@@ -34,19 +34,7 @@ function choose<T>(items: readonly T[]) {
 }
 
 function chooseArtifact(expeditionKey: string) {
-  const roll = crypto.randomInt(0, 1000);
-  if (expeditionKey === 'deep_signal') {
-    if (roll < 80) return 'quantum_lens';
-    if (roll < 330) return 'stellar_map';
-    if (roll < 650) return 'alloy_core';
-    return 'signal_fragment';
-  }
-  if (expeditionKey === 'orbital_ruins') {
-    if (roll < 80) return 'stellar_map';
-    if (roll < 380) return 'alloy_core';
-    return 'signal_fragment';
-  }
-  return roll < 180 ? 'alloy_core' : 'signal_fragment';
+  return artifactByRoll(expeditionKey, crypto.randomInt(0, 1000));
 }
 
 export async function reconcileExpeditions(tx: Transaction, userId: string) {

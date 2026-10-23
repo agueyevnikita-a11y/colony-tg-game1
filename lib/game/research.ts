@@ -128,7 +128,7 @@ export const RESEARCH_TREE: ResearchConfig[] = [
     key: 'signal_analysis', branch: 'exploration', name: 'Спектральный анализ', emoji: '📡',
     description: 'Выделение слабых закономерностей в шуме и неизвестных передачах.',
     unlockHq: 4, labLevel: 3, science: 450, cost: { credits: 4200, parts: 180 }, timeSec: 5400, prereqs: ['basic_theory'],
-    effectText: '+15% науки из экспедиций',
+    effectText: '+15% к базовой научной награде экспедиций. Награды событий не меняются.',
   },
   {
     key: 'autonomous_drones', branch: 'exploration', name: 'Автономные дроны', emoji: '🤖',

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { BuildingArt } from '@/components/BuildingArt';
+import { ArtifactArt } from '@/components/ArtifactArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ARTIFACTS, EXPEDITIONS } from '@/lib/game/expeditions';
 import { RESEARCH_TREE } from '@/lib/game/research';
@@ -49,7 +50,7 @@ function Amounts({ value, empty = 'Без затрат' }: { value: unknown; emp
 function ArtifactNames({ ids }: { ids: unknown[] }) {
   const counts = new Map<string, number>();
   for (const value of ids) if (typeof value === 'string' && value) counts.set(value, (counts.get(value) ?? 0) + 1);
-  return <>{[...counts].map(([artifactId, count]) => <span className="xpArtifact" key={artifactId} data-artifact-id={artifactId}><GameIcon name="star" size={14} /><span>{ARTIFACTS.find((item) => item.id === artifactId)?.name ?? 'Неизвестный артефакт'}{count > 1 ? ` ×${count}` : ''}</span></span>)}</>;
+  return <>{[...counts].map(([artifactId, count]) => <span className="xpArtifact" key={artifactId} data-artifact-id={artifactId}><ArtifactArt artifactId={artifactId} size={28} /><span>{ARTIFACTS.find((item) => item.id === artifactId)?.name ?? 'Неизвестный артефакт'}{count > 1 ? ` ×${count}` : ''}</span></span>)}</>;
 }
 function Receipt({ result }: { result: Values }) {
   return <div className="xpReceiptContents"><div><span className="xpMetaLabel">Получено</span><Amounts value={result} empty="Без ресурсной награды" /></div>
@@ -170,7 +171,7 @@ export function ExpeditionsPanel(props: Props) {
           {Array.isArray(reward.crystals) && Number(reward.crystalsChance) > 0 && <small><GameAmount resource="crystals">{number(Number(reward.crystals[0]))}–{number(Number(reward.crystals[1]))}</GameAmount> · шанс {Math.round(Number(reward.crystalsChance) * 100)}%</small>}
           <small>Исследования могут увеличить науку. Итоговая добыча станет известна после возвращения.</small>
         </div>
-        <div className="xpProbabilities"><span><GameIcon name="star" size={12} />Шанс артефакта: {Math.round(Number(option.artifactChance ?? 0) * 100)}%</span><span>Шанс события: {Math.round(Number(option.eventChance ?? 0) * 100)}%</span></div>
+        <div className="xpProbabilities"><span><GameIcon name="artifact_lens" size={18} />Основная находка: {Math.round(Number(option.artifactChance ?? 0) * 100)}%</span><span>Шанс события: {Math.round(Number(option.eventChance ?? 0) * 100)}%</span></div>
         {gateText && <div className="xpGate"><span>{gateText}</span>{hqLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeHq}>Показать улучшение базы</button> : centerLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onBuild}>Показать центр экспедиций</button> : researchLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(option.requiredResearch)}>Показать исследование</button> : null}</div>}
         {missingResources && <div className="xpWarning"><span>Не хватает для запуска:</span><Amounts value={shortages} /></div>}
         <button type="button" className="action secondary xpLaunch" disabled={locked || !props.featureEnabled || !option.unlocked || centerLocked || hqLocked || slotsFull || !launchQuote.canClaim} data-expedition-start={option.key} onClick={() => void start(option)}>{pending === target ? 'Отправляем…' : !props.featureEnabled ? 'Запуски приостановлены' : gateText ? 'Маршрут пока недоступен' : slotsFull ? 'Все слоты заняты' : missingResources ? 'Не хватает ресурсов' : 'Отправить экспедицию'}<GameIcon name="arrow" size={15} /></button>

@@ -2,11 +2,22 @@ export type AllianceResource = 'ore' | 'energy' | 'parts';
 
 export const ALLIANCE_CREATE_HQ = 3;
 export const ALLIANCE_JOIN_HQ = 2;
-export const ALLIANCE_CREATE_COST = 5000;
+export const ALLIANCE_CREATE_COST = 100;
+export const ALLIANCE_CREATE_CURRENCY = 'crystals' as const;
 export const ALLIANCE_MEMBER_LIMIT = 30;
 export const ALLIANCE_REJOIN_COOLDOWN_HOURS = 24;
 export const ALLIANCE_OFFICER_LIMIT = 5;
 export const ALLIANCE_PROJECT_RESTART_COOLDOWN_HOURS = 6;
+
+export type AllianceCreationQuote = { cost: number; currency: 'credits' | 'crystals' };
+
+/** Old servers supply a credit cost without a currency; unknown prices fail closed. */
+export function allianceCreationQuote(rules?: { createCost?: unknown; createCurrency?: unknown }): AllianceCreationQuote | null {
+  if (!rules || typeof rules.createCost !== 'number' || !Number.isSafeInteger(rules.createCost) || rules.createCost <= 0) return null;
+  const currency = rules.createCurrency === undefined ? 'credits' : rules.createCurrency;
+  if (currency !== 'credits' && currency !== 'crystals') return null;
+  return { cost: rules.createCost, currency };
+}
 
 export type AllianceDailyEvent = 'build_started' | 'foundry_started' | 'contract_completed';
 export const ALLIANCE_DAILY_GOALS = [

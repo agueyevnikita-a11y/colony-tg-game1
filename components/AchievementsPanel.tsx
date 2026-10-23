@@ -5,7 +5,7 @@ import { AchievementEmblem } from '@/components/AchievementEmblem';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import '@/app/achievements.css';
 
-export type AchievementCategory = 'all' | 'comfort' | 'friends';
+export type AchievementCategory = 'all' | 'comfort' | 'friends' | 'exploration';
 
 export type AchievementRow = {
   key: string;
@@ -35,6 +35,7 @@ const CATEGORIES: { key: AchievementCategory; label: string; icon: string }[] = 
   { key: 'all', label: 'Все темы', icon: 'trophy' },
   { key: 'comfort', label: 'Комфорт', icon: 'comfort' },
   { key: 'friends', label: 'Друзья', icon: 'network' },
+  { key: 'exploration', label: 'Экспедиции', icon: 'artifact_lens' },
 ];
 const STATUSES: { key: AchievementStatus; label: string }[] = [
   { key: 'ready', label: 'Готовы' },
@@ -48,6 +49,7 @@ function quantity(value: number) {
 }
 
 function inCategory(row: AchievementRow, category: AchievementCategory) {
+  if (category === 'exploration') return ['expeditions_completed', 'artifacts_found', 'unique_artifacts_found'].includes(row.stat);
   return category === 'all' || row.stat === (category === 'comfort' ? 'max_comfort' : 'qualified_referrals');
 }
 

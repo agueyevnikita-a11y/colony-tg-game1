@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.1-beta.1 — Clear Rules and Lunar Finds
+- Alliance creation now costs 100 earned crystals with a separate confirmation; joining remains free. The server publishes the currency and requires the confirmed price, so old tabs cannot unexpectedly spend crystals. Existing alliances are unchanged.
+- Added four distinct lunar artifact illustrations across the collection, navigation and expedition rewards. The collection shows translated rarities, progress, real per-route discovery chances and a direct path to the permanent-frame achievement.
+- Shared artifact drop weights now power server selection and player-facing probabilities with the same outcomes as before. Clarified event rewards, preserved cargo, repeat finds and the exact scope of the expedition science research bonus.
+- Expanded the mechanics guide with supply projects, expeditions, collection rewards and alliance entry rules. Existing resources, production rates, timers, prepaid outcomes and saved cities are preserved; no migration or dependency is required.
+
 ## 1.14.0-beta.1 — Give Production a Destination
 - Added three finite supply projects with three stages each: a lunar cargo route, polar laboratory and Dawn district. Deliver ore, energy and parts in explicit partial shipments for credits, science, bounded crystals and permanent titles. There is no expiry or loss for absence.
 - Active logistics and HQ3 enable deliveries. Project selection is free and local; each project's progress stays separate. First delivery snapshots all future costs and rewards. Earned stage rewards can be collected during logistics downtime and cannot pay twice.

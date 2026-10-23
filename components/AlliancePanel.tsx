@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
-import { contributionPoints, type AllianceResource } from '@/lib/game/alliance';
+import { allianceCreationQuote, contributionPoints, type AllianceCreationQuote, type AllianceResource } from '@/lib/game/alliance';
 import { AllianceCooperationPanel, type AllianceCooperationState } from '@/components/AllianceCooperationPanel';
 import { AllianceDirectory } from '@/components/AllianceDirectory';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -62,13 +62,13 @@ type AllianceState = {
     reward_credits: string | number;
   }[];
   recommended?: { id: string; name: string; code: string; members: number; member_limit: number; season_points: string | number }[];
-  rules?: { createCost?: number; createHq?: number; joinHq?: number; memberLimit?: number; officerLimit?: number; rejoinCooldownHours?: number; restartCooldownHours?: number };
+  rules?: { createCost?: number; createCurrency?: 'credits' | 'crystals'; createHq?: number; joinHq?: number; memberLimit?: number; officerLimit?: number; rejoinCooldownHours?: number; restartCooldownHours?: number };
 };
 
 type Props = {
   alliance?: AllianceState;
   cooperation?: AllianceCooperationState;
-  resources: Partial<Record<AllianceResource | 'credits' | 'science', number | string>>;
+  resources: Partial<Record<AllianceResource | 'credits' | 'science' | 'crystals', number | string>>;
   hqLevel: number;
   telegramId?: number | string;
   busy: boolean;
@@ -108,6 +108,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [membershipFeedback, setMembershipFeedback] = useState<Feedback | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [createConfirmation, setCreateConfirmation] = useState<(AllianceCreationQuote & { name: string }) | null>(null);
   const [section, setSection] = useState<AllianceSection>('mining');
   const [entrySection, setEntrySection] = useState<EntrySection>(() => initialCode ? 'code' : 'find');
   const [memberSearch, setMemberSearch] = useState('');
@@ -115,7 +116,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const [now, setNow] = useState(() => Date.now());
   const submittingRef = useRef(false);
   useEffect(() => { setCode(initialCode); if (initialCode) setEntrySection('code'); }, [initialCode]);
-  useEffect(() => { setSection('mining'); setConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code]);
+  useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code, telegramId]);
   useEffect(() => {
     setNow(Date.now());
     if (!(alliance?.project?.status === 'completed' && alliance.project.restartAvailableAt) && !alliance?.entry?.availableAt) return;
@@ -127,7 +128,11 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const rules = alliance?.rules;
   const joinLevel = Number(rules?.joinHq ?? 2);
   const createLevel = Number(rules?.createHq ?? 3);
-  const createCost = Number(rules?.createCost ?? 5000);
+  const createQuote = allianceCreationQuote(rules);
+  const createCost = createQuote?.cost ?? 0;
+  const createCurrency = createQuote?.currency ?? 'crystals';
+  const createCurrencyLabel = createCurrency === 'crystals' ? 'кристаллов' : 'кредитов';
+  const createBalance = Number(resources[createCurrency] ?? 0);
   const cooldown = Number(rules?.rejoinCooldownHours ?? 24);
   const entryAvailableAt = alliance?.entry?.availableAt;
   const entryWaiting = !!entryAvailableAt && Date.parse(entryAvailableAt) > now;
@@ -162,10 +167,12 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const cleanName = name.trim().replace(/\s+/g, ' ');
   const nameIssue = cleanName.length < 3 || cleanName.length > 28 ? 'Название должно содержать от 3 до 28 символов.'
     : !/^[\p{L}\p{N} ._\-]+$/u.test(cleanName) ? 'Используй буквы, цифры, пробел, точку, дефис или знак подчёркивания.' : '';
-  const createDeficit = Math.max(0, createCost - Number(resources.credits ?? 0));
+  const createDeficit = Math.max(0, createCost - createBalance);
   const joinIssue = entryWaitMessage || (hqLevel < joinLevel ? `Улучши центр колонии до ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : !code.trim() ? 'Введи код, которым поделился участник альянса.' : '');
-  const createIssue = entryWaitMessage || (hqLevel < createLevel ? `Для создания нужен центр колонии ур. ${createLevel}. Сейчас ур. ${hqLevel}.`
-    : createDeficit > 0 ? `Нужно ${n(createCost)} кредитов, в наличии ${n(resources.credits)}. Не хватает ${n(createDeficit)}.` : nameIssue);
+  const createIssue = !createQuote ? 'Цена пока не получена. Обнови игру перед созданием альянса.'
+    : entryWaitMessage || (hqLevel < createLevel ? `Для создания нужен центр колонии ур. ${createLevel}. Сейчас ур. ${hqLevel}.`
+    : createDeficit > 0 ? `Нужно ${n(createCost)} ${createCurrencyLabel}, в наличии ${n(createBalance)}. Не хватает ${n(createDeficit)}.` : nameIssue);
+  const createConfirmationMatches = !!createConfirmation && createConfirmation.name === cleanName && createConfirmation.cost === createCost && createConfirmation.currency === createCurrency;
   const restartWaiting = !!project?.restartAvailableAt && new Date(project.restartAvailableAt).getTime() > now;
   const hiddenMemberFeedback = Object.keys(feedback).filter((key) => key.startsWith('member-') && !visibleMembers.some((member) => key === `member-${member.telegram_id}`));
   const hiddenSectionFeedback = Object.keys(feedback).filter((key) =>
@@ -200,6 +207,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
       setFeedback((previous) => ({ ...previous, [key]: result }));
       if (membershipChange) setMembershipFeedback(result);
       setConfirmation(null);
+      setCreateConfirmation(null);
     } catch (cause) {
       setFeedback((previous) => ({ ...previous, [key]: { text: cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуй ещё раз.', error: true } }));
     } finally {
@@ -211,6 +219,14 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   function join(joinCode: string, key = 'join', allianceName?: string) {
     if (entryWaiting || hqLevel < joinLevel || !joinCode.trim()) return;
     void act(key, '/api/alliance/join', { code: joinCode.trim().toUpperCase() }, () => allianceName ? `Ты вступил в «${allianceName}».` : 'Ты вступил в альянс.', true);
+  }
+
+  function confirmCreate() {
+    if (!createConfirmationMatches || !createConfirmation || createIssue || locked) return;
+    const confirmed = createConfirmation;
+    void act('create', '/api/alliance/create', {
+      name: confirmed.name, expectedCreateCost: confirmed.cost, expectedCreateCurrency: confirmed.currency,
+    }, () => `Альянс «${confirmed.name}» создан. Списано ${n(confirmed.cost)} ${confirmed.currency === 'crystals' ? 'кристаллов' : 'кредитов'}.`, true);
   }
 
   function confirmAction() {
@@ -324,12 +340,25 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
         <div className="allianceEntryBenefits"><span><GameIcon name="ore" size={19} /><b>Личная добыча</b><small>За твою помощь команде</small></span><span><GameIcon name="research" size={19} /><b>Общая наука</b><small>Для технологий альянса</small></span><span><GameIcon name="trophy" size={19} /><b>Призы лиги</b><small>За личный и общий вклад</small></span></div>
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}
         {entryWaiting && <div className="allianceEntryWait" role="status"><GameIcon name="clock" size={19} /><div><strong>Перерыв перед новой командой</strong><p>{entryWaitMessage}</p><small>Доступно {new Date(entryAvailableAt!).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Список можно изучать сейчас.</small></div></div>}
-        <SectionTabs label="Вступление в альянс" value={entrySection} items={[{ key: 'find', label: 'Найти', icon: 'network' }, { key: 'code', label: 'По коду', icon: 'share' }, { key: 'create', label: 'Создать', icon: 'shield' }]} onChange={key => setEntrySection(key as EntrySection)} />
+        <SectionTabs label="Вступление в альянс" value={entrySection} items={[{ key: 'find', label: 'Найти', icon: 'network' }, { key: 'code', label: 'По коду', icon: 'share' }, { key: 'create', label: 'Создать', icon: 'shield' }]} onChange={key => { setEntrySection(key as EntrySection); setCreateConfirmation(null); }} />
         <div hidden={entrySection !== 'find'}>
           {alliance?.directory ? <AllianceDirectory initial={alliance.directory} busy={locked} joinIssue={directoryJoinIssue} pendingJoin={pendingKey} onSearch={onDirectorySearch} onJoin={entry => join(entry.code, `join-${entry.id}`, entry.name)} renderFeedback={id => status(`join-${id}`)} /> : <div className="allianceRecommended"><h3>Открытые альянсы</h3>{directoryJoinIssue && <p className="finePrint">{directoryJoinIssue}</p>}<div className="stack">{(alliance?.recommended ?? []).map(entry => <div className="allianceRecommendedRow" key={entry.id}><div><strong>{entry.name}</strong><small>{entry.code} · {entry.members}/{entry.member_limit} участников</small></div><button type="button" className="miniButton" disabled={locked || !!directoryJoinIssue || entry.members >= entry.member_limit} onClick={() => join(entry.code, `join-${entry.id}`, entry.name)}>{pendingKey === `join-${entry.id}` ? 'Вступаем…' : entry.members >= entry.member_limit ? 'Мест нет' : 'Вступить'}</button><div className="allianceRecommendedFeedback">{status(`join-${entry.id}`)}</div></div>)}</div>{!alliance?.recommended?.length && <p className="finePrint">Список пока пуст. Можно вступить по коду или создать команду.</p>}</div>}
         </div>
         <div hidden={entrySection !== 'code'}><form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (!joinIssue && !locked) join(code); }}><label htmlFor="alliance-join-code">Код из приглашения<input id="alliance-join-code" aria-describedby="alliance-join-help" value={code} maxLength={80} autoCapitalize="characters" autoComplete="off" disabled={locked} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="Код альянса" /></label><button type="submit" className="action" disabled={locked || !!joinIssue}>{pendingKey === 'join' ? 'Вступаем…' : 'Вступить бесплатно'}</button><p className="finePrint" id="alliance-join-help">{joinIssue || `Нужен центр ур. ${joinLevel}. Ресурсы за вступление не списываются.`}</p>{status('join')}</form></div>
-        <div hidden={entrySection !== 'create'}><form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (createIssue || locked) return; void act('create', '/api/alliance/create', { name: cleanName }, () => `Альянс «${cleanName}» создан. Списано ${n(createCost)} кредитов.`, true); }}><p className="finePrint">Создание — с центра ур. {createLevel}. Собери друзей или пригласи новых участников.</p><label htmlFor="alliance-create-name">Название команды<input id="alliance-create-name" aria-describedby="alliance-create-help" value={name} maxLength={28} disabled={locked} onChange={(event) => setName(event.target.value)} placeholder="Название нового альянса" /></label><button type="submit" className="action secondary" disabled={locked || !!createIssue}>{pendingKey === 'create' ? 'Создаём…' : <>Создать · <GameAmount resource="credits">{n(createCost)}</GameAmount></>}</button><p className="finePrint" id="alliance-create-help">{createIssue || `В наличии ${n(resources.credits)} кредитов. При создании спишется ${n(createCost)}.`}</p>{status('create')}</form></div>
+        <div hidden={entrySection !== 'create'}><form className="allianceEntryForm" onSubmit={(event) => { event.preventDefault(); if (createIssue || locked || !createQuote) return; setCreateConfirmation({ ...createQuote, name: cleanName }); }}>
+          <p className="finePrint">Создание — с центра ур. {createLevel}. Плата только за основание своей команды; вступление в готовый альянс бесплатное.</p>
+          <label htmlFor="alliance-create-name">Название команды<input id="alliance-create-name" aria-describedby="alliance-create-help" value={name} maxLength={28} disabled={locked} onChange={(event) => { setName(event.target.value); setCreateConfirmation(null); }} placeholder="Название нового альянса" /></label>
+          {!createConfirmationMatches && <button type="submit" className="action secondary" disabled={locked || !!createIssue}>{createQuote ? <>Создать · <GameAmount resource={createCurrency}>{n(createCost)}</GameAmount></> : 'Обнови игру для получения цены'}</button>}
+          <p className="finePrint" id="alliance-create-help">{createIssue || `В наличии ${n(createBalance)} ${createCurrencyLabel}. При создании спишется ${n(createCost)}.`}</p>
+          {createCurrency === 'crystals' && <p className="finePrint">Кристаллы можно заработать в заданиях и достижениях. Покупка за Stars не требуется.</p>}
+          {createConfirmationMatches && createConfirmation && <div className="allianceConfirm allianceCreateConfirm" role="group" aria-label="Подтверждение создания альянса">
+            <strong>Создать «{createConfirmation.name}»?</strong>
+            <p>Спишется <GameAmount resource={createConfirmation.currency}>{n(createConfirmation.cost)}</GameAmount> {createCurrencyLabel}. Это разовая плата за создание; после выхода или удаления альянса она не возвращается.</p>
+            <p>Участники вступают бесплатно. Само создание не увеличивает добычу: бонусы открываются совместной работой.</p>
+            <div className="allianceConfirmActions"><button type="button" className="miniButton" disabled={locked} onClick={() => setCreateConfirmation(null)}>Отмена</button><button type="button" className="miniButton" disabled={locked || !!createIssue} onClick={confirmCreate}>{pendingKey === 'create' ? 'Создаём…' : <>Подтвердить · <GameAmount resource={createConfirmation.currency}>{n(createConfirmation.cost)}</GameAmount></>}</button></div>
+          </div>}
+          {status('create')}
+        </form></div>
         <details className="allianceEntryRules"><summary>Правила вступления</summary><p className="finePrint">Вступление бесплатное с центра ур. {joinLevel}. После выхода или исключения действует перерыв {cooldown} ч. Вместимость — {rules?.memberLimit ?? 30} участников. Оплаченная добыча и заработанные призы сохраняются после выхода.</p></details>
       </section>
     </>}

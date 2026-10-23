@@ -9,7 +9,7 @@ export async function POST(request:Request){
   try{
     const auth=getInitDataFromRequest(request);const userId=await ensurePlayer(auth.user,auth.startParam);
     await sql.begin(async tx=>{await assertFeature(tx,userId,'alliances');});
-    const body=await request.json() as {name:string};await reconcilePlayer(userId);await createAlliance(userId,String(body.name??''));
+    const body=await request.json() as {name:string;expectedCreateCost?:unknown;expectedCreateCurrency?:unknown};await reconcilePlayer(userId);await createAlliance(userId,String(body.name??''),{cost:body.expectedCreateCost,currency:body.expectedCreateCurrency});
     return NextResponse.json({ok:true,...(await reconcilePlayer(userId))});
   }catch(error){return NextResponse.json({ok:false,error:error instanceof Error?error.message:'Unknown error'},{status:400});}
 }

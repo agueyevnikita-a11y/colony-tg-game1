@@ -34,6 +34,7 @@ import { DailyLoginPanel } from '@/components/DailyLoginPanel';
 import { QuestPanel } from '@/components/QuestPanel';
 import { SeasonPanel } from '@/components/SeasonPanel';
 import { ExpeditionsPanel } from '@/components/ExpeditionsPanel';
+import { ArtifactsPanel } from '@/components/ArtifactsPanel';
 import { MarketPanel } from '@/components/MarketPanel';
 import { SectionTabs } from '@/components/SectionTabs';
 import { SectionAtmosphere } from '@/components/SectionAtmosphere';
@@ -67,14 +68,13 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
 };
 const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> = {
   city: [{ key: 'map', label: 'Карта', icon: 'map' }, { key: 'production', label: 'Цеха', icon: 'foundry' }, { key: 'contracts', label: 'Поставки', icon: 'contracts' }, { key: 'events', label: 'События', icon: 'events' }, { key: 'decor', label: 'Декор', icon: 'decor' }],
-  build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'star' }],
+  build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'artifact_lens' }],
   market: [{ key: 'buy', label: 'Купить' }, { key: 'sell', label: 'Продать' }, { key: 'mine', label: 'Мои ордера' }, { key: 'prices', label: 'Цены' }],
   missions: [{ key: 'daily', label: 'Сегодня', icon: 'missions' }, { key: 'weekly', label: 'Неделя', icon: 'clock' }, { key: 'achievements', label: 'Достижения', icon: 'trophy' }, { key: 'season', label: 'Сезон', icon: 'star' }],
   shop: [{ key: 'offers', label: 'Предложения', icon: 'shop' }, { key: 'collection', label: 'Моё оформление', icon: 'palette' }],
   social: [{ key: 'profile', label: 'Профиль', icon: 'city' }, { key: 'alliance', label: 'Альянс', icon: 'social' }, { key: 'rating', label: 'Рейтинг', icon: 'trophy' }, { key: 'friends', label: 'Друзья', icon: 'network' }, { key: 'inbox', label: 'Почта', icon: 'mail' }, { key: 'settings', label: 'Настройки', icon: 'settings' }, { key: 'admin', label: 'Управление', icon: 'shield' }],
 };
 const DEFAULT_SUBSECTIONS: Record<Tab, string> = { city: 'map', build: 'research', market: 'buy', missions: 'daily', shop: 'offers', social: 'profile' };
-const ARTIFACT_ICONS: Record<string, string> = { signal_fragment: 'artifact_shard', alloy_core: 'artifact_core', stellar_map: 'artifact_beacon', quantum_lens: 'artifact_lens' };
 const BUILDING_SHORTCUTS: Record<string, { action: string; label: string; icon: string }> = {
   foundry: { action: 'production', label: 'Открыть этот цех', icon: 'foundry' },
   research_lab: { action: 'research', label: 'Открыть исследования', icon: 'research' },
@@ -387,6 +387,12 @@ export default function Home() {
       showSection('market', 'buy'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (action === 'expeditions') {
       showSectionFromGuide('build', 'expeditions');
+    } else if (action === 'artifacts') {
+      showSectionFromGuide('build', 'artifacts');
+    } else if (action === 'achievements') {
+      openAchievements('all');
+    } else if (action === 'daily') {
+      showSectionFromGuide('missions', 'daily');
     } else if (action === 'alliance') {
       showSectionFromGuide('social', 'alliance');
     } else if (action === 'decor') {
@@ -1133,7 +1139,7 @@ export default function Home() {
         />}
         </div>}
         {subsections.build === 'artifacts' && <div data-section-panel="build-artifacts">
-<section className="card"><h2><GameIcon name="artifact_lens" />Коллекция артефактов</h2><p>Артефакты находятся только в экспедициях. Собери все четыре вида — постоянная рамка первопроходца.</p><div className="artifactGrid">{(game.expeditions?.artifacts??[]).map((a:any)=><div className={`artifact ${Number(a.count)>0?'found':'unknown'}`} key={a.id}><span className="artifactVisual"><GameIcon name={Number(a.count)>0 ? ARTIFACT_ICONS[a.id] ?? 'artifact_shard' : 'lock'} size={29} /></span><b>{Number(a.count)>0?a.name:'Неизвестный объект'}</b><small>{Number(a.count)>0?`${a.rarity} · ×${a.count}`:'ещё не найден'}</small></div>)}</div></section>
+<ArtifactsPanel artifacts={game.expeditions?.artifacts} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')} />
         </div>}
       </>}
 

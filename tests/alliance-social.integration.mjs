@@ -29,7 +29,7 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
       VALUES(${telegramId},'Social CI',${`Социальный тест ${telegramId}`},now()) RETURNING id`;
     userIds.push(row.id);
     await sql`INSERT INTO game_states(user_id,hq_level,ore,energy,parts,credits,science,crystals,last_tick_at)
-      VALUES(${row.id},3,0,10000,1000,20000,1000,0,now()+interval '1 day')`;
+      VALUES(${row.id},3,0,10000,1000,20000,1000,100,now()+interval '1 day')`;
     await sql`INSERT INTO player_stats(user_id) VALUES(${row.id})`;
     await sql`INSERT INTO buildings(user_id,type,level,x,y,status) VALUES(${row.id},'hq',3,2,2,'active')`;
     await sql`INSERT INTO beta_access(user_id,source) VALUES(${row.id},'integration_test')`;
@@ -38,7 +38,7 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
   async function group(memberCount = 2, name) {
     const owner = await player(), members = [];
     const reply = await request('/api/alliance/create', {
-      method: 'POST', auth: initData(owner.telegramId), body: { name: name ?? `CI ${owner.telegramId}` },
+      method: 'POST', auth: initData(owner.telegramId), body: { name: name ?? `CI ${owner.telegramId}`, expectedCreateCost: 100, expectedCreateCurrency: 'crystals' },
     });
     assert.equal(reply.status, 200, JSON.stringify(reply.data));
     const [alliance] = await sql`SELECT id,code FROM alliances WHERE owner_user_id=${owner.userId}`;

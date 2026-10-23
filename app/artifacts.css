@@ -1,0 +1,45 @@
+.artifactArt { display:inline-flex; flex-shrink:0; align-items:center; justify-content:center; vertical-align:middle; }
+.artifactArt img { display:block; width:100%; height:100%; max-width:100%; object-fit:contain; }
+.artifactArt.isUndiscovered { opacity:.46; filter:grayscale(.72) saturate(.6); }
+.artifactsPanel { min-width:0; }
+.artifactsHeading { display:flex; align-items:flex-start; gap:12px; justify-content:space-between; }
+.artifactsHeading h2 { display:flex; gap:8px; align-items:center; }
+.artifactsHeading p { margin-bottom:12px; }
+.artifactsCounter { display:grid; align-content:center; justify-items:center; min-width:52px; padding:9px 10px; background:#10272f; border:1px solid #416066; border-radius:16px; color:#a8eed8; font-size:26px; font-weight:800; line-height:1.1; }
+.artifactsCounter small { margin-top:4px; color:#a5bdc4; font-size:11px; font-weight:500; }
+.artifactsCollectionGoal { display:flex; align-items:center; gap:10px; margin-top:6px; }
+.artifactsCollectionGoal > .gameIcon { flex-shrink:0; }
+.artifactsCollectionGoal strong,.artifactsCollectionGoal span { display:block; }
+.artifactsCollectionGoal strong { font-size:14px; margin-bottom:4px; }
+.artifactsCollectionGoal span { color:#a6bcc5; font-size:12px; line-height:1.5; }
+.artifactsProgress { height:5px; background:#0d2029; border-radius:20px; margin:14px 0 18px; overflow:hidden; }
+.artifactsProgress i { display:block; height:100%; border-radius:20px; background:linear-gradient(90deg,#63c5ba,#a4ead7); }
+.artifactsCards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.artifactCard { min-width:0; border:1px solid #334a56; border-radius:17px; padding:10px; background:linear-gradient(150deg,#172e38,#10212b); }
+.artifactCardVisual { display:flex; position:relative; justify-content:center; align-items:center; min-height:130px; border-radius:12px; background:radial-gradient(ellipse at 50% 38%,#36566450,transparent 75%); margin-bottom:6px; }
+.artifactCard.rarity-epic .artifactCardVisual { background:radial-gradient(ellipse at 50% 38%,#6d42944a,transparent 75%); }
+.artifactCard.rarity-rare .artifactCardVisual { background:radial-gradient(ellipse at 50% 38%,#226cac4a,transparent 75%); }
+.artifactCardStatus { position:absolute; bottom:0; display:flex; gap:4px; align-items:center; padding:3px 7px; border-radius:6px; color:#bed0d9; background:#0e202bbf; font-size:10px; }
+.isFound .artifactCardStatus { color:#a4e4c9; }
+.artifactCard h3 { font-size:14px; line-height:1.4; min-height:2.8em; margin:8px 0 3px; overflow-wrap:anywhere; }
+.artifactRarity { display:block; color:#a6bcc5; font-size:11px; line-height:1.5; }
+.rarity-uncommon .artifactRarity { color:#94cfbb; }.rarity-rare .artifactRarity { color:#96c6f0; }.rarity-epic .artifactRarity { color:#c2a5ee; }
+.artifactRarity b { color:#e5f2f7; font-weight:600; }
+.artifactDetails { margin-top:10px; border-top:1px solid #314650; padding-top:4px; font-size:12px; }
+.artifactDetails summary { min-height:44px; display:flex; justify-content:space-between; gap:4px; align-items:center; cursor:pointer; color:#c2d9e1; font-size:11px; line-height:1.45; list-style:none; }
+.artifactDetails summary::-webkit-details-marker { display:none; }.artifactDetails summary>.gameIcon { flex-shrink:0; transition:transform .15s; }.artifactDetails[open] summary>.gameIcon { transform:rotate(90deg); }
+.artifactDetails p { font-size:12px; line-height:1.55; color:#b0c3cc; margin:5px 0 12px; }
+.artifactDetails strong { display:block; font-size:11px; line-height:1.5; color:#d1e0e6; }
+.artifactDetails ul { margin:5px 0 10px; padding:0; list-style:none; }
+.artifactDetails li { display:flex; justify-content:space-between; gap:5px; font-size:11px; line-height:1.5; padding:5px 0; border-bottom:1px solid #344b554d; }
+.artifactDetails li span { min-width:0; }.artifactDetails li b { flex-shrink:0; font-weight:600; color:#abdedc; }
+.artifactDetails .artifactExtraSource { font-size:11px; margin-bottom:0; }
+.artifactsActions { display:grid; gap:8px; margin-top:16px; }
+.artifactsActions button { min-height:44px; white-space:normal; justify-content:center; }
+.artifactsRules { margin-top:14px; border-top:1px solid #304650; font-size:12px; }
+.artifactsRules summary { display:flex; gap:7px; align-items:center; min-height:44px; cursor:pointer; color:#b2c8d0; list-style:none; }
+.artifactsRules summary::-webkit-details-marker { display:none; }.artifactsRules p { font-size:12px; line-height:1.6; margin:0 0 10px; }
+.xpArtifact .artifactArt { margin:-3px 0; }
+@media(min-width:640px) { .artifactsCards { grid-template-columns:repeat(4,minmax(0,1fr)); } .artifactsActions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:360px) { .artifactCard { padding:8px; }.artifactsCards { gap:8px; }.artifactCardVisual { min-height:116px; }.artifactCardVisual .artifactArt { width:96px!important; height:96px!important; }.artifactCard h3 { font-size:13px; }.artifactDetails summary { font-size:10px; }.artifactDetails li { display:block; }.artifactDetails li b { display:block; } }
+@media(prefers-reduced-motion:reduce) { .artifactDetails summary>.gameIcon { transition:none; } }

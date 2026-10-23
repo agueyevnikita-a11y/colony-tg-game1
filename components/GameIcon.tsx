@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { lunarIconByName } from '@/lib/game/icon-art';
+import { artifactArtByIcon } from '@/lib/game/artifact-art';
 import '@/app/city-art.css';
 import '@/app/lunar-icons.css';
 
@@ -70,15 +71,17 @@ const TONES: Record<string, string> = {
 
 export function GameIcon({ name, size = 20, className = '', title }: Props) {
   const art = lunarIconByName(name);
+  const artifact = artifactArtByIcon(name);
+  const hasArt = !!(art || artifact);
   const glyph = Object.prototype.hasOwnProperty.call(ICONS, name) ? ICONS[name] : ICONS.building;
-  return <svg className={`gameIcon ${art ? 'gameIconArt' : ''} ${className}`.trim()} width={size} height={size} viewBox="0 0 24 24"
-    data-game-icon={name} data-icon-art={art ? name : undefined}
+  return <svg className={`gameIcon ${hasArt ? 'gameIconArt' : ''} ${className}`.trim()} width={size} height={size} viewBox="0 0 24 24"
+    data-game-icon={name} data-icon-art={hasArt ? name : undefined}
     fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
     style={TONES[name] ? { color: TONES[name] } : undefined} focusable="false"
     aria-hidden={title ? undefined : true} aria-label={title} role={title ? 'img' : undefined}>
     {title && <title>{title}</title>}{art ? <svg x=".5" y=".5" width="23" height="23" viewBox={art.viewport.join(' ')} preserveAspectRatio="xMidYMid meet" overflow="hidden" aria-hidden="true" focusable="false">
       <image href={art.src} width={art.width} height={art.height} />
-    </svg> : glyph}
+    </svg> : artifact ? <image href={artifact.src} x=".5" y=".5" width="23" height="23" preserveAspectRatio="xMidYMid meet" /> : glyph}
   </svg>;
 }
 
