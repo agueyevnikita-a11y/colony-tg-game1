@@ -8,7 +8,8 @@
 .xpSlots small { max-width:250px; font-size:10px; color:var(--muted); line-height:1.5; }
 .xpPause { border:1px solid rgba(225,194,129,.23); border-radius:10px; padding:10px; margin:10px 0; color:#e0c894; font-size:11px; line-height:1.5; }
 .xpRuns { display:flex; flex-direction:column; gap:10px; margin:14px 0 18px; }
-.xpRun { min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(19,39,51,.45); }
+.xpRun { min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(19,39,51,.45); scroll-margin-top:14px; scroll-margin-bottom:110px; }
+.xpRun:focus,.xpReceipt:focus { outline:2px solid var(--accent); outline-offset:3px; }
 .xpRun.is-ready { border-color:rgba(134,203,173,.35); }.xpRun.is-event { border-color:rgba(224,190,118,.35); }
 .xpRunHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:10px; }
 .xpRunHeading h3 { display:flex; align-items:center; gap:6px; margin:0; min-width:0; font-size:13px; line-height:1.4; }
@@ -28,10 +29,13 @@
 .xpFeedback > span { flex:1; min-width:130px; }.xpFeedback .miniButton { font-size:10px; }
 .xpFeedback.isError { color:#f1b5a3; border-color:rgba(228,151,128,.25); background:rgba(158,85,63,.06); }
 .xpFeedback.isSuccess { color:#acd9bf; border-color:rgba(135,202,165,.25); }
-.xpReceipt { padding:12px; margin:12px 0; border:1px solid rgba(137,207,175,.35); border-radius:12px; background:rgba(114,228,173,.04); color:#c4e2d0; }
+.xpReceipt { padding:12px; margin:12px 0; border:1px solid rgba(137,207,175,.35); border-radius:12px; background:rgba(114,228,173,.04); color:#c4e2d0; scroll-margin-top:14px; scroll-margin-bottom:110px; }
 .xpReceipt > strong { display:flex; align-items:center; gap:6px; margin-bottom:9px; font-size:13px; line-height:1.5; }
 .xpReceiptContents { font-size:12px; line-height:1.5; }.xpReceiptCost { margin-top:7px; color:var(--muted); font-size:11px; }
 .xpReceiptCost > span:first-child { margin-right:7px; }
+.xpCollectionReceipt { display:flex; flex-wrap:wrap; gap:7px; }
+.xpCollectionReceipt p { width:100%; margin:5px 0; color:var(--muted); font-size:11px; line-height:1.6; }
+.xpCollectionReceipt .miniButton { display:flex; align-items:center; gap:6px; min-width:0; text-align:left; font-size:11px; }
 .xpEvent { padding-top:9px; margin-top:3px; border-top:1px solid var(--line); }
 .xpEvent > h4 { margin:0; font-size:13px; line-height:1.4; }
 .expeditionsPanel .xpEvent > p { margin:6px 0 10px; color:var(--muted); font-size:12px; line-height:1.5; }
@@ -60,9 +64,19 @@
 .xpRouteDetails > summary::-webkit-details-marker { display:none; }
 .xpRouteDetails > summary .gameIcon { flex-shrink:0; transform:rotate(90deg); }
 .xpRouteDetails[open] > summary .gameIcon { transform:rotate(-90deg); }
+.xpRouteFinds { list-style:none; padding:0; margin:7px 0 10px; display:grid; gap:6px; }
+.xpRouteFinds li { min-width:0; }
+.xpFindLink { display:flex; align-items:center; gap:7px; min-height:44px; width:100%; padding:7px; border:1px solid var(--line); border-radius:9px; background:rgba(16,35,44,.6); color:var(--text); text-align:left; font:inherit; }
+button.xpFindLink { cursor:pointer; }
+.xpFindLink:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.xpFindName { flex:1; min-width:0; }
+.xpFindName strong,.xpFindName small { display:block; line-height:1.5; overflow-wrap:anywhere; }
+.xpFindName strong { font-size:11px; font-weight:600; }.xpFindName small { color:var(--muted); font-size:10px; }
+.xpFindChance { flex-shrink:0; color:#acdfce; font-size:11px; }
 .xpRouteDetails > summary:focus-visible,.xpHistory > summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:5px; }
 .expeditionsPanel .xpRouteDetails > p { margin:0 0 10px; color:var(--muted); font-size:11px; line-height:1.6; }
 .expeditionsPanel .xpLaunchBlocker { margin:8px 0; color:#d9c7a6; font-size:11px; line-height:1.5; }
+.xpLaunchBlocker .miniButton { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11px; }
 .xpGate { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:9px 0; font-size:11px; color:#b9cfe7; line-height:1.5; }.xpGate .miniButton { font-size:11px; }
 .xpHistory { padding-top:12px; margin-top:18px; border-top:1px solid var(--line); }.xpHistory > summary { cursor:pointer; color:#bdcfdb; font-size:12px; line-height:1.5; min-height:44px; align-content:center; }
 .xpHistory > ol { padding:0; list-style:none; margin:10px 0 0; display:flex; flex-direction:column; gap:9px; }.xpHistory li { padding:11px; border:1px solid var(--line); border-radius:10px; }.xpHistory li > strong { display:block; margin-bottom:8px; color:var(--text); font-size:12px; line-height:1.5; }.expeditionsPanel .xpHistory li > p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; }
