@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.0-beta.1 — Give Production a Destination
+- Added three finite supply projects with three stages each: a lunar cargo route, polar laboratory and Dawn district. Deliver ore, energy and parts in explicit partial shipments for credits, science, bounded crystals and permanent titles. There is no expiry or loss for absence.
+- Active logistics and HQ3 enable deliveries. Project selection is free and local; each project's progress stays separate. First delivery snapshots all future costs and rewards. Earned stage rewards can be collected during logistics downtime and cannot pay twice.
+- Production now plans toward the selected stage, accounting for stock, every prepaid queue, researched recipe output and available workshop slots. Applying the suggested batch only changes cycle selection; starting and paying remain separate actions.
+- Integrated projects under City → Supplies alongside existing contracts, gave logistics a purpose in the catalog/inspector, and added ready-reward navigation hints. Two additive tables preserve existing cities, inventories, paid queues, resource rates and purchases.
+
 ## 1.13.1-beta.1 — Find Your Lunar Crew
 - Added a searchable, paged directory of open alliances with real funded mining activity over the last seven days, independent of historical AP. Public listings expose team aggregates rather than player identities or private cargo.
 - Split joining into Find / By Code / Create views, with the actual rejoin deadline shown before submission. Search and paging do not change the player's game session or join a team automatically.

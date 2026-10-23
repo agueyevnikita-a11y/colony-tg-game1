@@ -91,6 +91,9 @@ export function buildingUpgradePreview(building: UpgradableBuilding, context: Pr
     metric('expeditionSlots', 'Экспедиций одновременно', number(slots(before)), number(slots(after)), undefined, 'rocket');
     rating();
     preview.note = 'Число экспедиций определяют лучший работающий центр и технологии. Дополнительный слот центра появляется на уровне 6. Маршруты открываются уровнем базы и исследованиями.';
+  } else if (type === 'logistics') {
+    rating();
+    preview.note = 'Работающий центр открывает проекты снабжения. Уровень не увеличивает их награды. Во время улучшения поставки приостановятся; прогресс и готовые награды сохранятся.';
   } else {
     rating();
     preview.note = 'На этом уровне улучшается рейтинг города. Отдельного бонуса к производству или новых функций у этого улучшения пока нет.';

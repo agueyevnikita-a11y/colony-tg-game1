@@ -31,9 +31,9 @@ type Props = {
 
 const CATEGORIES: { key: BuildingCategory; name: string; hint: string; types: string[] }[] = [
   { key: 'resources', name: 'Добыча', hint: 'Руда, энергия и кредиты поступают автоматически. Выбирай, чего не хватает колонии.', types: ['mine', 'solar', 'deep_mine', 'solar_array', 'habitat'] },
-  { key: 'production', name: 'Цеха', hint: 'Цехи превращают сырьё в детали, а склады помогают вместить запасы.', types: ['foundry', 'warehouse'] },
+  { key: 'production', name: 'Цеха', hint: 'Производи детали, храни запасы и доставляй ресурсы для развития колонии.', types: ['foundry', 'warehouse', 'logistics'] },
   { key: 'development', name: 'Развитие', hint: 'Открывай исследования, торговлю и экспедиции — у каждого здания своя возможность.', types: ['research_lab', 'trade_hub', 'expedition_center'] },
-  { key: 'appearance', name: 'Облик', hint: 'Эти здания развивают облик и рейтинг города. Отдельных производственных бонусов у них пока нет.', types: ['logistics', 'alliance_hub', 'observatory'] },
+  { key: 'appearance', name: 'Облик', hint: 'Эти здания развивают облик и рейтинг города. Отдельных производственных бонусов у них пока нет.', types: ['alliance_hub', 'observatory'] },
 ];
 
 const ROLES: Record<string, string> = {
@@ -41,7 +41,7 @@ const ROLES: Record<string, string> = {
   solar_array: 'Больше энергии с клетки', habitat: 'Приносит кредиты',
   foundry: 'Производит детали', warehouse: 'Вмещает больше ресурсов',
   research_lab: 'Наука и технологии', trade_hub: 'Контракты и рынок', expedition_center: 'Полёты за добычей',
-  logistics: 'Облик и рейтинг', alliance_hub: 'Облик и рейтинг', observatory: 'Облик и рейтинг',
+  logistics: 'Проекты снабжения', alliance_hub: 'Облик и рейтинг', observatory: 'Облик и рейтинг',
 };
 
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 20 }); }

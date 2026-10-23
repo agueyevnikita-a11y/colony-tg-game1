@@ -56,3 +56,22 @@ test('contract counts include only valid current orders affordable from actual a
   assert.equal(item({...game,contractsInfo:{enabled:false}},'contracts').badge,undefined);
   assert.equal(item({...game,state:{ore:Infinity,parts:-1}},'contracts').attention,false);
 });
+
+test('supply attention points to earned unclaimed project stages without requiring an active trade hub', () => {
+  const projects = [{ ready: true, completed: false, started: true }, { ready: false, completed: false, started: true },
+    { ready: true, completed: true, started: true }];
+  const game = { supplyProjects: { available: true, unlocked: false, projects } };
+  const original = structuredClone(game);
+  assert.equal(item(game, 'contracts').badge, 1);
+  assert.equal(item(game, 'contracts').hint, 'Награды проектов: 1');
+  assert.equal(item(game, 'contracts').attention, true);
+  assert.equal(item(game, 'contracts').action, 'supplies');
+  assert.equal(item({ supplyProjects: { ...game.supplyProjects, available: false } }, 'contracts').badge, undefined);
+  const planning = { supplyProjects: { available: true, unlocked: true, projects: [{ ready: false, completed: false, started: false }] } };
+  assert.equal(item(planning, 'contracts').hint, 'Выбрать проект');
+  assert.equal(item(planning, 'contracts').action, 'supplies');
+  const trade = { ...planning, contractsInfo: { enabled: true }, state: { ore: 10 }, contracts: [{ resource: 'ore', amount: 1, expires_at: after }] };
+  assert.equal(item(trade, 'contracts').hint, 'Можно выполнить: 1');
+  assert.equal(item(trade, 'contracts').action, 'contracts');
+  assert.deepEqual(game, original);
+});

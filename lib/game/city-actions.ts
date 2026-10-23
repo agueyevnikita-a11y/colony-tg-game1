@@ -12,10 +12,11 @@ export type CityActionSnapshot = {
   comfort?: { score: unknown };
   contracts?: readonly Contract[];
   contractsInfo?: { enabled?: boolean };
+  supplyProjects?: { available: boolean; unlocked: boolean; projects: readonly { ready: boolean; completed: boolean; started: boolean }[] };
   research?: { labStatus?: string; active?: { completes_at: string } | null; completed?: readonly string[] };
   colonyEvents?: { enabled?: boolean; unlocked?: boolean; active?: unknown };
 };
-export type CityActionItem = { key: string; label: string; icon: string; hint: string; badge?: number; attention?: boolean };
+export type CityActionItem = { key: string; label: string; icon: string; hint: string; badge?: number; attention?: boolean; action?: string };
 
 function amount(raw: unknown) {
   const value = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : 0;
@@ -65,8 +66,13 @@ export function cityActionItems(game: CityActionSnapshot, now = Date.now()): Cit
   });
   const readyContracts = game.contractsInfo?.enabled
     ? currentContracts.filter(contract => amount(resources[contract.resource]) >= amount(contract.amount)).length : 0;
-  const contractsHint = !game.contractsInfo?.enabled ? 'Нужен торговый узел'
-    : readyContracts ? `Можно выполнить: ${readyContracts}`
+  const supplyRewards = game.supplyProjects?.available ? game.supplyProjects.projects.filter(project => project.ready && !project.completed).length : 0;
+  const supplyAvailable = game.supplyProjects?.available && game.supplyProjects.unlocked;
+  const openProjects = supplyRewards > 0 || (supplyAvailable && readyContracts === 0);
+  const supplyHint = game.supplyProjects?.projects.some(project => project.started && !project.completed) ? 'Продолжить проект'
+    : game.supplyProjects?.projects.some(project => !project.completed) ? 'Выбрать проект' : 'Проекты завершены';
+  const contractsHint = supplyRewards ? `Награды проектов: ${supplyRewards}` : readyContracts ? `Можно выполнить: ${readyContracts}`
+    : supplyAvailable ? supplyHint : !game.contractsInfo?.enabled ? 'Нужен торговый узел'
     : currentContracts.length ? 'Нужны ресурсы для поставки'
     : 'Ждём новые поставки';
 
@@ -76,7 +82,7 @@ export function cityActionItems(game: CityActionSnapshot, now = Date.now()): Cit
     { key: 'research', label: 'Исследования', icon: 'research', hint: researchHint, attention: researchDue, badge: researchDue ? 1 : undefined },
     { key: 'events', label: 'События', icon: 'events', hint: eventHint, attention: hasEvent, badge: hasEvent ? 1 : undefined },
     { key: 'decor', label: 'Декор', icon: 'decor', hint: `Комфорт: ${Math.min(100, Math.floor(amount(game.comfort?.score)))}/100` },
-    { key: 'contracts', label: 'Контракты', icon: 'contracts', hint: contractsHint, attention: readyContracts > 0, badge: readyContracts || undefined },
+    { key: 'contracts', label: 'Поставки', icon: 'contracts', hint: contractsHint, attention: supplyRewards > 0 || readyContracts > 0, badge: supplyRewards || readyContracts || undefined, action: openProjects ? 'supplies' : 'contracts' },
     { key: 'share', label: 'Поделиться', icon: 'share', hint: 'Показать свой город' },
   ];
 }

@@ -28,6 +28,8 @@ export const REQUIRED_SCHEMA: Readonly<Record<string, readonly string[]>> = {
   alliance_competition_entries: ['source_id', 'period_id', 'user_id', 'points'],
   alliance_competition_standings: ['period_id', 'kind', 'entity_id', 'rank'],
   alliance_competition_awards: ['period_id', 'user_id', 'kind', 'crystals', 'claimed_at'],
+  supply_project_progress: ['user_id', 'project_key', 'definition_version', 'definition_json', 'stage_index', 'delivered_json', 'completed_at'],
+  supply_project_requests: ['user_id', 'request_id', 'fingerprint', 'result_json'],
 };
 
 export function schemaIsReady(columns: { table_name: string; column_name: string }[]) {

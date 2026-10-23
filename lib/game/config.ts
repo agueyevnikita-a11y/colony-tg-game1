@@ -91,7 +91,7 @@ export const BUILDINGS: Record<BuildingType, BuildingConfig> = {
   },
   logistics: {
     name: 'Логистический центр', emoji: '🚚', unlockHq: 3,
-    description: 'Диспетчерский пункт грузовых роверов развивает облик и рейтинг города. Отдельного бонуса к производству пока нет.',
+    description: 'Открывает долгосрочные проекты снабжения колонии. Доставляй ресурсы частями, получай кредиты и науку по этапам. Прогресс не сгорает.',
     baseBuildCost: { ore: 600, parts: 120, credits: 800 }, baseBuildTimeSec: 600, maxLevel: 12,
   },
   expedition_center: {

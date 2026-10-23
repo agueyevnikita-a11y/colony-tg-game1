@@ -28,6 +28,8 @@ import { ColonyGuide } from '@/components/ColonyGuide';
 import { ColonyGuideEntry } from '@/components/ColonyGuideEntry';
 import { ColonyEventCard } from '@/components/ColonyEventCard';
 import { ContractsPanel } from '@/components/ContractsPanel';
+import { SupplyProjectsPanel } from '@/components/SupplyProjectsPanel';
+import type { SupplyProjectState } from '@/lib/game/supply-projects';
 import { DailyLoginPanel } from '@/components/DailyLoginPanel';
 import { QuestPanel } from '@/components/QuestPanel';
 import { SeasonPanel } from '@/components/SeasonPanel';
@@ -64,7 +66,7 @@ const SECTION_TITLES: Record<Tab, { title: string; hint: string }> = {
   social: { title: 'Связи', hint: 'Профиль, альянс и другие колонии' },
 };
 const SUBSECTIONS: Record<Tab, { key: string; label: string; icon?: string }[]> = {
-  city: [{ key: 'map', label: 'Карта', icon: 'map' }, { key: 'production', label: 'Цеха', icon: 'foundry' }, { key: 'contracts', label: 'Контракты', icon: 'contracts' }, { key: 'events', label: 'События', icon: 'events' }, { key: 'decor', label: 'Декор', icon: 'decor' }],
+  city: [{ key: 'map', label: 'Карта', icon: 'map' }, { key: 'production', label: 'Цеха', icon: 'foundry' }, { key: 'contracts', label: 'Поставки', icon: 'contracts' }, { key: 'events', label: 'События', icon: 'events' }, { key: 'decor', label: 'Декор', icon: 'decor' }],
   build: [{ key: 'research', label: 'Исследования', icon: 'research' }, { key: 'buildings', label: 'Постройки', icon: 'build' }, { key: 'expeditions', label: 'Экспедиции', icon: 'rocket' }, { key: 'artifacts', label: 'Артефакты', icon: 'star' }],
   market: [{ key: 'buy', label: 'Купить' }, { key: 'sell', label: 'Продать' }, { key: 'mine', label: 'Мои ордера' }, { key: 'prices', label: 'Цены' }],
   missions: [{ key: 'daily', label: 'Сегодня', icon: 'missions' }, { key: 'weekly', label: 'Неделя', icon: 'clock' }, { key: 'achievements', label: 'Достижения', icon: 'trophy' }, { key: 'season', label: 'Сезон', icon: 'star' }],
@@ -77,6 +79,7 @@ const BUILDING_SHORTCUTS: Record<string, { action: string; label: string; icon: 
   foundry: { action: 'production', label: 'Открыть этот цех', icon: 'foundry' },
   research_lab: { action: 'research', label: 'Открыть исследования', icon: 'research' },
   trade_hub: { action: 'contracts', label: 'Открыть контракты', icon: 'contracts' },
+  logistics: { action: 'supplies', label: 'Проекты снабжения', icon: 'contracts' },
   expedition_center: { action: 'expeditions', label: 'Открыть экспедиции', icon: 'rocket' },
   alliance_hub: { action: 'alliance', label: 'Открыть альянс', icon: 'social' },
 };
@@ -140,6 +143,8 @@ export default function Home() {
   const [researchFocusVersion, setResearchFocusVersion] = useState(0);
   const [researchTarget, setResearchTarget] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
+  const [supplyView, setSupplyView] = useState<'projects' | 'contracts'>('projects');
+  const [supplyFocus, setSupplyFocus] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionLink, setRequestedProductionLink] = useState<{ buildingId: string; link: FoundryLink; request: number } | null>(null);
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
@@ -168,7 +173,30 @@ export default function Home() {
   const purchaseStorageKey = purchaseUser ? `colony:awaiting-cosmetics:${purchaseUser}` : '';
   const awaitingProducts = awaitingPurchases.key === purchaseStorageKey ? awaitingPurchases.products : [];
   const planOwner = purchaseUser ? String(purchaseUser) : '';
+  const supplyProjects = (game?.supplyProjects?.projects ?? []) as SupplyProjectState[];
+  const selectedSupplyKey = supplyFocus.owner === planOwner ? supplyFocus.key : null;
+  const selectedSupply = supplyProjects.find(project => project.id === selectedSupplyKey)
+    ?? supplyProjects.find(project => project.started && !project.completed)
+    ?? supplyProjects.find(project => !project.completed) ?? supplyProjects[0];
   const plannedResearchKey = researchTarget.owner === planOwner ? researchTarget.key : null;
+
+  useEffect(() => {
+    if (!planOwner || !game?.supplyProjects?.projects) return;
+    setSupplyFocus(previous => {
+      let key = previous.owner === planOwner ? previous.key : null;
+      if (previous.owner !== planOwner) {
+        try { key = localStorage.getItem(`colony:supply-goal:${planOwner}`); } catch { /* Focus is optional and never sends supplies. */ }
+      }
+      if (key && !game.supplyProjects.projects.some((project: SupplyProjectState) => project.id === key)) key = null;
+      return previous.owner === planOwner && previous.key === key ? previous : { owner: planOwner, key };
+    });
+  }, [planOwner, game?.supplyProjects?.projects]);
+
+  function chooseSupplyProject(key: string) {
+    if (!planOwner || !supplyProjects.some(project => project.id === key)) return;
+    setSupplyFocus({ owner: planOwner, key });
+    try { localStorage.setItem(`colony:supply-goal:${planOwner}`, key); } catch { /* The current focus remains available in memory. */ }
+  }
 
   useEffect(() => {
     if (!planOwner || !game?.research?.catalog) return;
@@ -326,6 +354,10 @@ export default function Home() {
       showSection('city', 'map'); guideNavigationPending.current = 'map';
       setInspectorOpen(!!building);
     } else if (action === 'contracts') {
+      setSupplyView('contracts');
+      showSection('city', 'contracts'); guideNavigationPending.current = 'contracts';
+    } else if (action === 'supplies') {
+      setSupplyView('projects');
       showSection('city', 'contracts'); guideNavigationPending.current = 'contracts';
     } else if (action === 'upgrade_hq') {
       const center = (game?.buildings ?? []).find((building: any) => building.type === 'hq');
@@ -901,7 +933,7 @@ export default function Home() {
           </div>}
           {!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId && <CityActionDock
             items={cityActionItems({ ...game, comfort })} busy={busy}
-            onAction={action => action === 'share' ? shareCity() : navigateGuide(action)} />}
+            onAction={action => action === 'share' ? shareCity() : navigateGuide(cityActionItems(game).find(item => item.key === action)?.action ?? action)} />}
           <div className="mapFeedback" ref={mapFeedbackRef}>
             {constructionNotice('map')}
             {placementType && !sitePreview && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}
@@ -965,6 +997,12 @@ export default function Home() {
           partsMultiplier={Number(game.production?.partsMultiplier ?? 1)}
           unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
           recipesEnabled={game.production?.recipesEnabled}
+          supplyGoal={selectedSupply && game.supplyProjects?.available && (game.supplyProjects?.unlocked || selectedSupply.started) ? {
+            projectKey: selectedSupply.id, name: selectedSupply.name,
+            stageName: selectedSupply.stages[selectedSupply.stageIndex]?.name ?? 'Проект завершён',
+            requiredParts: selectedSupply.remaining.parts, ready: selectedSupply.ready, completed: selectedSupply.completed,
+          } : undefined}
+          onSupplyProjects={() => navigateGuide('supplies')}
           selectedRecipe={requestedProductionRecipe}
           requestedLink={requestedProductionLink}
           busy={busy}
@@ -980,7 +1018,19 @@ export default function Home() {
         /></div>
         </div>
         {subsections.city === 'contracts' && <div data-section-panel="city-contracts">
-<div ref={contractsRef}><ContractsPanel key={planOwner}
+<div ref={contractsRef}>
+        <SectionTabs label="Поставки колонии" value={supplyView} items={[
+          { key: 'projects', label: 'Проекты', icon: 'build', badge: supplyProjects.filter(project => project.ready).length },
+          { key: 'contracts', label: 'Контракты', icon: 'contracts' },
+        ]} onChange={key => setSupplyView(key as 'projects' | 'contracts')} />
+        <div hidden={supplyView !== 'projects'}><SupplyProjectsPanel key={planOwner}
+          state={game.supplyProjects} resources={s} ownerKey={planOwner} selectedProjectKey={selectedSupply?.id ?? ''}
+          onSelectProject={chooseSupplyProject} busy={busy}
+          onAction={async body => { try { return await api('/api/game/supply-projects', body); } catch (error) { setMessage(''); throw error; } }}
+          onBuildLogistics={() => beginPlacement('logistics', 'Логистический центр')}
+          onProduction={() => navigateGuide('production')} onRefresh={() => { void refresh(); }}
+        /></div>
+        <div hidden={supplyView !== 'contracts'}><ContractsPanel key={planOwner}
           contracts={game.contracts ?? []} info={game.contractsInfo}
           buildings={game.buildings ?? []} resources={s} busy={busy}
           onComplete={async (contractId) => {
@@ -990,7 +1040,7 @@ export default function Home() {
           onBuild={() => beginPlacement('trade_hub', 'Торговый узел')}
           onProduction={() => navigateGuide('production')}
           onRefresh={() => { void refresh(); }}
-        /></div>
+        /></div></div>
         </div>}
         {subsections.city === 'events' && <div data-section-panel="city-events">
 {!game.colonyEvents?.enabled ? <section className="card"><h2>События колонии</h2><p>События пока недоступны. Остальные возможности колонии продолжают работать.</p><button className="action secondary" disabled={busy} onClick={() => { void refresh(); }}>Проверить снова</button></section>

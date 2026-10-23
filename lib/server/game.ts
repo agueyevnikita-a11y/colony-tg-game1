@@ -27,6 +27,7 @@ import { calculateComfort } from '@/lib/game/comfort';
 import { getColonyUnlocks } from '@/lib/server/feature-access';
 import { referralTelegramId, REFERRAL_QUALIFICATION_HQ } from '@/lib/game/referrals';
 import { getReferralProgram } from '@/lib/server/referrals';
+import { getSupplyProjectsState } from '@/lib/server/supply-projects';
 
 export async function ensurePlayer(tg: {
   id: number;
@@ -293,6 +294,7 @@ export async function reconcilePlayer(userId: string) {
       FROM foundry_jobs WHERE user_id=${userId} AND claimed_at IS NULL ORDER BY completes_at ASC
     `;
     const contractState = await ensureNpcContracts(tx, userId, hqLevel, buildings);
+    const supplyProjects = await getSupplyProjectsState(tx, userId, hqLevel, buildings);
     const dailyQuests = await tx<any[]>`
       SELECT * FROM daily_quests WHERE user_id=${userId} AND quest_date=CURRENT_DATE ORDER BY quest_key
     `;
@@ -382,6 +384,7 @@ export async function reconcilePlayer(userId: string) {
       escrow,
       contracts: contractState.contracts,
       contractsInfo: contractState.info,
+      supplyProjects,
       dailyQuests,
       weeklyQuests,
       achievements,

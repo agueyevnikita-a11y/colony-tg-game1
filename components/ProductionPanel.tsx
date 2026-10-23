@@ -7,6 +7,7 @@ import {
 } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { supplyProductionPlan } from '@/lib/game/supply-production';
 import '@/app/production.css';
 
 type Props = {
@@ -29,6 +30,8 @@ type Props = {
   onRefresh?: () => void;
   onResearch?: (researchKey: string) => void;
   feedback?: ReactNode;
+  supplyGoal?: { projectKey: string; name: string; stageName: string; requiredParts: number; ready: boolean; completed: boolean };
+  onSupplyProjects?: () => void;
 };
 
 const number = (value: number) => value.toLocaleString('ru-RU');
@@ -123,6 +126,10 @@ export function ProductionPanel(props: Props) {
     && Number(props.resources.parts ?? 0) + Math.min(...readyJobs.map((job) => Number(job.parts_reward))) > props.partsCapacity;
   const storageWillOverflow = props.partsCapacity !== undefined && Number(props.resources.parts ?? 0)
     + props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0) + quote.parts > props.partsCapacity;
+  const supplyPlan = props.supplyGoal ? supplyProductionPlan({ requiredParts: props.supplyGoal.requiredParts,
+    currentParts: Math.max(0, Math.floor(Number(props.resources.parts ?? 0))),
+    queuedParts: props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0),
+    cycleParts: quote.cycleParts, freeSlots }) : null;
 
   function clearFeedback() { setLocalError(''); props.onChangeSelection?.(); }
 
@@ -146,6 +153,20 @@ export function ProductionPanel(props: Props) {
       <div><h2 id={`${panelId}-title`}><GameIcon name="foundry" size={22} /> Производство</h2><p>Превращай руду и энергию в детали.</p></div>
       {foundries.length > 0 && <span className="productionBadge">{foundries.length} {foundries.length === 1 ? 'цех' : foundries.length < 5 ? 'цеха' : 'цехов'}</span>}
     </div>
+
+    {props.supplyGoal && supplyPlan && <div className="productionSupplyGoal" data-production-supply-goal>
+      <div className="productionSupplyHeading"><GameIcon name="target" size={20} /><div><strong>{props.supplyGoal.name}</strong><small>{props.supplyGoal.stageName}</small></div>{props.onSupplyProjects && <button type="button" className="miniButton" disabled={locked} onClick={props.onSupplyProjects}>К поставкам</button>}</div>
+      {props.supplyGoal.completed ? <p>Проект завершён. Итоги и полученные награды доступны в поставках.</p>
+        : props.supplyGoal.ready ? <p>Все ресурсы доставлены. Забери награду этапа в проектах снабжения.</p>
+          : supplyPlan.requiredParts === 0 ? <p>Детали этого этапа уже доставлены. Проверь оставшиеся поставки руды и энергии.</p> : <>
+            <div className="productionSupplyNumbers"><span>Для поставки <GameAmount resource="parts">{number(supplyPlan.requiredParts)}</GameAmount></span><span>На складе <GameAmount resource="parts">{number(supplyPlan.stockParts)}</GameAmount></span><span>В очередях <GameAmount resource="parts">{number(supplyPlan.queuedParts)}</GameAmount></span><strong>Не хватает <GameAmount resource="parts">{number(supplyPlan.missingParts)}</GameAmount></strong></div>
+            {supplyPlan.missingParts === 0 ? <p>{supplyPlan.stockParts >= supplyPlan.requiredParts ? 'Деталей на складе хватит для этой поставки.' : 'После выдачи всех уже оплаченных очередей деталей хватит. Проверь готовность и свободное место на складе.'}</p>
+              : !selected || !isActive ? <p>Расчёт партии станет доступен в работающем литейном цехе.</p>
+                : !freeSlots ? <p>Очередь этого цеха заполнена. Освободи место или выбери другой работающий цех.</p>
+                  : <><button type="button" className="miniButton productionSupplyApply" disabled={locked || supplyPlan.suggestedCycles <= 0} onClick={() => { setCycles(supplyPlan.suggestedCycles); clearFeedback(); }}>Подставить {supplyPlan.suggestedCycles} {supplyPlan.suggestedCycles === 1 ? 'цикл' : supplyPlan.suggestedCycles < 5 ? 'цикла' : 'циклов'} · <GameAmount resource="parts">{number(supplyPlan.batchParts)}</GameAmount></button>
+                    <p>{supplyPlan.remainingAfterBatch > 0 ? `После этой партии останется произвести ${number(supplyPlan.remainingAfterBatch)} деталей. ` : supplyPlan.surplusParts > 0 ? `Излишек ${number(supplyPlan.surplusParts)} деталей останется у тебя. ` : ''}Расчёт учитывает все очереди и выбранный рецепт. Подстановка только меняет число циклов — запуск ниже отдельной кнопкой.</p></>}
+          </>}
+    </div>}
 
     {!selected ? <>
       <p>Построй литейный цех рядом с шахтой или электростанцией, чтобы снизить расход ресурсов.</p>

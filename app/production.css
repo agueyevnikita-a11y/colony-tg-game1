@@ -1,4 +1,8 @@
 .productionPanel { scroll-margin-top:12px; }
+.productionSupplyGoal { margin:12px 0 15px; padding:11px; border:1px solid rgba(135,203,183,.28); border-radius:12px; background:rgba(135,203,183,.045); min-width:0; }
+.productionSupplyHeading { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }.productionSupplyHeading>.gameIcon { flex:none; }.productionSupplyHeading>div { flex:1 1 130px; min-width:0; }.productionSupplyHeading strong { display:block; overflow-wrap:anywhere; font-size:12px; line-height:1.5; }.productionSupplyHeading small { display:block; margin-top:3px; color:var(--muted); font-size:10px; line-height:1.5; }.productionSupplyHeading .miniButton { font-size:10px; }
+.productionSupplyNumbers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0; font-size:11px; }.productionSupplyNumbers>span,.productionSupplyNumbers>strong { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:5px; }.productionSupplyNumbers>span { color:var(--muted); }.productionSupplyNumbers>strong { color:var(--accent); }
+.productionPanel .productionSupplyGoal p { margin:9px 0 0; color:var(--muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }.productionSupplyApply { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:5px; width:100%; font-size:11px; }
 .colonyApp .productionPanel .miniButton { min-height:44px; }
 .productionBadge { flex-shrink:0; padding:5px 8px; border:1px solid var(--line); border-radius:9px; color:var(--muted); font-size:11px; }
 .productionWorkshopRow { display:flex; align-items:center; gap:8px; }
