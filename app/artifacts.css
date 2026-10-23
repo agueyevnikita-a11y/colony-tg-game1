@@ -31,7 +31,10 @@
 .artifactDetails p { font-size:12px; line-height:1.55; color:#b0c3cc; margin:5px 0 12px; }
 .artifactDetails strong { display:block; font-size:11px; line-height:1.5; color:#d1e0e6; }
 .artifactDetails ul { margin:5px 0 10px; padding:0; list-style:none; }
-.artifactDetails li { display:flex; justify-content:space-between; gap:5px; font-size:11px; line-height:1.5; padding:5px 0; border-bottom:1px solid #344b554d; }
+.artifactDetails li { display:flex; flex-direction:column; gap:5px; font-size:11px; line-height:1.5; padding:7px 0; border-bottom:1px solid #344b554d; }
+.artifactRouteInfo { display:flex; justify-content:space-between; gap:5px; }
+.artifactRouteLink { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:44px; width:100%; white-space:normal; text-align:left; line-height:1.5; font-size:11px; }
+.artifactRouteLink:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .artifactDetails li span { min-width:0; }.artifactDetails li b { flex-shrink:0; font-weight:600; color:#abdedc; }
 .artifactDetails .artifactExtraSource { font-size:11px; margin-bottom:0; }
 .artifactsActions { display:grid; gap:8px; margin-top:16px; }
@@ -41,5 +44,5 @@
 .artifactsRules summary::-webkit-details-marker { display:none; }.artifactsRules p { font-size:12px; line-height:1.6; margin:0 0 10px; }
 .xpArtifact .artifactArt { margin:-3px 0; }
 @media(min-width:640px) { .artifactsCards { grid-template-columns:repeat(4,minmax(0,1fr)); } .artifactsActions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:360px) { .artifactCard { padding:8px; }.artifactsCards { gap:8px; }.artifactCardVisual { min-height:116px; }.artifactCardVisual .artifactArt { width:96px!important; height:96px!important; }.artifactCard h3 { font-size:13px; }.artifactDetails summary { font-size:10px; }.artifactDetails li { display:block; }.artifactDetails li b { display:block; } }
+@media(max-width:360px) { .artifactCard { padding:8px; }.artifactsCards { gap:8px; }.artifactCardVisual { min-height:116px; }.artifactCardVisual .artifactArt { width:96px!important; height:96px!important; }.artifactCard h3 { font-size:13px; }.artifactDetails summary { font-size:10px; }.artifactRouteInfo { flex-wrap:wrap; } }
 @media(prefers-reduced-motion:reduce) { .artifactDetails summary>.gameIcon { transition:none; } }
