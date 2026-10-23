@@ -18,6 +18,7 @@ type Props = {
   busy: boolean;
   selectedBuildingId?: string | null;
   selectedRecipe?: FoundryRecipeKey;
+  requestedLink?: { buildingId: string; link: FoundryLink; request: number } | null;
   unlockedRecipes?: string[];
   recipesEnabled?: boolean;
   onStart: (body: { buildingId: string; recipe: FoundryRecipeKey; mode: FoundryMode; link: FoundryLink; cycles: number }) => Promise<boolean>;
@@ -82,6 +83,17 @@ export function ProductionPanel(props: Props) {
   useEffect(() => {
     if (props.selectedRecipe && requestedRecipeUnlocked) setRecipe(props.selectedRecipe);
   }, [props.selectedRecipe, requestedRecipeUnlocked]);
+  useEffect(() => {
+    const intent = props.requestedLink;
+    if (!intent) return;
+    const foundry = props.buildings.find(building => building.id === intent.buildingId && building.type === 'foundry' && building.status === 'active');
+    if (!foundry) return;
+    setSelectedId(foundry.id);
+    setRecipe('standard_alloy'); setMode('standard'); setCycles(1);
+    setLink(availableFoundryLinks(foundry, props.buildings).includes(intent.link) ? intent.link : 'none');
+    setLocalError('');
+    // Each explicit map choice has a new request, including repeated choices for the same workshop.
+  }, [props.requestedLink?.request]);
   useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), props.jobs.length ? 1000 : 5000);

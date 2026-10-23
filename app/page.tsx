@@ -6,6 +6,7 @@ import { CityActionDock } from '@/components/CityActionDock';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { BuildingCatalog, type BuildingCategory } from '@/components/BuildingCatalog';
 import { BuildingUpgradePreview } from '@/components/BuildingUpgradePreview';
+import { FoundryLinksCard } from '@/components/FoundryLinksCard';
 import { DecorPanel } from '@/components/DecorPanel';
 import { DecorInspector } from '@/components/DecorInspector';
 import { DecorArt } from '@/components/DecorArt';
@@ -44,6 +45,7 @@ import { PRODUCTS } from '@/lib/game/config';
 import { calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
 import { cityActionItems } from '@/lib/game/city-actions';
 import { buildingHourlyProduction, buildingUpgradePreview } from '@/lib/game/upgrade-preview';
+import { createProductionNetwork, foundryLinksPreview, type ProductionResource } from '@/lib/game/production-network';
 import { permanentProductOwned } from '@/lib/game/product-ownership';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
@@ -120,6 +122,10 @@ export default function Home() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [placementType, setPlacementType] = useState<string | null>(null);
   const [moveBuildingId, setMoveBuildingId] = useState<string | null>(null);
+  const [productionNetworkVisible, setProductionNetworkVisible] = useState(false);
+  const [planningCell, setPlanningCell] = useState<{ x: number; y: number } | null>(null);
+  const foundryConfirmation = useRef(false);
+  const foundryPlanningRef = useRef<HTMLDivElement>(null);
   const [moveDecorId, setMoveDecorId] = useState<string | null>(null);
   const [decorPlacementType, setDecorPlacementType] = useState<string | null>(null);
   const [selectedDecorId, setSelectedDecorId] = useState<string | null>(null);
@@ -133,6 +139,7 @@ export default function Home() {
   const [researchFocusVersion, setResearchFocusVersion] = useState(0);
   const [researchTarget, setResearchTarget] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionRecipe, setRequestedProductionRecipe] = useState<FoundryRecipeKey | undefined>();
+  const [requestedProductionLink, setRequestedProductionLink] = useState<{ buildingId: string; link: FoundryLink; request: number } | null>(null);
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -234,6 +241,7 @@ export default function Home() {
     productionNavigationPending.current = false;
     setFocusedResearch(null);
     setPlacementType(null); setMoveBuildingId(null); setMoveDecorId(null); setDecorPlacementType(null);
+    setPlanningCell(null);
     setConstructionFeedback(null); setMessage('');
     showSection(tab, section);
     if (subsections[tab] === section) { navigationToTop.current = false; window.scrollTo({ top: 0, behavior: 'auto' }); }
@@ -246,6 +254,7 @@ export default function Home() {
     guideNavigationPending.current = null;
     productionNavigationPending.current = false;
     setPlacementType(null);
+    setPlanningCell(null);
     setMoveBuildingId(null); setMoveDecorId(null);
     setDecorPlacementType(null);
     setConstructionFeedback(null);
@@ -292,6 +301,7 @@ export default function Home() {
     setConstructionFeedback(null);
     setMessage('');
     setPlacementType(null);
+    setPlanningCell(null);
     setMoveBuildingId(null); setMoveDecorId(null);
     setDecorPlacementType(null);
     setSelectedDecorId(null);
@@ -489,6 +499,22 @@ export default function Home() {
     [game, selectedDecorId],
   );
 
+  const movingFoundry = (game?.buildings ?? []).find((building: any) => building.id === moveBuildingId && building.type === 'foundry');
+  const planningFoundry = placementType === 'foundry' || Boolean(movingFoundry);
+  const productionNetwork = useMemo(() => createProductionNetwork(game?.buildings ?? [], game?.decor ?? [], Number(game?.gridSize ?? 6)), [game?.buildings, game?.decor, game?.gridSize]);
+  const foundrySite = planningFoundry && planningCell ? productionNetwork.placement(planningCell.x, planningCell.y, movingFoundry?.id) : null;
+  const sitePreview = foundrySite?.foundry ? foundryLinksPreview(foundrySite.foundry, game?.buildings ?? []) : null;
+
+  useEffect(() => {
+    if (planningCell && (!planningFoundry || !foundrySite?.available)) setPlanningCell(null);
+  }, [planningFoundry, foundrySite?.available, planningCell]);
+
+  useEffect(() => {
+    if (!planningCell) return;
+    foundryPlanningRef.current?.focus({ preventScroll: true });
+    foundryPlanningRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }, [planningCell?.x, planningCell?.y]);
+
   const equippedTheme = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'theme')?.cosmetic_id ?? '';
   const equippedWeather = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'weather')?.cosmetic_id ?? '';
   const equippedBuildingSkin = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'building_skin')?.cosmetic_id ?? '';
@@ -617,6 +643,7 @@ export default function Home() {
   async function handleCityCell(x: number, y: number, building?: any, decor?: any) {
     if (busy) return;
     if (building) {
+      if (planningFoundry) setPlanningCell(null);
       setSelectedBuildingId(building.id);
       setSelectedDecorId(null);
       setConstructionFeedback(placementType || decorPlacementType || moveBuildingId || moveDecorId ? { target: 'map', text: 'Клетка занята. Выбери свободную.', error: true } : null);
@@ -624,10 +651,18 @@ export default function Home() {
       return;
     }
     if (decor) {
+      if (planningFoundry) setPlanningCell(null);
       setSelectedDecorId(decor.id);
       setSelectedBuildingId(null);
       setConstructionFeedback(placementType || decorPlacementType || moveBuildingId || moveDecorId ? { target: 'map', text: 'Клетка занята декором. Выбери свободную.', error: true } : null);
       setInspectorOpen(!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId);
+      return;
+    }
+    if (planningFoundry) {
+      const site = productionNetwork.placement(x, y, movingFoundry?.id);
+      if (!site.available) return;
+      setPlanningCell({ x, y });
+      setConstructionFeedback(null);
       return;
     }
     if (decorPlacementType) {
@@ -664,6 +699,7 @@ export default function Home() {
   }
 
   function beginPlacement(type: string, name: string) {
+    setPlanningCell(null);
     setPlacementType(type);
     setMoveBuildingId(null); setMoveDecorId(null);
     setDecorPlacementType(null);
@@ -675,6 +711,7 @@ export default function Home() {
   }
 
   function beginMove(building: any) {
+    setPlanningCell(null);
     setInspectorOpen(false);
     setMoveDecorId(null);
     setMoveBuildingId(building.id);
@@ -686,6 +723,7 @@ export default function Home() {
   }
 
   function beginDecorPlacement(type: string, name: string) {
+    setPlanningCell(null);
     if (busy) return;
     if ((game?.buildings ?? []).length + (game?.decor ?? []).length >= Number(game?.gridSize ?? 6) ** 2) {
       showSection('city', 'map');
@@ -704,17 +742,45 @@ export default function Home() {
   }
 
   function beginDecorMove(decor: any) {
+    setPlanningCell(null);
     setInspectorOpen(false); setMoveDecorId(decor.id); setMoveBuildingId(null);
     setPlacementType(null); setDecorPlacementType(null); setSelectedBuildingId(null);
     setMessage(''); setConstructionFeedback({ target: 'map', text: 'Выбери свободную клетку. Перемещение декора бесплатно.', error: false });
   }
 
   function cancelMapAction() {
+    setPlanningCell(null);
     setPlacementType(null);
     setDecorPlacementType(null);
     setMoveBuildingId(null); setMoveDecorId(null);
     setMessage('');
     setConstructionFeedback(null);
+  }
+
+  async function confirmFoundrySite() {
+    if (busy || foundryConfirmation.current || !planningFoundry || !planningCell) return;
+    const site = productionNetwork.placement(planningCell.x, planningCell.y, movingFoundry?.id);
+    if (!site.available) { setPlanningCell(null); return; }
+    const { x, y } = planningCell;
+    foundryConfirmation.current = true;
+    try {
+      const movedId = movingFoundry?.id;
+      const succeeded = await constructionAction('map', movedId ? '/api/game/building/move' : '/api/game/build',
+        movedId ? { buildingId: movedId, x, y } : { type: 'foundry', x, y }, movedId ? 'Цех перемещён бесплатно. Новые связи доступны в производстве.' : 'Строительство цеха начато. Связи станут доступны после готовности.');
+      if (succeeded) {
+        setPlanningCell(null); setPlacementType(null); setMoveBuildingId(null);
+        if (movedId) { setSelectedBuildingId(movedId); setProductionNetworkVisible(true); }
+      }
+    } finally { foundryConfirmation.current = false; }
+  }
+
+  function chooseProductionLink(buildingId: string, link: ProductionResource) {
+    const foundry = (game?.buildings ?? []).find((building: any) => building.id === buildingId);
+    if (!foundry || !foundryLinksPreview(foundry, game?.buildings ?? [])?.options.some(option => option.link === link)) return;
+    navigateGuide('production');
+    setSelectedBuildingId(buildingId);
+    setRequestedProductionRecipe('standard_alloy');
+    setRequestedProductionLink(previous => ({ buildingId, link, request: (previous?.request ?? 0) + 1 }));
   }
 
   if (phase !== 'ready') {
@@ -752,6 +818,8 @@ export default function Home() {
   const expeditionsLocked = game.unlocks?.expeditions?.unlocked === false;
   const usedCells = (game.buildings ?? []).length + (game.decor ?? []).length;
   const totalCells = Number(game.gridSize ?? 6) ** 2;
+  const foundryPlacementCost = game.catalog?.find((item: any) => item.type === 'foundry')?.baseBuildCost;
+  const foundrySiteAffordable = placementType !== 'foundry' || Boolean(foundryPlacementCost && Object.entries(foundryPlacementCost).every(([resource, cost]) => Number(s[resource] ?? 0) >= Number(cost ?? 0)));
 
   return (
     <main className="app colonyApp" data-section={tab} data-city-motion={media.motionActive ? 'on' : 'off'} onClickCapture={(event) => {
@@ -795,10 +863,11 @@ export default function Home() {
           <button type="button" className="cityComfortSummary" onClick={() => openSubsection('decor')}><span><GameIcon name="comfort" size={18} />Комфорт <strong>{comfort.score}/100</strong></span><span>Благоустроить<GameIcon name="arrow" size={15} /></span></button>
           {(placementType || decorPlacementType || moveBuildingId || moveDecorId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'decor' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : moveDecorId ? 'Перемещение декора' : 'Перемещение здания'}</span>
-            <button className="miniButton" onClick={cancelMapAction}>Отмена</button>
+            <button className="miniButton" disabled={busy} onClick={cancelMapAction}>Отмена</button>
           </div>}
-          {placementType && (() => { const item = game.catalog?.find((entry: any) => entry.type === placementType); return item && <div className="placementPreview"><BuildingArt type={placementType} /><div><strong>{item.name}</strong>{costDisplay(item.baseBuildCost)}<small>Нажми на свободную клетку. Ресурсы спишутся при выборе места.</small></div></div>; })()}
+          {placementType && (() => { const item = game.catalog?.find((entry: any) => entry.type === placementType); return item && <div className="placementPreview"><BuildingArt type={placementType} /><div><strong>{item.name}</strong>{costDisplay(item.baseBuildCost)}<small>{placementType === 'foundry' ? 'Выбери свободную клетку, сравни связи и подтверди строительство. Ресурсы спишутся после подтверждения.' : 'Нажми на свободную клетку. Ресурсы спишутся при выборе места.'}</small></div></div>; })()}
           {decorPlacementType && (() => { const item = game.decorCatalog?.find((entry: any) => entry.type === decorPlacementType); return item && <div className="placementPreview"><DecorArt type={decorPlacementType} /><div><strong>{item.name}</strong><GameAmount resource="credits">{n(item.credits)}</GameAmount><small>Комфорт +{comfortPlacementGain(game.decor ?? [], decorPlacementType)}. Нажми свободную клетку для размещения.</small></div></div>; })()}
+          {!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId && <div className="cityNetworkControl"><button type="button" className="miniButton" aria-pressed={productionNetworkVisible} onClick={() => setProductionNetworkVisible(value => !value)}><GameIcon name="network" size={17} />Связи производства</button><span>{productionNetworkVisible ? 'Доступные связи, не активные заказы' : 'Покажи полезное соседство'}</span></div>}
           <CityGrid
             buildings={game.buildings ?? []}
             decor={game.decor ?? []}
@@ -812,6 +881,8 @@ export default function Home() {
             moveMode={!!moveBuildingId || !!moveDecorId}
             planningType={placementType ?? (game.buildings ?? []).find((building: any) => building.id === moveBuildingId)?.type}
             movingBuildingId={moveBuildingId ?? undefined}
+            productionNetwork={productionNetworkVisible}
+            planningCell={planningFoundry && foundrySite?.available ? planningCell : null}
             theme={equippedTheme}
             weather={equippedWeather}
             buildingSkin={equippedBuildingSkin}
@@ -820,12 +891,19 @@ export default function Home() {
             badge={equippedBadge}
             onCell={handleCityCell}
           />
+          {planningFoundry && foundrySite?.available && sitePreview && planningCell && <div className="foundrySitePreview" ref={foundryPlanningRef} tabIndex={-1} data-foundry-site-preview>
+            <FoundryLinksCard preview={sitePreview} title={`Цех · клетка ${planningCell.x + 1}:${planningCell.y + 1}`} caption={`Стандартный сплав · обычный режим · 1 цикл. ${movingFoundry ? 'Сравнение новых заказов после переноса; оплаченная очередь сохранится.' : 'Связи будут доступны после завершения строительства, если соседние поставщики работают.'}`}>
+              <div className="foundrySiteCost">{movingFoundry ? 'Перемещение бесплатно' : <>Стоимость строительства {costDisplay(foundryPlacementCost)}</>}</div>
+              {!movingFoundry && <ResourceShortage cost={foundryPlacementCost} resources={s} />}
+              <div className="foundrySiteActions"><button type="button" className="action" disabled={busy || !foundrySiteAffordable} onClick={() => void confirmFoundrySite()}>{movingFoundry ? 'Переместить сюда' : 'Построить здесь'}</button><button type="button" className="miniButton" disabled={busy} onClick={() => { setPlanningCell(null); cityMapRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' }); }}>Другое место</button></div>
+            </FoundryLinksCard>
+          </div>}
           {!placementType && !decorPlacementType && !moveBuildingId && !moveDecorId && <CityActionDock
             items={cityActionItems({ ...game, comfort })} busy={busy}
             onAction={action => action === 'share' ? shareCity() : navigateGuide(action)} />}
           <div className="mapFeedback" ref={mapFeedbackRef}>
             {constructionNotice('map')}
-            {placementType && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}
+            {placementType && !sitePreview && <ResourceShortage cost={game.catalog?.find((item: any) => item.type === placementType)?.baseBuildCost} resources={s} />}
             {decorPlacementType && <ResourceShortage cost={{ credits: Number(game.decorCatalog?.find((item: any) => item.type === decorPlacementType)?.credits ?? 0) }} resources={s} />}
           </div>
         </section>
@@ -837,6 +915,7 @@ export default function Home() {
             const upgradeContext = { buildings: game.buildings ?? [], completedResearch: game.research?.completed ?? [], premium: Boolean(s.premium) };
             const upgradePreview = buildingUpgradePreview(selectedBuilding, upgradeContext);
             const hourlyProduction = buildingHourlyProduction(selectedBuilding, upgradeContext);
+            const linksPreview = foundryLinksPreview(selectedBuilding, game.buildings ?? []);
             return <>
               <div className="inspectorHead"><div className="inspectorEmoji"><BuildingArt type={selectedBuilding.type} /></div><div><h2>{cfg?.name ?? selectedBuilding.type}</h2><p>Уровень {selectedBuilding.level} · клетка {Number(selectedBuilding.x) + 1}:{Number(selectedBuilding.y) + 1}</p></div></div>
               {cfg?.description && <p className="buildingPurpose">{cfg.description}</p>}
@@ -851,6 +930,7 @@ export default function Home() {
                 if (selectedBuilding.type === 'foundry') setSelectedBuildingId(id);
               }}><GameIcon name={BUILDING_SHORTCUTS[selectedBuilding.type].icon} size={18} /> {BUILDING_SHORTCUTS[selectedBuilding.type].label}</button>}
               <ConstructionStatus building={selectedBuilding} busy={busy} onRefresh={() => { void refresh(); }} />
+              {linksPreview && <FoundryLinksCard preview={linksPreview} caption="Стандартный сплав · обычный режим · 1 цикл. Выбор откроет этот вариант в производстве без запуска." disabled={busy} onChooseLink={link => chooseProductionLink(selectedBuilding.id, link)} />}
               <BuildingUpgradePreview preview={upgradePreview} />
               {selectedBuilding.status === 'active' && (selectedBuilding.nextUpgrade ? <div className="upgradeBox"><span>Следующий уровень: {selectedBuilding.nextUpgrade.level}</span><b>{costDisplay(selectedBuilding.nextUpgrade.cost)}</b>{Number(selectedBuilding.nextUpgrade.timeSec) > 0 && <small className="inspectorUpgradeTime"><GameIcon name="clock" size={14} /> {durationText(selectedBuilding.nextUpgrade.timeSec)}</small>}</div> : <p className="finePrint">Достигнут максимальный уровень здания.</p>)}
               <div className="grid2">
@@ -885,6 +965,7 @@ export default function Home() {
           unlockedRecipes={game.production?.unlockedRecipes ?? ['standard_alloy']}
           recipesEnabled={game.production?.recipesEnabled}
           selectedRecipe={requestedProductionRecipe}
+          requestedLink={requestedProductionLink}
           busy={busy}
           selectedBuildingId={selectedBuildingId}
           onFoundryChange={setSelectedBuildingId}

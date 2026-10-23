@@ -145,7 +145,7 @@ export function BuildingCatalog(props: Props) {
             <button type="button" className="action" disabled={props.busy} onClick={() => closeThen(() => props.onBuild(selected.type, selected.name))}>
               <GameIcon name="build" size={18} />Выбрать место
             </button>
-            <p className="buildingCatalogPaymentHint">Ресурсы спишутся только после выбора свободной клетки.</p>
+            <p className="buildingCatalogPaymentHint">{selected.type === 'foundry' ? 'Выбери клетку, сравни связи и подтверди строительство. Ресурсы спишутся по кнопке «Построить здесь».' : 'Ресурсы спишутся только после выбора свободной клетки.'}</p>
           </>}
           {!hqReady && !researchReady && selected.unlockResearch && <button type="button" className="miniButton" disabled={props.busy}
             onClick={() => closeThen(() => props.onPlanResearch(selected.unlockResearch!))}><GameIcon name="research" size={15} />План исследования</button>}

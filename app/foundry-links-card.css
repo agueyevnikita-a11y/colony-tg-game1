@@ -1,0 +1,30 @@
+.foundryLinksCard { min-width:0; margin:12px 0; padding:12px; border:1px solid rgba(133,221,191,.25); border-radius:14px; background:linear-gradient(140deg,rgba(133,221,191,.055),rgba(11,27,36,.35)); }
+.foundryLinksCard > h3 { display:flex; align-items:center; gap:7px; margin:0; font-size:13px; line-height:1.45; overflow-wrap:anywhere; }
+.foundryLinksCard > h3 > .gameIcon { flex-shrink:0; }
+.colonyApp .foundryLinksCard .foundryLinksCaption { margin:5px 0 10px; color:var(--muted); font-size:10px; line-height:1.5; }
+.foundryLinkChoices { display:flex; flex-direction:column; gap:7px; margin:10px 0 0; }
+.foundryLinkChoice { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px 9px; min-width:0; padding:9px; border:1px solid rgba(164,188,199,.17); border-radius:10px; background:rgba(9,23,31,.3); }
+.foundryLinkChoice.is-ore { border-left:2px solid rgba(213,184,132,.8); }.foundryLinkChoice.is-energy { border-left:2px solid rgba(244,204,104,.8); }
+.foundryLinkChoice > dt { display:flex; align-items:center; gap:6px; min-width:0; font-size:11px; line-height:1.4; }
+.foundryLinkChoice > dt > .gameIcon { flex-shrink:0; }
+.foundryLinkChoice > dt > span { min-width:0; overflow-wrap:anywhere; }
+.foundryLinkChoice > dt small { display:block; margin-top:2px; color:var(--muted); font-size:9px; }
+.foundryLinkChoice > dd { min-width:0; margin:0; }
+.foundryLinkNumbers { display:flex; justify-content:flex-end; align-items:center; gap:5px; font-size:14px; line-height:1.4; font-variant-numeric:tabular-nums; }
+.foundryLinkNumbers > span { color:var(--muted); }.foundryLinkNumbers > .gameIcon { color:#81aaa2; flex-shrink:0; }.foundryLinkNumbers > strong { color:#b7ecd7; }
+.foundryLinkChoice > .foundryLinkSaving { grid-column:1/-1; color:var(--muted); text-align:right; font-size:10px; line-height:1.5; }
+.foundryLinkSaving > strong { color:#b7ecd7; font-weight:600; }
+.foundryLinkChoice > .foundryLinkAction { grid-column:1/-1; margin-top:4px; }
+.colonyApp .foundryLinkAction > button { display:flex; align-items:center; justify-content:center; gap:7px; width:100%; min-height:44px; white-space:normal; font-size:10px; line-height:1.4; }
+.foundryLinkAction > button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.foundryLinkAction > button:disabled { opacity:.5; cursor:default; }
+.foundryLinksEmpty { margin-top:10px; padding:9px; border:1px dashed rgba(164,188,199,.2); border-radius:10px; }
+.foundryLinksEmpty > strong { display:block; color:var(--text); font-size:11px; line-height:1.5; font-weight:600; }
+.colonyApp .foundryLinksEmpty > p { margin:4px 0 8px; color:var(--muted); font-size:10px; line-height:1.5; }
+.foundryLinksEmpty > div { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; font-size:11px; }
+.foundryLinksEmpty > div > span:first-child { color:var(--muted); font-size:10px; }
+.colonyApp .foundryLinksCard .foundryLinksNote { margin:8px 0 0; color:var(--muted); font-size:10px; line-height:1.5; }
+.foundryLinksFooter { min-width:0; margin-top:11px; padding-top:10px; border-top:1px solid var(--line); }
+.foundryLinksFooter > .action { width:100%; }
+@media(max-width:360px) { .foundryLinksCard { padding:10px; }.foundryLinkChoice { padding:8px; column-gap:6px; }.foundryLinkChoice > dt { font-size:10px; gap:4px; }.foundryLinkChoice > dt > .gameIcon { width:19px; height:19px; }.foundryLinkNumbers { gap:4px; font-size:13px; } }
+@media(prefers-contrast:more) { .foundryLinksCard { border-color:#6b9d92; background:#13272b; }.foundryLinkChoice { border-color:#6b858e; background:#10202b; }.foundryLinkNumbers > span { color:#e0e8ed; }.foundryLinkNumbers > strong,.foundryLinkSaving > strong { color:#bffbe0; } }

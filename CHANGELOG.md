@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.3-beta.1 — Plan Production on the Map
+- Added an optional production overlay to the city map: active neighbouring mines and energy suppliers connect visually to foundries. Planning highlights useful free cells, suppliers and a ghost of the proposed workshop; roads remain decorative.
+- Foundry construction and relocation now preview a cell before a separate confirmation. Exact single-cycle alternatives come from the real quote: one supplier link per order, no stacking or combined discount. Construction costs and missing resources sit beside confirmation; relocation remains free and preserves paid jobs.
+- Active foundry inspectors show the same comparison and can configure a standard-alloy, normal-mode, single-cycle order with the chosen link in production. This never starts an order automatically and repeated choices remain explicit.
+- Preserved all resource prices, rewards, adjacency rules, queues, research, saved layouts and payments. Other construction/decor flows are unchanged. No migration, new asset or dependency is required.
+
 ## 1.12.2-beta.1 — Understand Every Upgrade
 - Added a compact current → next comparison to active building inspectors: actual researched and Premium production, total storage capacity, foundry output/time/queue, lab technology level, HQ territory and expedition slots. Buildings with only a rating effect say so explicitly.
 - Explain temporary production/storage pauses during upgrades and preserve already-paid foundry queues and ongoing research. Maximum levels and work in progress do not advertise a new upgrade price.
