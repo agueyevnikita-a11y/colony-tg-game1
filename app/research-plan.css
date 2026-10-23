@@ -1,22 +1,25 @@
 .researchPlanner { min-width:0; margin:0 0 18px; padding:15px; border:1px solid rgba(151,185,230,.27); border-radius:16px; background:linear-gradient(145deg,rgba(96,132,187,.1),rgba(17,34,44,.35)); scroll-margin-top:14px; }
 .researchPlannerHeading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; }
 .researchPlannerHeading > div { min-width:0; }
-.researchPlannerHeading h2 { margin:0; font-size:16px; line-height:1.4; }
+.researchPlannerHeading h3 { display:flex; align-items:center; gap:7px; margin:0; font-size:15px; line-height:1.4; }
 .researchPlanner .researchPlannerHeading p { margin:6px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
 .researchPlannerControls { display:flex; flex-shrink:0; flex-direction:column; align-items:stretch; gap:6px; }
-.researchPlanReset,.researchPlanToggle { flex-shrink:0; max-width:105px; font-size:11px; }
+.colonyApp .researchPlanReset,.colonyApp .researchPlanToggle { flex-shrink:0; min-height:44px; max-width:105px; font-size:11px; white-space:normal; }
+.researchPlanner .researchPlanSafeHint { display:flex; align-items:flex-start; gap:6px; margin:0 0 12px; color:var(--muted); font-size:11px; line-height:1.5; }
+.researchPlanSafeHint > .gameIcon { flex-shrink:0; margin-top:2px; }
 .researchPlanChoices[hidden] { display:none; }
 .researchPlanFoundation { display:flex; align-items:center; gap:9px; width:100%; min-width:0; min-height:44px; margin-bottom:10px; padding:10px; border:1px solid rgba(144,203,179,.3); border-radius:11px; background:rgba(114,228,173,.05); color:var(--text); font:inherit; text-align:left; cursor:pointer; }
 .researchPlanFoundation > .gameIcon { flex-shrink:0; color:#a3d8c1; }.researchPlanFoundation > span { flex:1; min-width:0; }.researchPlanFoundation strong,.researchPlanFoundation small { display:block; font-size:12px; line-height:1.5; }.researchPlanFoundation small { color:var(--muted); font-size:11px; margin-top:3px; }
-.researchPlanGroups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-bottom:10px; }
-.researchPlanGroups button { display:flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:44px; padding:7px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); color:var(--muted); font:inherit; font-size:11px; line-height:1.4; cursor:pointer; }.researchPlanGroups .gameIcon { flex-shrink:0; }
-.researchPlanGroups button[aria-pressed=true] { background:rgba(125,171,231,.12); border-color:#a4c7f0; color:#d3e6ff; }.researchPlanGroups button:focus-visible,.researchPlanFoundation:focus-visible { outline:2px solid #a4c7f0; outline-offset:2px; }.researchPlanGroups button:disabled,.researchPlanFoundation:disabled { opacity:.55; cursor:default; }
+.researchPlanGroups { min-width:0; margin-bottom:10px; }
+.researchPlanGroups .sectionTabs { position:static; background:transparent; }
+.researchPlanFoundation:focus-visible { outline:2px solid #a4c7f0; outline-offset:2px; }.researchPlanFoundation:disabled { opacity:.55; cursor:default; }
 .researchPlanGoals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
 .researchPlanGoal { position:relative; min-width:0; min-height:84px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px solid var(--line); border-radius:11px; color:var(--muted); background:var(--panel2); font:inherit; font-size:11px; line-height:1.4; text-align:center; cursor:pointer; }
 .researchPlanGoalVisual { display:flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 34px; }
 .researchPlanGoalVisual > .buildingArt { width:100%; margin:0; }
 .researchPlanGoal > .gameIcon:last-child:not(:first-child) { position:absolute; right:5px; top:5px; }
 .researchPlanGoalLabel { max-width:100%; overflow-wrap:anywhere; }
+.researchPlanGoalState { display:flex; align-items:center; gap:4px; font-size:10px; color:#b2ddc8; }
 .researchPlanGoal.isSelected { border-color:#a4c7f0; background:rgba(125,171,231,.12); color:#d3e6ff; box-shadow:inset 0 0 0 1px rgba(151,192,247,.13); }
 .researchPlanGoal:focus-visible { outline:2px solid #a4c7f0; outline-offset:3px; }
 .researchPlanGoal:disabled { opacity:.55; cursor:default; }
@@ -30,15 +33,21 @@
 .researchPlanner .researchPlanTarget p { color:#d3e2f3; font-size:12px; line-height:1.5; margin:0; }
 .researchPlanBudget { border:1px solid var(--line); border-radius:11px; padding:10px; margin:12px 0; background:rgba(8,20,29,.24); }
 .researchPlanBudget > div { display:flex; align-items:center; flex-wrap:wrap; gap:5px 12px; margin-top:6px; color:var(--text); font-size:12px; line-height:1.6; }
+.researchPlanBudget > summary { min-height:24px; color:#bdcfe2; cursor:pointer; font-size:11px; line-height:1.6; }
 .researchPlanner .researchPlanBudget p { margin:7px 0 0; font-size:11px; color:var(--muted); line-height:1.5; }
 .researchPlanNext { padding:12px; margin:12px 0; border:1px solid rgba(122,181,170,.23); border-radius:12px; background:rgba(103,177,155,.035); }
 .researchPlanner .researchPlanNext > p { margin:5px 0 10px; color:#d0e1e7; font-size:12px; line-height:1.55; }
+.researchPlanNextCost { margin:9px 0; font-size:11px; line-height:1.6; }
+.researchPlanNextCost > span { color:var(--muted); }
+.researchPlanNextCost > div { display:flex; align-items:center; flex-wrap:wrap; gap:5px 11px; margin-top:4px; font-size:12px; }
+.researchPlanNextCost > div > span:last-child { color:var(--muted); font-size:11px; }
 .researchPlanShortages { display:flex; flex-wrap:wrap; gap:5px 10px; font-size:12px; color:#e9c993; margin:9px 0; }
 .researchPlanShortages > span:first-child { color:var(--muted); }
 .researchPlanner .researchPlanNext p.researchPlanWait { font-size:11px; color:var(--muted); line-height:1.5; }
 .researchPlanActions { display:flex; flex-direction:column; align-items:stretch; gap:7px; }
 .researchPlanActions .action,.researchPlanComplete .action { display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; min-width:0; font-size:12px; line-height:1.5; }
-.researchPlanActions .miniButton { font-size:11px; }
+.colonyApp .researchPlanActions .miniButton { font-size:11px; min-height:44px; white-space:normal; }
+.researchPlanActions .action,.researchPlanComplete .action { min-height:44px; }
 .researchPlanComplete { padding:12px; margin:12px 0; border:1px solid rgba(114,228,173,.25); border-radius:12px; background:rgba(114,228,173,.04); }
 .researchPlanComplete > strong { display:flex; align-items:center; gap:6px; color:#a0dfbd; font-size:13px; }
 .researchPlanner .researchPlanComplete p { font-size:12px; line-height:1.5; margin:7px 0 11px; color:var(--muted); }

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import type { ReferralProgram } from '@/lib/game/referrals';
 import '@/app/referrals.css';
 
@@ -34,6 +35,8 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
   const currentPage = Math.min(page, totalPages - 1);
   const visibleFriends = program.friends.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
   const nextMilestone = program.roadmap.find((entry) => entry.status !== 'received');
+  const ownBonusReady = Boolean(program.invitedBy?.qualified && !program.invitedBy.bonusClaimed);
+  const ownBonusAhead = Boolean(program.invitedBy && !program.invitedBy.qualified);
   async function claim() {
     if (!program?.enabled || !pending || busy || submittingRef.current) return;
     submittingRef.current = true;
@@ -59,7 +62,11 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
     <section className="card referralHero">
       <div className="cardTitleRow"><div><h2><GameIcon name="network" />Развивайтесь вместе</h2><p>Пригласи друга в COLONY. Когда его центр достигнет ур. {program.qualificationHq}, каждый из вас получит награду.</p></div></div>
       <div className="referralPairReward"><span>Каждому за одну новую колонию</span><div><GameAmount resource="credits" size={19}>+{n(program.reward.credits)}</GameAmount><GameAmount resource="crystals" size={19}>+{n(program.reward.crystals)}</GameAmount></div></div>
-      <ol className="referralSteps"><li><b>1</b><span>Друг впервые открывает игру по твоей ссылке.</span></li><li><b>2</b><span>Строит производство и улучшает центр до ур. {program.qualificationHq}.</span></li><li><b>3</b><span>Каждый забирает свою награду здесь. Повторные входы не дают новых выплат.</span></li></ol>
+      <MechanicGuide steps={[
+        'Друг впервые открывает COLONY по твоей личной ссылке. Приглашение и просмотр городов бесплатны.',
+        `Когда его центр достигнет ур. ${program.qualificationHq}, бонус станет доступен каждому из вас. Каждый забирает свою награду отдельно.`,
+        'За одну колонию бонус выдаётся один раз. Повторные входы и уже существующие игроки новых наград не дают.',
+      ]} />
       <div className="referralShareActions"><button className="action" onClick={onShare}><GameIcon name="share" size={17} />Пригласить друга</button>{inviteLink && <button className="action secondary" onClick={copy}><GameIcon name="copy" size={17} />Скопировать</button>}</div>
       {inviteLink && <details className="referralLinkDetails"><summary>Моя ссылка</summary><input aria-label="Личная ссылка приглашения" readOnly value={inviteLink} onFocus={(event) => event.target.select()} /></details>}
       {copyFeedback && <p className="finePrint" role="status">{copyFeedback}</p>}
@@ -68,7 +75,7 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
 
     <section className="card referralBonusCard">
       <div className="referralCounts"><div><b>{n(program.totalInvited)}</b><span>приглашено</span></div><div><b>{n(program.qualifiedInvited)}</b><span>дошли до ур. {program.qualificationHq}</span></div><div><b>{n(program.receivedCount)}</b><span>наград получено</span></div></div>
-      <div className="referralClaimSummary"><GameIcon name={pending ? 'gift' : 'check'} size={24} /><div><strong>{pending ? `Готово наград: ${n(program.pendingCount)}` : 'Новые связи ещё развиваются'}</strong><span>{pending ? 'Забери бонусы за приглашённые колонии.' : `Следующая награда появится, когда приглашённый друг достигнет центра ур. ${program.qualificationHq}.`}</span></div></div>
+      <div className="referralClaimSummary"><GameIcon name={pending ? 'gift' : 'check'} size={24} /><div><strong>{pending ? `Готово наград: ${n(program.pendingCount)}` : 'Пока нет готовых бонусов'}</strong><span>{pending ? ownBonusReady ? 'Включая бонус за развитие твоей колонии по приглашению друга.' : 'За развитие приглашённых тобой колоний.' : ownBonusAhead ? `Улучши свой центр до ур. ${program.qualificationHq}, чтобы получить бонус по приглашению друга.` : `Новый бонус появится, когда приглашённый друг достигнет центра ур. ${program.qualificationHq}.`}</span></div></div>
       {pending && <div className="referralClaimReward"><GameAmount resource="credits">+{n(program.pendingReward.credits)}</GameAmount><GameAmount resource="crystals">+{n(program.pendingReward.crystals)}</GameAmount></div>}
       <button className="action" disabled={!program.enabled || !pending || busy || submitting} onClick={claim}>{submitting ? 'Получаем…' : pending ? 'Забрать награды' : 'Пока нет готовых наград'}</button>
       {!program.enabled && <p className="finePrint">Система наград обновляется. Приглашения сохраняются; получение станет доступно после обновления сервера.</p>}
@@ -77,8 +84,8 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
     </section>
 
     <section className="card referralRoadmapCard">
-      <h2><GameIcon name="trophy" />Награды сети</h2><p>Помимо бонуса за каждого друга, развитие сети открывает оформление колонии.</p>
-      {nextMilestone && <div className="referralNextReward"><span>{nextMilestone.status === 'available' ? 'Награда уже ждёт' : `Следующая цель: ${nextMilestone.target} ${nextMilestone.target === 1 ? 'колония' : nextMilestone.target < 5 ? 'колонии' : 'колоний'} с центром ур. ${program.qualificationHq}`}</span><strong>{nextMilestone.rewardText}</strong>{nextMilestone.status === 'available' && onAchievements && <button className="miniButton" onClick={onAchievements}>Открыть достижения</button>}</div>}
+      <h2><GameIcon name="trophy" />Награды сети</h2><p>Отдельные цели за друзей с центром ур. {program.qualificationHq}: кристаллы и оформление. Они не входят в бонусы выше.</p>
+      {nextMilestone && <div className="referralNextReward"><span>{nextMilestone.status === 'available' ? 'Награда уже ждёт в достижениях' : nextMilestone.status === 'pending' ? 'Этап выполнен · ожидает выдачи' : `Следующая цель: ${nextMilestone.target} ${nextMilestone.target === 1 ? 'колония' : nextMilestone.target < 5 ? 'колонии' : 'колоний'} с центром ур. ${program.qualificationHq}`}</span><strong>{nextMilestone.rewardText}</strong>{nextMilestone.status === 'available' && onAchievements && <button className="miniButton" onClick={onAchievements}>Открыть достижения</button>}</div>}
       <details className="referralRoadmap"><summary>Все этапы сети · {program.roadmap.filter((entry) => entry.status === 'received').length}/{program.roadmap.length}</summary><ol>{program.roadmap.map((entry) => <li key={entry.target} className={`is-${entry.status}`}><span className="referralMilestoneNumber">{entry.status === 'received' ? <GameIcon name="check" size={17} /> : entry.target}</span><div><strong>{entry.name} · {entry.target}</strong><span>{entry.rewardText}</span><small>{STATUS_LABEL[entry.status]}</small></div>{entry.status === 'available' && onAchievements && <button className="miniButton" onClick={onAchievements}>Открыть</button>}</li>)}</ol></details>
     </section>
 

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { RESEARCH_TREE } from '@/lib/game/research';
 import { evaluateColonyChoice, type ColonyEventDefinition } from '@/lib/game/colony-events';
 import '@/app/colony-events.css';
@@ -108,6 +109,11 @@ export function ColonyEventCard(props: Props) {
   return <section className="card colonyEventCard" aria-labelledby={`${id}-title`} data-colony-event={active.id} data-colony-event-key={active.key} aria-busy={pendingChoice !== null}>
     <div className="colonyEventHeading"><div><span className="colonyEventEyebrow">Событие колонии</span><h2 id={`${id}-title`}>{active.title}</h2></div><BuildingArt type={active.buildingType} /></div>
     <p className="colonyEventDescription">{active.description}</p>
+    <MechanicGuide steps={[
+      'Сравни решения: перед кнопкой показаны точные затраты и награда.',
+      'Выбор применяется только после нажатия. Если не хватает ресурсов, места или технологии, причина появится рядом.',
+      'Можно вернуться позже: событие дождётся, производство продолжит работать. У каждого события есть решение без затрат.',
+    ]} />
     <div className="colonyEventContext"><span>Можно решить позже — событие дождётся.</span><button type="button" className="miniButton" disabled={locked} onClick={() => props.onShowBuilding(active.buildingType)}><GameIcon name="map" size={13} /> На карте</button></div>
     <div className="colonyEventChoices" role="group" aria-label="Решения события">
       {active.choices.map((choice) => {
@@ -118,7 +124,7 @@ export function ColonyEventCard(props: Props) {
         const storageShortages = Object.fromEntries(amounts(evaluation.storageShortages).map(([resource, amount]) => [resource, Math.ceil(amount)]));
         const error = localError?.eventId === active.id && localError.choiceId === choice.id ? localError.text : null;
         return <article className="colonyEventChoice" key={choice.id} data-event-choice={choice.id} aria-labelledby={`${id}-${choice.id}`}>
-          <h3 id={`${id}-${choice.id}`}>{choice.title}</h3><p>{choice.description}</p>
+          <div className="colonyEventChoiceHeading"><h3 id={`${id}-${choice.id}`}>{choice.title}</h3><span className={`colonyEventChoiceStatus${evaluation.canResolve ? ' isReady' : ''}`}><GameIcon name={evaluation.canResolve ? 'check' : 'lock'} size={12} />{evaluation.canResolve ? 'Доступно' : 'Нужна подготовка'}</span></div><p>{choice.description}</p>
           <Exchange cost={choice.cost} reward={choice.reward} />
           {requiredResearch && <div className="colonyEventRequirement"><span>Нужно исследование «{researchName}».</span><button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(requiredResearch)}><GameIcon name="research" size={13} /> К исследованию</button></div>}
           {amounts(shortages).length > 0 && <div className="colonyEventShortage"><span>Не хватает:</span><Amounts value={shortages} /></div>}

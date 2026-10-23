@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.3-beta.1 — Know Your Next Step
+- Applied one compact, collapsible mechanics guide across research, quests, login rewards, achievements, season, colony events, mail and social activities. Costs, rewards, availability and the next action remain visible beside their controls; secondary explanations can be expanded when needed.
+- Research planning separates the next step's cost from the whole chain budget and checks resources, laboratory, queue and feature availability before advertising a launch. Choosing a plan remains free.
+- Quest and login refresh times now come from the same database day/week as their actual progress, displayed in the device's timezone. Clarified individual versus combined rewards, streak versus cycle day, achievement cosmetic names and their duration.
+- Explained paid cooperative shifts, shared science after operation completion, league eligibility versus actual prizes, and each side's referral bonus. Event choices display their preparation state; compact controls fit touch screens.
+- Mail now rejects incomplete pages without replacing valid letters, offers an explicit retry and ignores stale initial-load replies. Opening a letter still never marks it read or repeats its reward automatically.
+- Existing prices, payouts, research gates, saved cities, production, purchases and database schema are unchanged. No migration or dependency is required.
+
 ## 1.14.2-beta.1 — One Colony, Consistent Rules
 - Unified building labels across the catalog, art, guide, construction feedback and new notifications. Market subsections now have distinct buy, sell, orders and price icons; Telegram Stars has its own currency icon and label.
 - Use one duration formatter across construction, production, research, contracts, expeditions, alliance waits and the season. Rounded waits cannot show an overflowing minute or hour field; action deadlines remain unchanged.

@@ -2,6 +2,7 @@
 .questPanelHeading { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:7px; }
 .questPanelHeading h2 { margin:0; }
 .questPeriod { padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; white-space:nowrap; }
+.colonyApp .questPanel .questReset { margin:5px 0 0; font-size:11px; line-height:1.5; color:var(--muted); }
 .questCounts { display:flex; flex-wrap:wrap; gap:6px 14px; margin:13px 0; color:var(--muted); font-size:11px; line-height:1.7; }
 .questCounts > span { display:inline-flex; gap:6px; }
 .questCounts strong { color:var(--text); }
@@ -18,6 +19,7 @@
 .questEntry { min-width:0; padding:13px; border:1px solid var(--line); border-radius:13px; background:rgba(10,24,33,.23); }
 .questEntry.isReady { border-color:rgba(128,209,171,.32); background:rgba(60,113,89,.08); }
 .questEntry.isClaimed { background:rgba(10,24,33,.12); }
+.questEntry.isClaimed .questEntryFoot { margin-top:8px; }
 .questEntryHeading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 10px; }
 .questEntryHeading h3 { margin:0; font-size:13px; line-height:1.5; }
 .questStatus { display:inline-flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; }

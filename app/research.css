@@ -28,13 +28,10 @@
 .researchLabNotice > .action { font-size:12px; }
 .researchFoundation > h3, .researchBranch > h3 { margin:0 0 9px; font-size:13px; }
 .researchFoundation { margin-bottom:15px; }
-.researchBranchPicker { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:17px 0 15px; }
-.researchBranchPicker button { min-width:0; border:1px solid var(--line); border-radius:12px; padding:9px 5px; background:var(--panel2); color:var(--muted); cursor:pointer; }
-.researchBranchPicker button > span { display:block; font-size:17px; margin-bottom:5px; }
-.researchBranchPicker button strong { display:block; font-size:11px; overflow-wrap:anywhere; }
-.researchBranchPicker button small { display:block; font-size:10px; margin-top:5px; }
-.researchBranchPicker button.isSelected { border-color:#a3bcff; background:rgba(128,170,255,.1); color:var(--text); }
-.researchBranchPicker button:focus-visible { outline:2px solid #a3bcff; outline-offset:3px; }
+details.researchFoundation { border:1px solid var(--line); border-radius:12px; padding:0 10px; }
+details.researchFoundation > summary { display:flex; align-items:center; gap:6px; min-height:44px; cursor:pointer; color:#b2ddc8; font-size:12px; }
+details.researchFoundation[open] { padding-bottom:10px; }
+.researchPanel > .sectionTabs { position:static; }
 .researchPanel .researchBranchDescription { font-size:11px; line-height:1.5; margin:0 0 11px; }
 .technologyList { display:flex; flex-direction:column; gap:9px; }
 .technologyCard { min-width:0; border:1px solid var(--line); border-radius:14px; padding:12px; background:var(--panel2); }
@@ -42,7 +39,7 @@
 .technologyCard.isResearching { border-color:rgba(128,170,255,.45); }
 .technologyCard.isFocused { outline:2px solid #a3bcff; outline-offset:2px; scroll-margin-block:20px; }
 .technologyCard.isPlanned { border-color:rgba(222,193,126,.5); }
-.technologyCard .technologyPlanButton { margin-bottom:10px; color:#dfcc9d; font-size:11px; min-height:36px; }
+.colonyApp .technologyCard .technologyPlanButton { margin-bottom:10px; color:#dfcc9d; font-size:11px; min-height:44px; white-space:normal; }
 .technologyCard.isCompleted { border-color:rgba(114,228,173,.23); background:rgba(114,228,173,.035); }
 .technologyTitle { display:flex; align-items:flex-start; gap:9px; }
 .technologyTitle > span { flex-shrink:0; font-size:24px; line-height:1.2; }
@@ -50,6 +47,9 @@
 .technologyTitle h4 { margin:0; font-size:13px; line-height:1.35; }
 .technologyStatus { display:block; color:var(--muted); font-size:10px; margin-top:4px; }
 .technologyStatus.isCompleted { color:var(--accent); }
+.technologyStatus.isResearching { color:#bdd0ff; }
+.technologyStatus.isAvailable { color:#b2ddc8; }
+.technologyStatus > .gameIcon { margin-right:4px; }
 .researchPanel .technologyEffect { font-size:12px; line-height:1.45; font-weight:600; color:#c9d8ff; margin:9px 0; }
 .researchPanel .technologyCard.isCompleted .technologyEffect { color:var(--accent); margin-bottom:0; }
 .researchPanel .technologyDescription { font-size:11px; margin:0 0 9px; line-height:1.45; }
@@ -57,10 +57,14 @@
 .technologyRequirements li { max-width:100%; overflow-wrap:anywhere; padding:5px 6px; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:10px; line-height:1.4; }
 .technologyRequirements li.isMet { color:#b2ddc8; background:rgba(114,228,173,.035); }
 .technologyPrereqLinks { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
-.technologyPrereqLinks .miniButton { white-space:normal; font-size:11px; line-height:1.5; text-align:left; }
+.colonyApp .technologyPrereqLinks .miniButton { white-space:normal; min-height:44px; font-size:11px; line-height:1.5; text-align:left; }
 .technologyCost { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 10px; color:var(--text); font-size:11px; margin-bottom:9px; line-height:1.5; }
 .technologyCost > span:last-child { color:var(--muted); }
-.technologyCard .action { font-size:12px; line-height:1.4; }
+.technologyCostLabel { display:block; color:var(--muted); font-size:10px; margin-bottom:3px; }
+.technologyCard .action { min-height:44px; font-size:12px; line-height:1.4; }
+.researchPanel .technologyBlocker { margin:7px 0 0; color:#d9c7a6; font-size:11px; line-height:1.5; }
+.colonyApp .technologyRefresh,.colonyApp .researchCurrentFoot .miniButton { min-height:44px; white-space:normal; }
+.technologyRefresh { margin-top:8px; }
 .technologyCard .researchStart { background:#c2d3ff; }
 .researchPanel .technologyScienceWait { margin:7px 0 0; font-size:10px; line-height:1.45; }
 .technologyBuild { margin-top:11px; }
@@ -70,6 +74,5 @@
 @media (max-width:360px) {
   .researchPanelHeading { flex-wrap:wrap; }
   .researchScienceRate { margin-bottom:10px; }
-  .researchBranchPicker button strong { font-size:10px; }
   .technologyCard { padding:10px; }
 }

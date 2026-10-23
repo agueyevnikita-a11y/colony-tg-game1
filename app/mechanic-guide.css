@@ -1,0 +1,13 @@
+.mechanicGuide { min-width:0; margin:12px 0; border:1px solid var(--line); border-radius:12px; background:rgba(10,24,33,.24); }
+.mechanicGuide > summary { display:flex; align-items:center; gap:8px; min-height:44px; padding:9px 11px; color:#b3cdd5; font-size:12px; line-height:1.5; cursor:pointer; list-style:none; }
+.mechanicGuide > summary::-webkit-details-marker { display:none; }
+.mechanicGuide > summary::marker { content:''; }
+.mechanicGuide > summary > .gameIcon { flex-shrink:0; }
+.mechanicGuide > summary > span { flex:1; min-width:0; }
+.mechanicGuide > summary > .gameIcon:last-child { transition:transform .15s; }
+.mechanicGuide[open] > summary > .gameIcon:last-child { transform:rotate(90deg); }
+.mechanicGuide > ol { margin:0; padding:0 14px 12px 32px; color:var(--muted); font-size:12px; line-height:1.6; }
+.mechanicGuide li { padding-left:2px; overflow-wrap:anywhere; }
+.mechanicGuide li + li { margin-top:7px; }
+.mechanicGuide summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:10px; }
+@media(prefers-reduced-motion:reduce) { .mechanicGuide > summary > .gameIcon:last-child { transition:none; } }

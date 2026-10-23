@@ -28,11 +28,14 @@
 .rewardSuccess > div > span { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12px; }
 .dailyLoginPanel .cardTitleRow { align-items:flex-start; }
 .dailyLoginPanel .pill { flex-shrink:0; font-size:10px; padding:6px 8px; }
+.dailyLoginPanel .cardTitleRow > div { min-width:0; }
+.dailyLoginPanel .dailyRewardContent > .action,.dailyLoginPanel .miniButton { min-height:44px; }
 .dailyRewardContent { padding:11px; border:1px solid var(--line); border-radius:12px; background:rgba(16,30,38,.3); }
 .dailyRewardSummary { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
 .dailyRewardSummary > span { color:var(--muted); font-size:12px; }
 .dailyRewardSummary > strong { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:14px; }
 .dailyRewardContent > .action { font-size:12px; }
+.colonyApp .dailyLoginPanel .dailyReset { margin:10px 0 0; font-size:11px; line-height:1.5; color:var(--muted); }
 .rewardClaimed { display:flex; align-items:flex-start; gap:7px; color:#b7dcc5; font-size:12px; line-height:1.6; }
 .rewardClaimed > .gameIcon { flex-shrink:0; margin-top:2px; }
 .rewardsPanel .miniButton:focus-visible,.rewardsPanel .action:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }

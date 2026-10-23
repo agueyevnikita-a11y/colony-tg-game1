@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { durationText } from '@/lib/game/format';
 import { SEASON_EVENT_POINTS, type SeasonReward } from '@/lib/game/season';
 import type { SeasonClaimRequest, SeasonClaimResult } from '@/lib/server/season';
@@ -115,6 +116,11 @@ export function SeasonPanel({ season, busy, onClaim, onNavigate, onRefresh }: Pr
   return <section className="card seasonCard seasonPanel" data-season-panel aria-labelledby={`${id}-title`} aria-busy={pending}>
     <div className="cardTitleRow"><div><h2 id={`${id}-title`}><GameIcon name="missions" />Сезон · {season.title || 'Новый сезон'}</h2>{season.subtitle && <p>{season.subtitle}</p>}<p className="seasonDeadline">{activity === 'active' ? `До конца: ${remainingTime(end - now)}` : activity === 'expired' ? 'Сезон завершён. Получение наград закрыто.' : activity === 'future' ? `До начала: ${remainingTime(start - now)}` : 'Даты сезона недоступны. Обнови колонию.'}</p></div><div className="seasonPoints">{n(points)}<span>SP · очки сезона</span></div></div>
     {!active && <button type="button" className="miniButton seasonRefresh" disabled={locked} onClick={onRefresh}>Проверить сезон</button>}
+    <MechanicGuide steps={[
+      'Очки сезона (SP) начисляются за подтверждённые действия в колонии. Это прогресс, а не валюта: при получении награды очки не тратятся.',
+      'Достигни нужного порога и забери награду кнопкой до окончания активного сезона. Полученное оформление появится в магазине на указанный срок.',
+      'Недельная лига кооперации — отдельное соревнование в разделе «Связи → Рейтинг». Здесь показаны только награды сезона.',
+    ]} />
     <div className="seasonOverview"><span>Получено <b>{counts.claimed}/{ordered.length}</b></span><span>{active ? <>Готово <b>{counts.ready}</b></> : 'Получение недоступно'}</span></div>
     {nextReward ? <div className="seasonNext"><span>{active && points >= nextReward.points ? 'Следующая награда готова' : 'Следующая награда'} · ур. {nextReward.level}</span><strong>{nextReward.title}</strong><RewardValue reward={nextReward} /><small>{Math.max(0, nextReward.points - points) ? `Не хватает ${n(Math.max(0, nextReward.points - points))} SP · цель ${n(nextReward.points)} SP` : active ? `Цель ${n(nextReward.points)} SP достигнута` : `Цель ${n(nextReward.points)} SP`}</small><div className="progress" aria-label={`Очки до уровня ${nextReward.level}`} role="progressbar" aria-valuemin={0} aria-valuemax={nextReward.points} aria-valuenow={Math.min(points, nextReward.points)}><i style={{ width: `${Math.min(100, nextReward.points > 0 ? points / nextReward.points * 100 : 100)}%` }} /></div></div> : <div className="seasonComplete" role="status"><GameIcon name="check" size={17} />Все награды сезона получены.</div>}
     {counts.ready >= 2 && <button type="button" className="action seasonBulkClaim" data-season-claim-all disabled={locked} onClick={() => void claim({ all: true })}>{pending ? 'Получаем награды…' : `Собрать готовые · ${counts.ready}`}</button>}

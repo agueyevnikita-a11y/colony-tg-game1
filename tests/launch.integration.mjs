@@ -161,6 +161,21 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     // Separate unlock tests exercise fresh accounts without these grants.
     await sql`INSERT INTO colony_feature_access(user_id,feature_key) VALUES(${first.data.userId},'market'),(${first.data.userId},'expeditions') ON CONFLICT DO NOTHING`;
   });
+  await t.test('quest reset metadata follows the database day and week rather than a client clock', async () => {
+    const [expected] = await sql`SELECT (CURRENT_DATE + 1)::timestamptz AS daily,
+      (date_trunc('week', CURRENT_DATE) + interval '1 week')::timestamptz AS weekly`;
+    const reply = await request('/api/session', { method: 'POST', auth: initData(playerId), body: { clientNow: '2099-12-31T23:59:59Z', timezone: 'Pacific/Auckland' } });
+    assert.equal(reply.status, 200, JSON.stringify(reply.data));
+    const [after] = await sql`SELECT (CURRENT_DATE + 1)::timestamptz AS daily,
+      (date_trunc('week', CURRENT_DATE) + interval '1 week')::timestamptz AS weekly`;
+    // The request may straddle the database's midnight or weekly boundary.
+    assert.ok([expected, after].some(period => JSON.stringify(reply.data.questPeriods) === JSON.stringify({
+      daily: { resetsAt: period.daily.toISOString() }, weekly: { resetsAt: period.weekly.toISOString() },
+    })), JSON.stringify(reply.data.questPeriods));
+    assert.ok(Date.parse(reply.data.questPeriods.daily.resetsAt) <= Date.parse(reply.data.questPeriods.weekly.resetsAt));
+    assert.equal(reply.data.dailyQuests.length, 4);
+    assert.equal(reply.data.weeklyQuests.length, 4);
+  });
   await t.test('client claims cannot grant bot write access; signed Telegram data can', async () => {
     const fakeGrant = await request('/api/settings/notifications', { method: 'POST', auth: initData(playerId), body: { enabled: true, permissionGranted: true } });
     assert.equal(fakeGrant.status, 200, JSON.stringify(fakeGrant.data));

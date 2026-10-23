@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { durationText } from '@/lib/game/format';
 import '@/app/alliance-cooperation.css';
 
@@ -117,7 +118,12 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   }
 
   if (view === 'technology') return <section className="card allianceCooperation" data-alliance-technologies>
-    <div className="cardTitleRow"><div><h2><GameIcon name="research" size={22} />Технологии альянса</h2><p>Общая наука развивается с каждой оплаченной сменой добычи.</p></div><span className="coopScience"><GameAmount resource="science">{n(state?.progress?.sharedScience)}</GameAmount><small>общая наука</small></span></div>
+    <div className="cardTitleRow"><div><h2><GameIcon name="research" size={22} />Технологии альянса</h2><p>Усиливают будущую совместную добычу всей команды.</p></div>{state?.progress && <span className="coopScience"><GameAmount resource="science">{n(state.progress.sharedScience)}</GameAmount><small>общая наука</small></span>}</div>
+    <MechanicGuide steps={[
+      state ? `Каждая оплаченная смена создаёт ${n(state.rules.sharedSciencePerUnit)} общей науки. В запас альянса она поступит после завершения добычи.` : 'Оплаченные смены создают общую науку. В запас альянса она поступит после завершения добычи.',
+      'Владелец или офицер расходует общую науку на исследования. Личная наука игроков при этом не списывается.',
+      'Новый уровень действует с запуска следующей операции. Текущая добыча сохраняет прежние условия.',
+    ]} />
     {state?.progress ? <>
       <div className="coopTechnologyList">{state.progress.technologies.map(technology => {
         const max = technology.nextCost === null || technology.level >= technology.maxLevel;
@@ -125,11 +131,11 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
         return <article className="coopTechnology" key={technology.id} data-coop-technology={technology.id}><div><h3>{technology.name}</h3><span>Ур. {technology.level}/{technology.maxLevel}</span></div><p>{technology.effectText}</p>
           {!max && <p className="coopTechnologyCost">Следующий уровень: <GameAmount resource="science">{n(technology.nextCost)}</GameAmount> общей науки</p>}
           {!max && Number(technology.nextCost) > Number(state.progress?.sharedScience ?? 0) && <p className="coopShortage">Не хватает {n(Number(technology.nextCost) - Number(state.progress?.sharedScience ?? 0))} общей науки.</p>}
-          <button type="button" className="action secondary" disabled={locked || !state.available || !hasMembership || max || !technology.canResearch || !state.progress?.canResearch || Number(state.progress.sharedScience) < Number(technology.nextCost)} onClick={() => { void act(key, { action: 'research', technologyId: technology.id, expectedLevel: technology.level }, 'Технология улучшена. Новый уровень применяется к следующим операциям.'); }}>{pendingKey === key ? 'Исследуем…' : max ? 'Максимальный уровень' : 'Исследовать'}</button>{status(key)}
+          {!max && !state.progress?.canResearch && <p className="coopHint">Исследование доступно владельцу и офицерам альянса.</p>}
+          {!max && !state.available && <p className="coopHint">Исследования пока недоступны. Обнови данные альянса.</p>}
+          <button type="button" className="action secondary" disabled={locked || !state.available || !hasMembership || max || !technology.canResearch || !state.progress?.canResearch || Number(state.progress.sharedScience) < Number(technology.nextCost)} onClick={() => { void act(key, { action: 'research', technologyId: technology.id, expectedLevel: technology.level }, 'Технология улучшена. Новый уровень применяется к следующим операциям.'); }}>{pendingKey === key ? 'Исследуем…' : max ? 'Максимальный уровень' : !state.progress?.canResearch ? 'Нужен владелец или офицер' : 'Исследовать за общую науку'}</button>{status(key)}
         </article>;
       })}</div>
-      {!state.progress.canResearch && <p className="coopHint">Общую науку расходуют владелец и офицеры альянса.</p>}
-      <p className="coopHint">Уровни фиксируются при запуске операции. Новое исследование усилит следующую добычу; уже заработанная доля сохранится.</p>
     </> : <p className="coopHint">Технологии развиваются внутри альянса. Вступи в команду, чтобы участвовать.</p>}
     {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
   </section>;
@@ -137,18 +143,23 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
   const contributeKey = `contribute:${current?.id}:${selectedRole?.id}`;
   const startKey = `start:${current?.id ?? 'first'}`;
   return <div className="allianceCooperation" data-alliance-cooperation>
-    {hasMembership && <section className="card coopOperation"><div className="cardTitleRow"><div><h2><GameIcon name="ore" size={22} />Полярный разрез</h2><p>Совместная шестичасовая добыча. Каждый выбирает, чем помочь команде.</p></div>{current && <span className="coopOperationStatus">{active ? remaining(current.endsAt, now) : 'Завершено'}</span>}</div>
+    {!hasMembership && <section className="card"><h2><GameIcon name="social" size={22} />Совместная добыча</h2><p className="coopHint">Вступи в альянс, чтобы участвовать в добыче. Ранее заработанные доли можно получить ниже, даже без команды.</p></section>}
+    {hasMembership && <section className="card coopOperation"><div className="cardTitleRow"><div><h2><GameIcon name="ore" size={22} />Полярный разрез</h2><p>Совместная добыча за {durationText(state?.rules.durationSec ?? 21600)}. Выбери свою роль в команде.</p></div>{current && <span className="coopOperationStatus">{active ? remaining(current.endsAt, now) : 'Завершено'}</span>}</div>
+      <MechanicGuide steps={[
+        'Запуск бесплатный. Выбор роли ничего не списывает; ресурсы тратятся только при отправке смены.',
+        `Каждый может оплатить до ${n(maxUnits)} смен. Два участника с двумя ролями дают +10% руды, три с тремя ролями — +20%.`,
+        'После завершения забери свою долю отдельно. Её размер зависит от твоих смен и итогового бонуса команды; срока получения нет.',
+      ]} />
       {!state || !state.available ? <div className="coopFeedback" role="status">Совместная добыча пока недоступна. {onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить</button>}</div>
         : current && active ? <>
           <div className="coopTeamSummary"><span><GameIcon name="social" size={16} />Участников <b>{n(current.participants)}</b></span><span>Ролей <b>{current.roles.length}/3</b></span><span>Бонус руды <b>+{n(current.teamBonusPercent)}%</b></span></div>
-          <p className="coopHint">Два участника с двумя ролями дают +10% руды, три участника с тремя ролями — +20%. Бонус зафиксируется в конце добычи.</p>
           <div className="coopNextBonus" data-coop-next-bonus>{current.teamBonusPercent >= 20 ? <><GameIcon name="check" size={17} /><span>Все роли собраны. Максимальный командный бонус — +20% руды.</span></> : <><GameIcon name="network" size={17} /><span>До +{nextBonus}%: участников {Math.min(current.participants, nextTarget)}/{nextTarget}, ролей {Math.min(current.roles.length, nextTarget)}/{nextTarget}.{missingRoles.length > 0 ? ` Свободные роли: ${missingRoles.map(id => ROLE_LABELS[id].toLocaleLowerCase('ru-RU')).join(', ')}.` : ' Нужен вклад ещё одного участника.'}</span></>}</div>
           <fieldset className="coopRoleField" disabled={locked || !freeUnits}><legend>Твоя следующая смена · {n(current.myUnits)} из {n(maxUnits)} оплачено</legend><div className="coopRoleChoices">{state.roleOptions.map(option => <label key={option.id} className={selectedRole?.id === option.id ? 'isSelected' : ''}><input type="radio" name={`coop-role-${current.id}`} value={option.id} checked={selectedRole?.id === option.id} aria-label={option.name} onChange={() => setRole(option.id)} /><GameIcon name={ROLE_ICONS[option.id]} size={24} /><span>{ROLE_LABELS[option.id]}</span></label>)}</div></fieldset>
-          {selectedRole && freeUnits > 0 ? <div className="coopSelectedRole"><h3>{selectedRole.name}</h3><div><span>Потратишь сразу</span>{amounts(selectedRole.cost)}</div><div><span>Базовая доля за смену</span>{amounts(selectedRole.reward)}</div><p className="coopHint">Одна смена даст {n(state.rules.sharedSciencePerUnit)} общей науки. Командный бонус добавится к руде.</p>
+          {selectedRole && freeUnits > 0 ? <div className="coopSelectedRole"><h3>{selectedRole.name}</h3><div><span>Спишется при отправке</span>{amounts(selectedRole.cost)}</div><div><span>Твоя доля за смену · без командного бонуса</span>{amounts(selectedRole.reward)}</div><p className="coopHint">После завершения смена даст альянсу {n(state.rules.sharedSciencePerUnit)} общей науки. Командный бонус увеличит твою руду.</p>
             <button type="button" className="action" disabled={locked || shortages.length > 0} onClick={() => { void act(contributeKey, { action: 'contribute', operationId: current.id, role: selectedRole.id }, data => {
               const competition = data.result?.competition;
               return `Смена оплачена. Доля будет доступна после завершения добычи.${Number(competition?.points) > 0 ? ` Начислено ${n(competition.points)} очков лиги.` : competition?.eligible === false ? ' В рейтинге недели учитывается добыча первой выбранной команды.' : ''}`;
-            }); }}>{pendingKey === contributeKey ? 'Отправляем…' : 'Отправить одну смену'}</button>
+            }); }}>{pendingKey === contributeKey ? 'Отправляем…' : 'Оплатить одну смену'}</button>
             {shortages.length > 0 && <p className="coopShortage" role="status">Не хватает {shortages.map(([resource, amount]) => `${n(Number(amount) - Number(resources[resource as keyof Amounts] ?? 0))} ${RESOURCE_NAMES[resource] ?? resource}`).join(', ')}.</p>}{status(contributeKey)}
           </div> : <div className="coopFeedback" role="status">Твои {n(maxUnits)} смены уже оплачены. Можно вернуться за долей после завершения операции.</div>}
           {current.myUnits > 0 && <div className="coopMyShare"><strong>Твоя доля · предварительно</strong>{amounts(current.myReward)}<small>Готовность: {date(current.endsAt)}. Добыча идёт при закрытой игре.</small></div>}
@@ -159,9 +170,9 @@ export function AllianceCooperationPanel({ cooperation: state, view, resources, 
     {success?.view === view && <div className="coopFeedback" role="status">{success.text}</div>}
     {receive.length > 0 && <section className="card coopRewards" data-coop-rewards><h2><GameIcon name="contracts" size={22} />Твои доли добычи</h2><p>Заработанные доли остаются доступными после выхода из альянса. Срока получения нет.</p><div className="coopRewardList">{receive.slice(currentPage * 3, currentPage * 3 + 3).map(item => {
       const key = `claim:${item.id}`, ready = item.status === 'ready';
-      return <article className="coopReward" key={item.id}><div><strong>{item.allianceName}</strong><small>{ready ? 'Добыча завершена' : `До завершения ${remaining(item.endsAt, now)}`} · {n(item.units)} смены</small></div>{amounts(item.reward)}
+      return <article className="coopReward" key={item.id}><div><strong>{item.allianceName}</strong><small>{ready ? 'Готовая доля' : `Предварительная доля · ещё ${remaining(item.endsAt, now)}`} · смен: {n(item.units)}</small></div>{amounts(item.reward)}
         <button type="button" className="action secondary" disabled={locked || !ready || !item.canClaim} onClick={() => { void act(key, { action: 'claim', operationId: item.id }, data => `Добыча получена: ${Object.entries(data.result?.reward ?? item.reward).filter(([, value]) => Number(value) > 0).map(([resource, value]) => `${n(value)} ${RESOURCE_NAMES[resource] ?? resource}`).join(', ')}.`); }}>{pendingKey === key ? 'Получаем…' : ready ? 'Забрать долю' : 'Добыча идёт'}</button>
-        {Number(item.storageShortages?.ore) > 0 && <p className="coopShortage">Освободи на складе ещё {n(item.storageShortages.ore)} руды. Доля сохранится целиком.</p>}{status(key)}</article>;
+        {Number(item.storageShortages?.ore) > 0 && <p className="coopShortage">Нужно ещё {n(item.storageShortages.ore)} свободного места под руду. Потрать руду или расширь склад — доля сохранится целиком.</p>}{status(key)}</article>;
     })}</div>{pages > 1 && <div className="coopPagination"><button type="button" className="miniButton" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Назад</button><span>{currentPage + 1}/{pages}</span><button type="button" className="miniButton" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Далее</button></div>}</section>}
   </div>;
 }

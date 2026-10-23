@@ -1172,20 +1172,20 @@ export default function Home() {
 
       {tab === 'missions' && <>
         {subsections.missions === 'daily' && <div data-section-panel="missions-daily">
-          <DailyLoginPanel key={planOwner} dailyLogin={game.dailyLogin} busy={busy}
+          <DailyLoginPanel key={planOwner} dailyLogin={game.dailyLogin} resetsAt={game.questPeriods?.daily?.resetsAt} busy={busy}
             onClaim={async () => { try { return await api('/api/game/daily-login/claim'); } catch (error) { setMessage(''); throw error; } }}
             onRefresh={() => { void refresh(); }} />
-          <QuestPanel key={planOwner + ':daily'} period="daily" quests={game.dailyQuests ?? []} catalog={game.dailyQuestCatalog ?? []} busy={busy}
+          <QuestPanel key={planOwner + ':daily'} period="daily" quests={game.dailyQuests ?? []} catalog={game.dailyQuestCatalog ?? []} resetsAt={game.questPeriods?.daily?.resetsAt} busy={busy}
             onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
             onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'weekly' && <div data-section-panel="missions-weekly">
-          <QuestPanel key={planOwner + ':weekly'} period="weekly" quests={game.weeklyQuests ?? []} catalog={game.weeklyQuestCatalog ?? []} busy={busy}
+          <QuestPanel key={planOwner + ':weekly'} period="weekly" quests={game.weeklyQuests ?? []} catalog={game.weeklyQuestCatalog ?? []} resetsAt={game.questPeriods?.weekly?.resetsAt} busy={busy}
             onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
             onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'achievements' && <div data-section-panel="missions-achievements">
-          <AchievementsPanel key={planOwner} rows={achievementRows} busy={busy} focusCategory={achievementFocus.category} focusRequestId={achievementFocus.requestId}
+          <AchievementsPanel key={planOwner} rows={achievementRows} cosmetics={game.shopCosmetics ?? []} busy={busy} focusCategory={achievementFocus.category} focusRequestId={achievementFocus.requestId}
             onClaim={async (achievementKey) => { try { await api('/api/game/achievements/claim', { achievementKey }); } catch (error) { setMessage(''); throw error; } }}
             onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}

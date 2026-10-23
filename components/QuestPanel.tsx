@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import '@/app/quests.css';
 
 export type QuestPeriod = 'daily' | 'weekly';
@@ -18,6 +19,7 @@ type Props = {
   onClaim: (selection: QuestClaimSelection) => Promise<QuestClaimResult>;
   onNavigate: (destination: QuestDestination) => void;
   onRefresh?: () => void;
+  resetsAt?: string;
 };
 type Feedback = { scope: string; error: boolean; text: string; result?: QuestClaimResult };
 
@@ -26,6 +28,11 @@ function number(value: unknown) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 function quantity(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); }
+function resetTime(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : null;
+}
 function validReceipt(value: unknown, period: QuestPeriod): value is QuestClaimResult {
   if (!value || typeof value !== 'object') return false;
   const result = value as Record<string, unknown>;
@@ -44,7 +51,7 @@ function shortcut(config: QuestConfig | undefined, questKey: string): { destinat
   return { destination: 'city', label: 'В колонию', icon: 'city' };
 }
 
-export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate, onRefresh }: Props) {
+export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate, onRefresh, resetsAt }: Props) {
   const id = useId();
   const [filter, setFilter] = useState<'all' | 'ready'>('all');
   const [pending, setPending] = useState<string | null>(null);
@@ -67,6 +74,7 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
   const crystals = quests.reduce((sum, quest) => sum + number(quest.crystal_reward), 0);
   const visibleRows = filter === 'ready' ? ready : rows;
   const visibleFeedback = feedback?.scope === scope ? feedback : null;
+  const nextReset = resetTime(resetsAt);
 
   async function claim(questKey?: string) {
     const selected = ready.filter((row) => !questKey || row.quest.quest_key === questKey);
@@ -92,7 +100,8 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
 
   return <section className="card questPanel" data-quest-panel={period} aria-labelledby={`${id}-title`} aria-busy={pending !== null}>
     <div className="questPanelHeading"><h2 id={`${id}-title`}><GameIcon name="missions" />{period === 'daily' ? 'Ежедневные задания' : 'Недельные задания'}</h2><span className="questPeriod">{period === 'daily' ? 'На сегодня' : 'На эту неделю'}</span></div>
-    <p>За полный набор: <GameAmount resource="crystals">{quantity(crystals)}</GameAmount> и <GameAmount resource="credits">{quantity(credits)}</GameAmount>. Забирай награды за выполненные задания.</p>
+    <p>Награды всех заданий: <GameAmount resource="crystals">{quantity(crystals)}</GameAmount> и <GameAmount resource="credits">{quantity(credits)}</GameAmount>.</p>
+    <p className="questReset">{nextReset ? <>Обновление: <time dateTime={resetsAt}>{nextReset}</time></> : 'Обновление по времени сервера'}</p>
     <div className="questCounts" aria-label="Состояние заданий"><span className="questReadyCount">Готово к сбору <strong data-quest-ready-count>{ready.length}</strong></span><span>В процессе <strong>{unfinished}</strong></span><span>Получено <strong>{claimed}/{rows.length}</strong></span></div>
     {ready.length >= 2 && <div className="questBulk"><div><strong>Готовы {ready.length} награды</strong><span><GameAmount resource="credits">{quantity(ready.reduce((sum, row) => sum + number(row.quest.credit_reward), 0))}</GameAmount><GameAmount resource="crystals">{quantity(ready.reduce((sum, row) => sum + number(row.quest.crystal_reward), 0))}</GameAmount></span></div><button type="button" className="action secondary" data-quest-claim-all disabled={locked} onClick={() => void claim()}>{pending === 'all' ? 'Получаем награды…' : 'Собрать готовые'}</button></div>}
     {visibleFeedback && <div className={`notice questFeedback${visibleFeedback.error ? ' error' : ''}`} data-quest-feedback role={visibleFeedback.error ? 'alert' : 'status'}><span>{visibleFeedback.text}</span>{visibleFeedback.error && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить колонию</button>}{!visibleFeedback.error && !!visibleFeedback.result?.count && <strong><GameAmount resource="credits">{quantity(visibleFeedback.result.credits)}</GameAmount><GameAmount resource="crystals">{quantity(visibleFeedback.result.crystals)}</GameAmount></strong>}</div>}
@@ -102,11 +111,17 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
       const percent = Math.min(100, Math.round(progress / Math.max(1, target) * 100));
       return <article key={quest.id} className={`questEntry${done ? ' isReady' : received ? ' isClaimed' : ''}`} data-quest-key={quest.quest_key} data-quest-status={received ? 'claimed' : done ? 'ready' : 'progress'} aria-labelledby={`${id}-${quest.id}`}>
         <div className="questEntryHeading"><h3 id={`${id}-${quest.id}`}>{config?.title ?? quest.quest_key}</h3><span className="questStatus"><GameIcon name={received ? 'check' : done ? 'gift' : 'clock'} size={13} />{received ? 'Получено' : done ? 'Награда готова' : 'В процессе'}</span></div>
-        {config?.description && <p>{config.description}</p>}
-        <div className="questProgress" role="progressbar" aria-label={config?.title ?? quest.quest_key} aria-valuemin={0} aria-valuemax={Math.max(1, target)} aria-valuenow={Math.min(progress, Math.max(1, target))}><i style={{ width: `${percent}%` }} /></div>
-        <div className="questProgressText"><span>{quantity(Math.min(progress, target))}/{quantity(target)}</span><span>{received ? 'Награда получена' : done ? 'Можно забрать' : 'Прогресс сохраняется автоматически'}</span></div>
-        <div className="questEntryFoot"><div className="questReward"><GameAmount resource="credits">{quantity(number(quest.credit_reward))}</GameAmount><GameAmount resource="crystals">{quantity(number(quest.crystal_reward))}</GameAmount></div>{received ? <span className="questReceived"><GameIcon name="check" size={14} />Получено</span> : done ? <button type="button" className="miniButton questClaim" data-quest-claim={quest.quest_key} disabled={locked} onClick={() => void claim(quest.quest_key)}>{pending === quest.quest_key ? 'Получаем…' : 'Забрать награду'}</button> : <button type="button" className="miniButton questNavigate" data-quest-navigate={action.destination} disabled={locked} onClick={() => onNavigate(action.destination)}><GameIcon name={action.icon} size={13} />{action.label}<GameIcon name="arrow" size={13} /></button>}</div>
+        {!received && <>{config?.description && <p>{config.description}</p>}
+          <div className="questProgress" role="progressbar" aria-label={config?.title ?? quest.quest_key} aria-valuemin={0} aria-valuemax={Math.max(1, target)} aria-valuenow={Math.min(progress, Math.max(1, target))}><i style={{ width: `${percent}%` }} /></div>
+          <div className="questProgressText"><span>{quantity(Math.min(progress, target))}/{quantity(target)}</span><span>{done ? 'Можно забрать награду' : `Осталось: ${quantity(Math.max(0, target - progress))}`}</span></div>
+        </>}
+        <div className="questEntryFoot"><div className="questReward" aria-label={received ? 'Полученная награда' : 'Награда'}><GameAmount resource="credits">{quantity(number(quest.credit_reward))}</GameAmount><GameAmount resource="crystals">{quantity(number(quest.crystal_reward))}</GameAmount></div>{!received && (done ? <button type="button" className="miniButton questClaim" data-quest-claim={quest.quest_key} disabled={locked} onClick={() => void claim(quest.quest_key)}>{pending === quest.quest_key ? 'Получаем…' : 'Забрать награду'}</button> : <button type="button" className="miniButton questNavigate" data-quest-navigate={action.destination} disabled={locked} onClick={() => onNavigate(action.destination)}><GameIcon name={action.icon} size={13} />{action.label}<GameIcon name="arrow" size={13} /></button>)}</div>
       </article>;
-    })}</div> : <div className="questEmpty" role="status">{!rows.length ? 'Задания ещё не загружены. Проверь соединение и обнови колонию.' : claimed === rows.length ? 'Все награды получены. Новые задания появятся в следующем периоде.' : 'Пока нет готовых наград. Продолжай выполнять задания.'}{rows.length > 0 && <button type="button" className="miniButton" onClick={() => setFilter('all')}>Показать все задания</button>}</div>}
+    })}</div> : <div className="questEmpty" role="status">{!rows.length ? 'Задания ещё не загружены. Проверь соединение и обнови колонию.' : claimed === rows.length ? 'Все награды получены. Новые задания появятся в следующем периоде.' : 'Пока нет готовых наград. Продолжай выполнять задания.'}{rows.length > 0 ? <button type="button" className="miniButton" onClick={() => setFilter('all')}>Показать все задания</button> : onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить задания</button>}</div>}
+    <MechanicGuide steps={[
+      'Выполняй указанное действие. Прогресс засчитывается автоматически; кнопка в карточке открывает нужный раздел.',
+      'Готовую награду нужно забрать. «Собрать готовые» выдаёт только награды выполненных заданий, без дополнительного бонуса за набор.',
+      period === 'daily' ? 'Набор обновляется со сменой игрового дня по времени сервера. Забери готовые награды до обновления; время выше показано в часовом поясе устройства.' : 'Набор обновляется со сменой игровой недели по времени сервера. Забери готовые награды до обновления; время выше показано в часовом поясе устройства.',
+    ]} />
   </section>;
 }

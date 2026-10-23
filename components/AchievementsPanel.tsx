@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { AchievementEmblem } from '@/components/AchievementEmblem';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import '@/app/achievements.css';
 
 export type AchievementCategory = 'all' | 'comfort' | 'friends' | 'exploration';
@@ -22,6 +23,7 @@ type AchievementStatus = 'ready' | 'in_progress' | 'claimed' | 'all';
 
 type Props = {
   rows: AchievementRow[];
+  cosmetics?: readonly { id: string; name: string; category?: string }[];
   busy: boolean;
   onClaim: (key: string) => Promise<void>;
   focusCategory?: AchievementCategory;
@@ -38,9 +40,9 @@ const CATEGORIES: { key: AchievementCategory; label: string; icon: string }[] = 
   { key: 'exploration', label: 'Экспедиции', icon: 'artifact_lens' },
 ];
 const STATUSES: { key: AchievementStatus; label: string }[] = [
-  { key: 'ready', label: 'Готовы' },
+  { key: 'ready', label: 'Готово' },
   { key: 'in_progress', label: 'В процессе' },
-  { key: 'claimed', label: 'Получены' },
+  { key: 'claimed', label: 'Получено' },
   { key: 'all', label: 'Все' },
 ];
 
@@ -71,7 +73,18 @@ function progress(row: AchievementRow) {
   return { target, value, percent: Math.round(value / target * 100) };
 }
 
-export function AchievementsPanel({ rows, busy, onClaim, focusCategory = 'all', focusRequestId = 0, onOpenCollection }: Props) {
+function appearanceReward(cosmeticId: string, cosmetics: Props['cosmetics']) {
+  const cosmetic = cosmetics?.find((item) => item.id === cosmeticId);
+  const category = cosmetic?.category ?? cosmeticId.split('_')[0];
+  const types: Record<string, { label: string; icon: string }> = {
+    frame: { label: 'Рамка', icon: 'palette' }, title: { label: 'Титул', icon: 'trophy' },
+    theme: { label: 'Стиль колонии', icon: 'city' }, weather: { label: 'Эффект', icon: 'star' },
+    effect: { label: 'Эффект', icon: 'signal' },
+  };
+  return { name: cosmetic?.name ?? types[category]?.label ?? 'Оформление', icon: types[category]?.icon ?? 'palette' };
+}
+
+export function AchievementsPanel({ rows, cosmetics, busy, onClaim, focusCategory = 'all', focusRequestId = 0, onOpenCollection }: Props) {
   const id = useId();
   const [category, setCategory] = useState<AchievementCategory>(focusCategory);
   const [locallyClaimed, setLocallyClaimed] = useState<ReadonlySet<string>>(() => new Set());
@@ -133,7 +146,7 @@ export function AchievementsPanel({ rows, busy, onClaim, focusCategory = 'all', 
   }
 
   return <section className="card achievementsPanel" aria-labelledby={`${id}-title`} aria-busy={pendingKey !== null}>
-    <div className="achievementPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="trophy" />Достижения</h2><p>Развивай колонию и забирай кристаллы и оформление. Готовые награды показаны первыми.</p></div><span className="achievementCollectionCount"><GameIcon name="check" size={13} />{quantity(rows.filter((row) => rowStatus(row, locallyClaimed) === 'claimed').length)}/{quantity(rows.length)}</span></div>
+    <div className="achievementPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="trophy" />Достижения</h2><p>Долгосрочные цели без срока. Каждую награду можно получить один раз.</p></div><span className="achievementCollectionCount" aria-label="Награды получены"><GameIcon name="check" size={13} />{quantity(rows.filter((row) => rowStatus(row, locallyClaimed) === 'claimed').length)}/{quantity(rows.length)}</span></div>
 
     <div className="achievementCategories" role="group" aria-label="Тема достижений">{CATEGORIES.map((item) => <button type="button" key={item.key} aria-pressed={category === item.key} onClick={() => chooseCategory(item.key)}><GameIcon name={item.icon} size={15} /><span>{item.label}</span></button>)}</div>
     <div className="achievementStatusFilters" role="group" aria-label="Состояние достижений">{STATUSES.map((item) => <button type="button" key={item.key} aria-pressed={status === item.key} onClick={() => chooseStatus(item.key)}><span>{item.label}</span><b>{quantity(counts[item.key])}</b></button>)}</div>
@@ -146,20 +159,25 @@ export function AchievementsPanel({ rows, busy, onClaim, focusCategory = 'all', 
         const unlocked = currentStatus !== 'in_progress', claimed = currentStatus === 'claimed';
         const reward = row.reward ?? {};
         const currentProgress = progress(row);
+        const appearance = reward.cosmeticId ? appearanceReward(reward.cosmeticId, cosmetics) : null;
         return <div className={`rowCard achievementCard ${unlocked ? 'isUnlocked' : ''} ${claimed ? 'isClaimed' : ''}`} key={row.key} data-achievement={row.key}>
           <AchievementEmblem achievementKey={row.key} stat={row.stat} target={row.target} unlocked={unlocked} claimed={claimed} />
-          <div className="achievementCardBody"><strong>{row.title}</strong><small>{row.description}</small>
-            <div className="achievementRewards">{Number(reward.crystals) > 0 && <GameAmount resource="crystals">{quantity(Number(reward.crystals))}</GameAmount>}{reward.cosmeticId && <span className="achievementRewardAppearance"><GameIcon name="palette" size={14} />Оформление · {reward.cosmeticDays ? `${reward.cosmeticDays} дн.` : 'навсегда'}</span>}</div>
-            <div className="progress" role="progressbar" aria-label={`Прогресс: ${row.title}`} aria-valuemin={0} aria-valuemax={currentProgress.target} aria-valuenow={currentProgress.value}><i style={{ width: `${currentProgress.percent}%` }} /></div>
-            <div className="achievementCardFoot"><small>{quantity(currentProgress.value)}/{quantity(currentProgress.target)} · {claimed ? 'Награда получена' : unlocked ? 'Награда готова' : 'В процессе'}</small>{currentStatus === 'ready' && <button type="button" className="miniButton" disabled={locked} onClick={() => void claim(row)} aria-label={`Забрать награду: ${row.title}`}>{pendingKey === row.key ? 'Получаем…' : 'Забрать'}</button>}{claimed && <span className="achievementClaimedLabel"><GameIcon name="check" size={13} />Получено</span>}</div>
+          <div className="achievementCardBody"><strong>{row.title}</strong>{!claimed && <small>{row.description}</small>}
+            <div className="achievementRewards" aria-label={claimed ? 'Полученная награда' : 'Награда'}>{Number(reward.crystals) > 0 && <GameAmount resource="crystals">{quantity(Number(reward.crystals))}</GameAmount>}{appearance && <span className="achievementRewardAppearance"><GameIcon name={appearance.icon} size={14} /><span>{appearance.name} · {reward.cosmeticDays ? `${reward.cosmeticDays} дн. после получения` : 'навсегда'}</span></span>}</div>
+            {!claimed && <div className="progress" role="progressbar" aria-label={`Прогресс: ${row.title}`} aria-valuemin={0} aria-valuemax={currentProgress.target} aria-valuenow={currentProgress.value}><i style={{ width: `${currentProgress.percent}%` }} /></div>}
+            <div className="achievementCardFoot">{!claimed && <small>{quantity(currentProgress.value)}/{quantity(currentProgress.target)} · {unlocked ? 'Награда готова' : `Осталось: ${quantity(currentProgress.target - currentProgress.value)}`}</small>}{currentStatus === 'ready' && <button type="button" className="miniButton" disabled={locked} onClick={() => void claim(row)} aria-label={`Забрать награду: ${row.title}`}>{pendingKey === row.key ? 'Получаем…' : 'Забрать награду'}</button>}{claimed && <span className="achievementClaimedLabel"><GameIcon name="check" size={13} />Получено</span>}</div>
           </div>
         </div>;
       })}
     </div>
 
-    {!visibleRows.length && <div className="achievementEmpty"><GameIcon name={status === 'ready' ? 'check' : status === 'claimed' ? 'gift' : 'target'} size={25} /><p>{status === 'ready' ? 'Все готовые награды в этой теме уже получены. Посмотри, какую цель можно завершить следующей.' : status === 'claimed' ? 'Здесь появятся награды, которые ты заберёшь. Они останутся в коллекции достижений.' : status === 'in_progress' ? 'В этой теме нет незавершённых целей.' : 'В этой теме пока нет достижений.'}</p>{status !== 'all' && <button type="button" className="miniButton" onClick={() => chooseStatus(status === 'ready' && counts.in_progress > 0 ? 'in_progress' : 'all')}>{status === 'ready' && counts.in_progress > 0 ? 'Посмотреть следующие цели' : 'Показать все достижения'}</button>}</div>}
+    {!visibleRows.length && <div className="achievementEmpty" role="status"><GameIcon name={status === 'ready' ? 'check' : status === 'claimed' ? 'gift' : 'target'} size={25} /><p>{!rows.length ? 'Достижения ещё не загружены. Обнови колонию, чтобы проверить цели.' : status === 'ready' ? 'Готовых наград в этой теме нет. Посмотри, какую цель можно завершить следующей.' : status === 'claimed' ? 'Здесь появятся награды, которые ты заберёшь. Они останутся в коллекции достижений.' : status === 'in_progress' ? 'В этой теме нет незавершённых целей.' : 'В этой теме пока нет достижений.'}</p>{status !== 'all' && <button type="button" className="miniButton" onClick={() => chooseStatus(status === 'ready' && counts.in_progress > 0 ? 'in_progress' : 'all')}>{status === 'ready' && counts.in_progress > 0 ? 'Посмотреть следующие цели' : 'Показать все достижения'}</button>}</div>}
     {totalPages > 1 && <nav className="achievementPagination" aria-label="Страницы достижений"><button type="button" className="miniButton" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Назад</button><span aria-live="polite">{currentPage + 1}/{totalPages}</span><button type="button" className="miniButton" disabled={currentPage + 1 >= totalPages} onClick={() => setPage(currentPage + 1)}>Далее</button></nav>}
-    <p className="achievementPanelHint">Оформление после получения можно включить в магазине, в разделе «Моё оформление». Срок действия указан рядом с наградой.</p>
     {onOpenCollection && <button type="button" className="miniButton achievementCollectionLink" onClick={onOpenCollection}><GameIcon name="palette" size={15} />Моё оформление<GameIcon name="arrow" size={14} /></button>}
+    <MechanicGuide steps={[
+      'Выбери тему и цель. Прогресс сохраняется автоматически и не обнуляется со сменой дня или недели.',
+      'Когда награда готова, нажми «Забрать награду». Кристаллы поступят на баланс, а оформление появится в твоей коллекции.',
+      'Оформление включается в магазине → «Моё оформление». Срок временной награды начинается при её получении; постоянные награды остаются навсегда.',
+    ]} />
   </section>;
 }

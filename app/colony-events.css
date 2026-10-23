@@ -1,4 +1,5 @@
 .colonyEventCard { min-width:0; scroll-margin-top:14px; border-color:rgba(126,185,180,.24); }
+.colonyEventCard .miniButton { min-height:44px; }
 .colonyEventCard:not(.colonyEventCooldown) { animation:colonyEventArrive .25s ease-out both; }
 .colonyEventHeading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .colonyEventHeading > div { min-width:0; flex:1; }
@@ -10,8 +11,12 @@
 .colonyEventContext > span { max-width:200px; color:var(--muted); font-size:10px; line-height:1.5; }
 .colonyEventContext .miniButton { flex-shrink:0; font-size:10px; }
 .colonyEventChoices { display:flex; flex-direction:column; gap:9px; }
+.colonyEventChoiceHeading { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:6px 10px; }
+.colonyEventChoiceHeading h3 { min-width:0; flex:1 1 140px; }
+.colonyEventChoiceStatus { display:inline-flex; align-items:center; gap:4px; font-size:10px; line-height:1.5; color:var(--muted); padding:3px 6px; border:1px solid var(--line); border-radius:7px; }
+.colonyEventChoiceStatus.isReady { color:#a5e1c4; border-color:#7dd4b34a; background:#7dd4b30a; }
 .colonyEventChoice { min-width:0; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(10,24,33,.23); }
-.colonyEventChoice > h3 { margin:0; color:var(--text); font-size:13px; line-height:1.45; }
+.colonyEventChoiceHeading h3 { margin:0; color:var(--text); font-size:13px; line-height:1.45; }
 .colonyEventCard .colonyEventChoice > p { margin:5px 0 9px; color:var(--muted); font-size:11px; line-height:1.5; }
 .colonyEventExchange { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:6px; align-items:center; margin:9px 0; }
 .colonyEventExchange > div { min-width:0; }
@@ -22,7 +27,7 @@
 .colonyEventRequirement { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:7px; margin:9px 0; font-size:11px; color:#b8cce8; line-height:1.5; }
 .colonyEventRequirement .miniButton { font-size:10px; }
 .colonyEventShortage { display:flex; flex-wrap:wrap; align-items:center; gap:3px 8px; margin:8px 0; color:#e7c58d; font-size:11px; line-height:1.6; }
-.colonyEventResolve { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:42px; width:100%; margin-top:9px; font-size:12px; line-height:1.5; }
+.colonyEventResolve { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; width:100%; margin-top:9px; font-size:12px; line-height:1.5; }
 .colonyEventChoice:has(.colonyEventResolve:not(:disabled)):hover { border-color:rgba(130,204,177,.3); }
 .colonyEventResolve:focus-visible,.colonyEventCard .miniButton:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .colonyEventError { margin:9px 0 0; font-size:11px; line-height:1.5; }
@@ -34,7 +39,7 @@
 .colonyEventResolvedAmounts { display:flex; align-items:center; flex-wrap:wrap; gap:4px 9px; margin:8px 0; color:#b8e0c8; font-size:12px; line-height:1.5; }
 .colonyEventResolvedAmounts > span:first-child { color:var(--muted); font-size:11px; }
 .colonyEventResultDetails { margin:8px 0; }
-.colonyEventResultDetails > summary { color:var(--muted); cursor:pointer; font-size:11px; line-height:1.5; }
+.colonyEventResultDetails > summary { display:flex; align-items:center; min-height:44px; color:var(--muted); cursor:pointer; font-size:11px; line-height:1.5; }
 .colonyEventResultDetails .colonyEventExchange { padding-top:7px; }
 .colonyEventNext { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:10px; padding-top:9px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; line-height:1.5; }
 .colonyEventNext > .gameIcon { color:#a1bbc9; }

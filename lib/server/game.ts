@@ -295,6 +295,14 @@ export async function reconcilePlayer(userId: string) {
     `;
     const contractState = await ensureNpcContracts(tx, userId, hqLevel, buildings);
     const supplyProjects = await getSupplyProjectsState(tx, userId, hqLevel, buildings);
+    const [questPeriodDates] = await tx<{ daily_resets_at: Date; weekly_resets_at: Date }[]>`
+      SELECT (CURRENT_DATE + 1)::timestamptz AS daily_resets_at,
+             (date_trunc('week', CURRENT_DATE) + interval '1 week')::timestamptz AS weekly_resets_at
+    `;
+    const questPeriods = {
+      daily: { resetsAt: questPeriodDates.daily_resets_at.toISOString() },
+      weekly: { resetsAt: questPeriodDates.weekly_resets_at.toISOString() },
+    };
     const dailyQuests = await tx<any[]>`
       SELECT * FROM daily_quests WHERE user_id=${userId} AND quest_date=CURRENT_DATE ORDER BY quest_key
     `;
@@ -393,6 +401,7 @@ export async function reconcilePlayer(userId: string) {
       supplyProjects,
       dailyQuests,
       weeklyQuests,
+      questPeriods,
       achievements,
       achievementCatalog: ACHIEVEMENTS,
       dailyQuestCatalog: DAILY_QUESTS,
