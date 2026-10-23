@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.8-beta.1 — Follow Every Find
+- Expedition route details now show each possible main artifact, its actual per-flight chance and known collection count. Each find opens its own collection card, which is highlighted, focused and expanded without spending resources.
+- Claim receipts bring the result into view and link saved artifacts to their collection cards, including event finds and history. Repeated items keep their quantities; no first-discovery or guaranteed-drop claim is invented.
+- Full-slot messages lead directly to a returned expedition or active flights. Collection sources show flight duration beside per-flight odds, and the quantum lens identifies its sole main route. The general collection button now says it selects an expedition rather than launches one.
+- Navigation respects reduced motion, clears targets on player or section changes and preserves manually collapsed details during background refresh. No migration, dependency, reward, probability, price or saved-city change is required.
+
 ## 1.14.7-beta.1 — From Finds to Flight Routes
 - Each artifact's source now opens and focuses its exact expedition route, with the selected find's per-flight chance, launch price and access requirements visible together. A return button leads back to the collection.
 - Locked routes can be inspected from the collection before opening expeditions. Research, HQ, centre, slot, resource and feature restrictions still block launch; viewing never starts a flight or spends resources.

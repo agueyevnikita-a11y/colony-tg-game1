@@ -15,7 +15,9 @@
 .artifactsProgress { height:5px; background:#0d2029; border-radius:20px; margin:14px 0 18px; overflow:hidden; }
 .artifactsProgress i { display:block; height:100%; border-radius:20px; background:linear-gradient(90deg,#63c5ba,#a4ead7); }
 .artifactsCards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-.artifactCard { min-width:0; border:1px solid #334a56; border-radius:17px; padding:10px; background:linear-gradient(150deg,#172e38,#10212b); }
+.artifactCard { min-width:0; border:1px solid #334a56; border-radius:17px; padding:10px; background:linear-gradient(150deg,#172e38,#10212b); scroll-margin-top:14px; scroll-margin-bottom:110px; }
+.artifactCard.isCollectionTarget { border-color:#78c4b7; background:linear-gradient(150deg,#24413f,#10212b); }
+.artifactCard.isCollectionTarget:focus { outline:2px solid var(--accent); outline-offset:3px; }
 .artifactCardVisual { display:flex; position:relative; justify-content:center; align-items:center; min-height:130px; border-radius:12px; background:radial-gradient(ellipse at 50% 38%,#36566450,transparent 75%); margin-bottom:6px; }
 .artifactCard.rarity-epic .artifactCardVisual { background:radial-gradient(ellipse at 50% 38%,#6d42944a,transparent 75%); }
 .artifactCard.rarity-rare .artifactCardVisual { background:radial-gradient(ellipse at 50% 38%,#226cac4a,transparent 75%); }
@@ -28,17 +30,24 @@
 .artifactDetails { margin-top:10px; border-top:1px solid #314650; padding-top:4px; font-size:12px; }
 .artifactDetails summary { min-height:44px; display:flex; justify-content:space-between; gap:4px; align-items:center; cursor:pointer; color:#c2d9e1; font-size:11px; line-height:1.45; list-style:none; }
 .artifactDetails summary::-webkit-details-marker { display:none; }.artifactDetails summary>.gameIcon { flex-shrink:0; transition:transform .15s; }.artifactDetails[open] summary>.gameIcon { transform:rotate(90deg); }
+.artifactDetails summary:focus-visible,.artifactsRules summary:focus-visible,.artifactsActions button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:5px; }
 .artifactDetails p { font-size:12px; line-height:1.55; color:#b0c3cc; margin:5px 0 12px; }
 .artifactDetails strong { display:block; font-size:11px; line-height:1.5; color:#d1e0e6; }
 .artifactDetails ul { margin:5px 0 10px; padding:0; list-style:none; }
 .artifactDetails li { display:flex; flex-direction:column; gap:5px; font-size:11px; line-height:1.5; padding:7px 0; border-bottom:1px solid #344b554d; }
-.artifactRouteInfo { display:flex; justify-content:space-between; gap:5px; }
-.artifactRouteLink { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:44px; width:100%; white-space:normal; text-align:left; line-height:1.5; font-size:11px; }
+.artifactRouteInfo { display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px; }
+.artifactRouteInfo > span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.artifactRouteTiming { display:flex; flex-direction:column; align-items:flex-start; gap:4px; color:#a6bcc5; }
+.artifactRouteTiming > span { display:inline-flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:10px; line-height:1.5; }
+.artifactRouteTiming .gameIcon { flex-shrink:0; }
+.artifactRouteTiming > small { max-width:100%; color:#abdedc; font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
+.artifactsPanel button.artifactRouteLink { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:44px; width:100%; white-space:normal; text-align:left; line-height:1.5; font-size:11px; }
 .artifactRouteLink:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.artifactRouteLink > .gameIcon { flex-shrink:0; }
 .artifactDetails li span { min-width:0; }.artifactDetails li b { flex-shrink:0; font-weight:600; color:#abdedc; }
 .artifactDetails .artifactExtraSource { font-size:11px; margin-bottom:0; }
 .artifactsActions { display:grid; gap:8px; margin-top:16px; }
-.artifactsActions button { min-height:44px; white-space:normal; justify-content:center; }
+.artifactsActions button { min-height:44px; min-width:0; white-space:normal; justify-content:center; overflow-wrap:anywhere; }
 .artifactsRules { margin-top:14px; border-top:1px solid #304650; font-size:12px; }
 .artifactsRules summary { display:flex; gap:7px; align-items:center; min-height:44px; cursor:pointer; color:#b2c8d0; list-style:none; }
 .artifactsRules summary::-webkit-details-marker { display:none; }.artifactsRules p { font-size:12px; line-height:1.6; margin:0 0 10px; }
