@@ -1,5 +1,8 @@
 .rewardsPanel { min-width:0; scroll-margin-top:14px; }
 .contractsList { display:flex; flex-direction:column; gap:10px; }
+.contractsPanel .miniButton,.contractsPanel .action { min-height:44px; }
+.contractsPanel .contractAvailability { display:flex; align-items:center; gap:5px; margin:8px 0 0; color:var(--muted); font-size:11px; line-height:1.5; }
+.contractsPanel .contractAvailability.isReady { color:#b8e4cc; }
 .contractEntry { min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(10,24,33,.22); }
 .contractEntry.isExpired { border-color:rgba(221,178,117,.23); }
 .rewardEntryHeading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 10px; }

@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
+import { contractCompletionReceipt } from '@/lib/game/contract-receipt';
 import { durationText } from '@/lib/game/format';
 import '@/app/rewards-panels.css';
 
@@ -64,9 +66,10 @@ export function ContractsPanel(props: Props) {
     setPendingId(contractId);
     setFeedback(null);
     try {
-      await props.onComplete(contractId);
+      const result = contractCompletionReceipt(await props.onComplete(contractId), contractId);
+      if (!result) throw new Error('Не удалось подтвердить результат контракта. Обнови колонию перед повтором.');
       setCompletedIds((previous) => new Set(previous).add(contractId));
-      setFeedback({ id: contractId, error: false, text: 'Контракт выполнен.', resource: contract.resource, amount, credits: number(contract.credit_reward) });
+      setFeedback({ id: contractId, error: false, text: 'Контракт выполнен.', resource: result.resource, amount: result.amount, credits: result.credits });
     } catch (cause) {
       setFeedback({ id: contractId, error: true, text: cause instanceof Error ? cause.message : 'Не удалось выполнить контракт. Обнови колонию перед повтором.' });
     } finally {
@@ -78,7 +81,10 @@ export function ContractsPanel(props: Props) {
   return <section className="card contractsPanel rewardsPanel" aria-labelledby={`${id}-title`} aria-busy={pendingId !== null}>
     <h2 id={`${id}-title`}><GameIcon name="contracts" />Контракты колонии</h2>
     <p>Передай заказчику руду или детали и получи кредиты на развитие. Ресурсы спишутся только при выполнении.</p>
-    {!enabled ? pendingHub ? <div className="rewardEmptyState">
+    {!enabled ? activeHub ? <div className="rewardEmptyState">
+      <strong>Проверим доступность контрактов</strong><p>Торговый узел работает, но заказы пока недоступны. Обнови данные колонии.</p>
+      <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить заказы</button>
+    </div> : pendingHub ? <div className="rewardEmptyState">
       <strong><GameIcon name="clock" size={16} />Торговый узел {pendingHub.status === 'upgrading' ? 'улучшается' : 'строится'}</strong>
       <p>{Number.isFinite(hubEnd) && hubEnd > now ? <>До готовности: <span role="timer" aria-live="off">{timeLeft(hubEnd, now)}</span>. Контракты появятся, когда узел начнёт работать.</> : 'Обнови колонию, чтобы проверить готовность узла и получить заказы.'}</p>
       <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить готовность узла</button>
@@ -100,8 +106,10 @@ export function ContractsPanel(props: Props) {
         const rowError = feedback?.error && feedback.id === contractId ? feedback.text : null;
         return <article className={`contractEntry${expired ? ' isExpired' : ''}`} key={contractId} data-contract-id={contractId} aria-labelledby={`${id}-${contractId}`}>
           <div className="rewardEntryHeading"><h3 id={`${id}-${contractId}`}>{contract.resource === 'parts' ? 'Поставка деталей' : 'Поставка руды'}</h3><span className="contractDeadline"><GameIcon name="clock" size={13} />{expired ? 'Срок истёк' : Number.isFinite(deadline) ? <span role="timer" aria-live="off">{timeLeft(deadline, now)}</span> : 'Срок проверит сервер'}</span></div>
+          {!expired && valid && <p className={`contractAvailability${missing === 0 ? ' isReady' : ''}`}><GameIcon name={missing === 0 ? 'check' : 'clock'} size={13} />{missing === 0 ? 'Можно выполнить' : 'Нужны ресурсы'}</p>}
           <div className="rewardExchange"><div><span>Спишется</span><strong><GameAmount resource={contract.resource}>{quantity(amount)}</GameAmount></strong></div><GameIcon name="arrow" size={16} /><div><span>Получишь</span><strong><GameAmount resource="credits">{quantity(credits)}</GameAmount></strong></div></div>
           {expired ? <div className="contractExpired"><p>Этот заказ уже нельзя выполнить. Обнови список заказов.</p><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить заказы</button></div> : <>
+            {!valid && <div className="notice error rewardFeedback" role="alert"><span>Условия заказа пришли не полностью. Обнови список.</span><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить заказы</button></div>}
             {missing > 0 && <div className="rewardShortage"><span>Не хватает:</span><GameAmount resource={contract.resource}>{quantity(Math.ceil(missing))}</GameAmount>{contract.resource === 'parts' && <button type="button" className="miniButton" disabled={locked} onClick={props.onProduction}>К производству</button>}</div>}
             <button type="button" className="action secondary contractComplete" data-contract-action={contractId} disabled={locked || missing > 0 || !valid} onClick={() => void complete(contract)}>{pendingId === contractId ? 'Выполняем контракт…' : 'Выполнить контракт'}</button>
           </>}
@@ -111,5 +119,10 @@ export function ContractsPanel(props: Props) {
     </div>}
     {feedback && !feedback.error && <div className="notice rewardFeedback rewardSuccess" role="status"><GameIcon name="check" size={18} /><div><strong>{feedback.text}</strong><span>Списано: <GameAmount resource={feedback.resource ?? 'ore'}>{quantity(feedback.amount ?? 0)}</GameAmount></span><span>Получено: <GameAmount resource="credits">{quantity(feedback.credits ?? 0)}</GameAmount></span></div></div>}
     {feedback?.error && !errorInList && <div className="notice error rewardFeedback" role="alert"><span>{feedback.text}</span><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить колонию</button></div>}
+    <MechanicGuide steps={[
+      'Сравни цену поставки и награду. Заказ выполняется целиком; ресурсы спишутся только по кнопке «Выполнить контракт».',
+      'Нехватка показана у действия. Детали можно изготовить в производстве; открытие раздела не запускает плавку.',
+      'Торговый узел выдаёт до трёх новых заказов за шесть часов. Каждый заказ имеет свой срок; пропущенный заказ не списывает ресурсы и не уменьшает рейтинг.',
+    ]} />
   </section>;
 }

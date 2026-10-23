@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.4-beta.1 — From Stock to a Clear Result
+- Brought production, expeditions, supply projects and colony contracts into the shared compact mechanics-guide pattern. Main costs and actions remain visible; recipe settings, route details and probabilities can be expanded separately.
+- Production distinguishes insufficient space for a whole finished cycle from a completely full warehouse, and offers a direct status refresh for building or upgrading foundries. Changing a recipe, mode, link or batch remains free.
+- Supply projects initially choose a still-needed resource with available stock when possible and a shipment within that stock. Manual selection survives background refresh; finished stages and logistics downtime explain the correct next action without blocking earned claims.
+- Expeditions explain occupied slots, incomplete cargo and route requirements beside the relevant action; secondary details no longer push every launch far below its summary. Launch prices, outcomes, research bonuses and discovery probabilities are unchanged.
+- Contracts distinguish ready orders from shortages and never suggest rebuilding an existing trade hub. Completion feedback uses the matching server receipt rather than the displayed estimate; an incomplete or foreign receipt offers refresh instead of reporting success.
+- No migration, dependency, price, reward, production rule or saved-city change is required.
+
 ## 1.14.3-beta.1 — Know Your Next Step
 - Applied one compact, collapsible mechanics guide across research, quests, login rewards, achievements, season, colony events, mail and social activities. Costs, rewards, availability and the next action remain visible beside their controls; secondary explanations can be expanded when needed.
 - Research planning separates the next step's cost from the whole chain budget and checks resources, laboratory, queue and feature availability before advertising a launch. Choosing a plan remains free.

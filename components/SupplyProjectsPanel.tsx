@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import type { SupplyProjectsState } from '@/lib/game/supply-projects';
 import '@/app/supply-projects.css';
 
@@ -58,19 +59,26 @@ export function SupplyProjectsPanel(props: Props) {
   const locked = props.busy || Boolean(pending);
   const remaining = Math.max(0, Number(project?.remaining[resource] ?? 0));
   const formKey = `${props.ownerKey}:${project?.id}:${project?.stageIndex}:${resource}`;
-  const amountText = draft.key === formKey ? draft.text : String(remaining || '');
+  const available = Math.max(0, Math.floor(Number(props.resources[resource] ?? 0)));
+  const amountText = draft.key === formKey ? draft.text : String((Math.min(available, remaining) || remaining) || '');
   const validAmount = /^[1-9]\d*$/.test(amountText) && Number.isSafeInteger(Number(amountText)) && Number(amountText) <= 1_000_000;
   const requested = validAmount ? Number(amountText) : 0;
   const accepted = Math.min(requested, remaining);
-  const available = Math.max(0, Math.floor(Number(props.resources[resource] ?? 0)));
   const shortage = Math.max(0, accepted - available);
-  const deliveryIssue = !validAmount ? 'Введи целое число от 1 до 1 000 000.' : remaining <= 0 ? 'Этот ресурс уже доставлен. Выбери другой.' : '';
+  const deliveryIssue = remaining <= 0 ? 'Этот ресурс уже доставлен. Выбери другой.' : !validAmount ? 'Введи целое число от 1 до 1 000 000.' : '';
+  const supplyLockReason = props.state?.lockReason === 'hq' ? `Для поставок нужен центр колонии ур. ${props.state.requiredHq}.`
+    : props.state?.logistics ? `Поставки возобновятся, когда логистический центр ${props.state.logistics.status === 'upgrading' ? 'завершит улучшение' : 'будет построен'}.`
+    : 'Для поставок нужен работающий логистический центр.';
 
   useEffect(() => {
     requestSequence.current++;
     guard.current = false; setPending(''); setFeedback(null); setResource('parts'); setDraft({ key: '', text: '' });
   }, [props.ownerKey]);
-  useEffect(() => { setResource('parts'); setDraft({ key: '', text: '' }); }, [project?.id, project?.stageIndex]);
+  useEffect(() => {
+    setResource(RESOURCE_ORDER.find(key => Number(project?.remaining[key] ?? 0) > 0 && Number(props.resources[key] ?? 0) >= 1)
+      ?? RESOURCE_ORDER.find(key => Number(project?.remaining[key] ?? 0) > 0) ?? 'parts');
+    setDraft({ key: '', text: '' });
+  }, [props.ownerKey, project?.id, project?.stageIndex]);
 
   async function act(action: 'deliver' | 'claim') {
     if (!project || !stage || project.completed || !props.state?.available || locked || guard.current) return;
@@ -115,6 +123,11 @@ export function SupplyProjectsPanel(props: Props) {
   return <section className="card supplyProjects" data-supply-projects aria-labelledby={`${id}-title`}>
     <div className="cardTitleRow"><div><h2 id={`${id}-title`}><GameIcon name="contracts" size={22} />Проекты снабжения</h2><p>Выбери цель для колонии и доставляй ресурсы частями. Каждый этап даёт награду на развитие.</p></div><span className="supplyNoDeadline"><GameIcon name="check" size={14} />Без срока</span></div>
     {!props.state?.available ? <div className="supplyNotice" role="status"><p>Проекты появятся после обновления сервера. Существующие запасы сохраняются.</p><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить проекты</button></div> : <>
+      <MechanicGuide steps={[
+        'Выбор цели бесплатный. Можно переключаться между проектами: поставки каждого сохраняются.',
+        'Выбери ресурс и размер партии. Кнопка «Доставить» спишет только показанное количество; необязательно закрывать этап сразу.',
+        'Когда все ресурсы этапа доставлены, забери его награду отдельной кнопкой. Так откроется следующий этап. Срока сгорания нет.',
+      ]} />
       {!props.state.unlocked && <div className="supplyNotice" data-supply-lock><GameIcon name="lock" size={20} /><div><strong>{props.state.lockReason === 'hq' ? `Нужен центр колонии ур. ${props.state.requiredHq}` : props.state.logistics ? `Логистический центр ${props.state.logistics.status === 'upgrading' ? 'улучшается' : 'строится'}` : 'Нужен логистический центр'}</strong><p>Работающий логистический центр принимает поставки. Уже доставленное сохраняется, готовые награды можно забрать.</p>{props.state.logistics?.completesAt && <small>Готовность: {new Date(props.state.logistics.completesAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>}
         {props.state.lockReason === 'hq' ? props.onUpgradeHq && <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeHq}>К центру колонии</button> : !props.state.logistics ? <button type="button" className="miniButton" disabled={locked} onClick={props.onBuildLogistics}>Построить логистический центр</button> : <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Проверить готовность</button>}</div></div>}
       <details className="supplyPicker" ref={picker}><summary><GameIcon name="target" size={18} /><span>Выбрать цель<span>{props.state.projects.filter(item => item.completed).length}/{props.state.projects.length} проектов завершено</span></span></summary><div className="supplyProjectChoices">{props.state.projects.map(item => <button type="button" className={`supplyProjectChoice${item.id === project?.id ? ' isSelected' : ''}`} aria-pressed={item.id === project?.id} disabled={locked} key={item.id} onClick={() => { props.onSelectProject(item.id); if (picker.current) picker.current.open = false; }}><GameIcon name={item.icon} size={29} /><span><strong>{item.name}</strong><small>{item.completed ? 'Все этапы завершены' : `${item.stageIndex + 1}/${item.stages.length} · ${item.started ? 'Поставки начаты' : 'Можно начать'}`}</small><small>{item.description}</small></span></button>)}</div><p>Цель можно менять. Поставки каждого проекта сохраняются; выбор ничего не списывает.</p></details>
@@ -127,13 +140,15 @@ export function SupplyProjectsPanel(props: Props) {
             return total > 0 ? <div className="supplyResourceProgress" key={key}><div><GameAmount resource={key}>{n(supplied)} / {n(total)}</GameAmount><span>{supplied >= total ? 'Доставлено' : `Осталось ${n(project.remaining[key])}`}</span></div><div className="supplyProgressBar" role="progressbar" aria-label={`${RESOURCE_LABELS[key]}: доставлено`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={Math.min(total, supplied)}><i style={{ width: `${Math.min(100, supplied / total * 100)}%` }} /></div></div> : null;
           })}</div>
           <div className="supplyStageReward"><span>Награда этого этапа</span>{rewardAmounts(stage.reward)}</div>
-          {project.ready ? <div className="supplyClaim"><p><GameIcon name="check" size={16} />Все ресурсы доставлены. Забери награду, чтобы открыть следующий этап.</p><button type="button" className="action" disabled={locked} onClick={() => { void act('claim'); }}>{pending === 'claim' ? 'Получаем…' : 'Забрать награду этапа'}</button></div> : <form className="supplyShipment" onSubmit={event => { event.preventDefault(); void act('deliver'); }}>
+          {project.ready ? <div className="supplyClaim"><p><GameIcon name="check" size={16} />Все ресурсы доставлены. {project.stageIndex + 1 < project.stages.length ? 'Забери награду, чтобы открыть следующий этап.' : 'Забери последнюю награду, чтобы завершить проект.'}</p><button type="button" className="action" disabled={locked} onClick={() => { void act('claim'); }}>{pending === 'claim' ? 'Получаем…' : 'Забрать награду этапа'}</button>{props.busy && !pending && <p className="supplyHint" role="status">Дождись завершения текущего действия колонии.</p>}</div> : <form className="supplyShipment" onSubmit={event => { event.preventDefault(); void act('deliver'); }}>
             <fieldset disabled={locked}><legend>Что доставить</legend><div className="supplyResourceChoices">{RESOURCE_ORDER.map(key => <label key={key} className={key === resource ? 'isSelected' : ''}><input type="radio" name={`${id}-resource`} value={key} checked={key === resource} onChange={() => setResource(key)} /><GameIcon name={key} size={23} /><span>{RESOURCE_LABELS[key]}</span>{Number(project.remaining[key]) <= 0 && <GameIcon name="check" size={13} />}</label>)}</div></fieldset>
             <label className="supplyAmountLabel" htmlFor={`${id}-amount`}>Количество<input id={`${id}-amount`} inputMode="numeric" autoComplete="off" value={amountText} maxLength={7} disabled={locked || remaining <= 0} onChange={event => setDraft({ key: formKey, text: event.target.value })} aria-describedby={`${id}-shipment-help`} /></label>
-            <div className="supplyAmountShortcuts"><button type="button" className="miniButton" disabled={locked || remaining <= 0} onClick={() => setDraft({ key: formKey, text: String(remaining) })}>Остаток этапа · {n(remaining)}</button><button type="button" className="miniButton" disabled={locked || available <= 0 || remaining <= 0} onClick={() => setDraft({ key: formKey, text: String(Math.min(available, remaining)) })}>Что есть · {n(Math.min(available, remaining))}</button></div>
+            <div className="supplyAmountShortcuts"><button type="button" className="miniButton" disabled={locked || remaining <= 0} onClick={() => setDraft({ key: formKey, text: String(remaining) })}>Остаток этапа · {n(remaining)}</button><button type="button" className="miniButton" disabled={locked || available <= 0 || remaining <= 0} onClick={() => setDraft({ key: formKey, text: String(Math.min(available, remaining)) })}>Из запасов · {n(Math.min(available, remaining))}</button></div>
             <div className="supplyShipmentSummary" id={`${id}-shipment-help`}><span>В наличии <GameAmount resource={resource}>{n(available)}</GameAmount></span><strong>Спишется <GameAmount resource={resource}>{n(accepted)}</GameAmount></strong>{requested > remaining && remaining > 0 && <small>Этап примет только оставшиеся {n(remaining)} {RESOURCE_UNITS[resource]}.</small>}</div>
             {deliveryIssue && <p className="supplyHint">{deliveryIssue}</p>}
             {shortage > 0 && <div className="supplyShortage" role="status"><span>Не хватает <GameAmount resource={resource}>{n(shortage)}</GameAmount></span>{resource === 'parts' && <button type="button" className="miniButton" disabled={locked} onClick={props.onProduction}>Рассчитать производство</button>}</div>}
+            {!props.state.unlocked && <p className="supplyActionLock"><GameIcon name="lock" size={15} />{supplyLockReason} Уже доставленное сохранено.</p>}
+            {props.busy && !pending && <p className="supplyHint" role="status">Дождись завершения текущего действия колонии.</p>}
             <button type="submit" className="action" disabled={locked || !props.state.unlocked || !!deliveryIssue || shortage > 0 || accepted <= 0}>{pending === 'deliver' ? 'Доставляем…' : <>Доставить <GameAmount resource={resource}>{n(accepted)}</GameAmount></>}</button>
             <p className="supplyHint">Списывается только показанное количество. Неполная поставка тоже сохраняется.</p>
           </form>}

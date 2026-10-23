@@ -7,6 +7,7 @@ import {
 } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { supplyProductionPlan } from '@/lib/game/supply-production';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/production.css';
@@ -147,6 +148,11 @@ export function ProductionPanel(props: Props) {
       <div><h2 id={`${panelId}-title`}><GameIcon name="foundry" size={22} /> Производство</h2><p>Превращай руду и энергию в детали.</p></div>
       {foundries.length > 0 && <span className="productionBadge">{foundries.length} {foundries.length === 1 ? 'цех' : foundries.length < 5 ? 'цеха' : 'цехов'}</span>}
     </div>
+    <MechanicGuide steps={[
+      'Выбери работающий цех и рецепт. Смена рецепта, режима, связи и числа циклов только пересчитывает партию — ресурсы пока не тратятся.',
+      'Проверь стоимость и нажми «Запустить» или «Добавить в очередь». Вся руда и энергия списываются сразу; каждый цикл занимает одно место и выполняется по порядку, даже когда игра закрыта.',
+      'Готовые циклы выдаются целиком при обновлении игры. Если для цикла не хватает места на складе деталей, он остаётся в цехе до освобождения места.',
+    ]} />
 
     {props.supplyGoal && supplyPlan && <div className="productionSupplyGoal" data-production-supply-goal>
       <div className="productionSupplyHeading"><GameIcon name="target" size={20} /><div><strong>{props.supplyGoal.name}</strong><small>{props.supplyGoal.stageName}</small></div>{props.onSupplyProjects && <button type="button" className="miniButton" disabled={locked} onClick={props.onSupplyProjects}>К поставкам</button>}</div>
@@ -164,7 +170,7 @@ export function ProductionPanel(props: Props) {
 
     {!selected ? <>
       <p>Построй литейный цех рядом с шахтой или электростанцией, чтобы снизить расход ресурсов.</p>
-      <button type="button" className="action" disabled={locked} onClick={props.onBuild}>Построить литейный цех</button>
+      <button type="button" className="action" disabled={locked} onClick={props.onBuild}>Выбрать место для цеха</button>
     </> : <>
       <div className="productionWorkshopRow"><label className="productionSelect" htmlFor={`${panelId}-foundry`}>Управление цехом
         <select id={`${panelId}-foundry`} value={selected.id} disabled={locked} onChange={(event) => {
@@ -178,9 +184,11 @@ export function ProductionPanel(props: Props) {
       </label>
       {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}><GameIcon name="map" size={14} /> На карте</button>}</div>
 
-      {!isActive && <div className="notice productionStatus" role="status">{selected.status === 'upgrading'
+      {!isActive && <div className="notice productionStatus" role="status"><p>{selected.status === 'upgrading'
         ? 'Цех улучшается. Новые плавки станут доступны после улучшения; уже запущенные продолжаются.'
-        : 'Цех строится. После завершения здесь можно будет запустить плавку.'}</div>}
+        : 'Цех строится. После завершения здесь можно будет запустить плавку.'}</p>
+        {props.onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить состояние цеха</button>}
+      </div>}
 
       {isActive && <>
         <fieldset className="productionField" disabled={locked}>
@@ -220,6 +228,8 @@ export function ProductionPanel(props: Props) {
           <p className="productionHint">{selectedRecipe.description}.</p>
         </fieldset>
 
+        <details className="productionSettings">
+          <summary><GameIcon name="settings" size={18} /><span><strong>Режим и связи</strong><small>{FOUNDRY_MODES.find((item) => item.id === mode)?.name} · {LINK_LABEL[effectiveLink]}</small></span><GameIcon name="arrow" size={14} /></summary>
         <fieldset className="productionField" disabled={locked}>
           <legend>Режим плавки</legend>
           <div className="productionModes">
@@ -246,6 +256,7 @@ export function ProductionPanel(props: Props) {
             ? 'Поставь работающую шахту или электростанцию на соседнюю клетку по стороне. Перестановка бесплатная.'
             : 'Выбери одну связь. Скидка применяется к новым плавкам.'}</p>
         </fieldset>
+        </details>
 
         <div className="productionCycles">
           <div><strong id={`${panelId}-cycles`}>Циклов подряд</strong><span>Свободно в очереди: {freeSlots} из {capacity}</span></div>
@@ -264,12 +275,13 @@ export function ProductionPanel(props: Props) {
             <span className="productionArrow" aria-hidden="true"><GameIcon name="arrow" size={16} /></span>
             <div><span>Получишь</span><strong><GameAmount resource="parts" size={25}>{number(quote.parts)}</GameAmount> <small>деталей</small></strong></div>
           </div>
-          <p className="productionTiming"><GameIcon name="clock" size={16} /><span><strong>{duration(quote.seconds)} работы</strong><small>Готово примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</small></span></p>
+          <p className="productionTiming"><GameIcon name="clock" size={16} /><span><strong>{duration(quote.seconds)} работы</strong><small>Плавка закончится примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</small></span></p>
           </div>
           {storageWillOverflow && <p className="productionStorage isBlocked">С учётом очередей всех цехов места на складе не хватит. Лишние готовые циклы останутся в цехе — детали не пропадут.</p>}
           <button type="button" className="action productionStart" disabled={locked || insufficient} onClick={() => void start()}>
             {submitting ? 'Запускаем…' : selectedJobs.length > 0 ? `Добавить в очередь · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}` : `Запустить · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}`}
           </button>
+          {props.busy && !submitting && <p className="productionHint" role="status">Дождись завершения текущего действия, чтобы запустить партию.</p>}
           <div aria-live="polite"><ResourceShortage cost={{ ore: quote.ore, energy: quote.energy }} resources={props.resources} /></div>
         </> : <div className="notice productionStatus">Очередь заполнена. Дождись выдачи деталей, чтобы добавить новые циклы.</div>}
       </>}
@@ -281,7 +293,7 @@ export function ProductionPanel(props: Props) {
         <div className="productionQueueHeading"><h3>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
         {selectedJobs.length === 0 ? <p>Пока пусто. Цех ждёт задания.</p> : <>
           {readyJobs.length > 0 && <p className={`productionStorage ${storageBlocked ? 'isBlocked' : ''}`} role="status">{storageBlocked
-            ? 'Склад деталей заполнен. Потрать или продай детали — готовые циклы останутся в цехе до освобождения места.'
+            ? 'Для готового цикла не хватает места на складе. Потрать или продай детали — цикл останется в цехе до освобождения места.'
             : 'Готовые детали поступят на склад при обновлении. Если места не хватит, они останутся в цехе.'}</p>}
           {readyJobs.length > 0 && props.onRefresh && <button type="button" className="miniButton productionRefresh" disabled={locked} onClick={props.onRefresh}>Обновить выдачу деталей</button>}
           <ol className="productionJobs">

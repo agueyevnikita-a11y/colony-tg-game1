@@ -21,6 +21,7 @@
 .xpArtifact { display:inline-flex; align-items:center; gap:5px; margin:5px 7px 3px 0; color:#dcc69b; font-size:11px; line-height:1.5; }
 .xpClaim,.xpLaunch { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-width:0; min-height:44px; margin-top:10px; text-align:left; font-size:12px; line-height:1.5; }
 .xpClaim:focus-visible,.xpLaunch:focus-visible,.expeditionsPanel .miniButton:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.expeditionsPanel .miniButton { min-height:44px; white-space:normal; line-height:1.5; }
 .xpWarning { display:flex; flex-wrap:wrap; align-items:center; gap:3px 9px; margin:9px 0; color:#e3c590; font-size:11px; line-height:1.5; }
 .xpWarning > small { flex-basis:100%; font-size:10px; color:var(--muted); line-height:1.5; }
 .xpFeedback { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:10px; margin:10px 0 0; border:1px solid var(--line); border-radius:10px; font-size:11px; line-height:1.5; }
@@ -47,8 +48,16 @@
 .xpLaunchCost { font-size:12px; margin-bottom:10px; }.xpRouteRewards { padding:9px; margin:9px 0; border:1px solid rgba(130,177,162,.15); border-radius:10px; background:rgba(114,228,173,.025); }
 .xpRouteRewards > div { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; font-size:11px; color:#c2ddd0; }.xpRouteRewards small { display:block; margin-top:6px; color:var(--muted); font-size:10px; line-height:1.5; }
 .xpProbabilities { display:flex; flex-wrap:wrap; gap:5px 12px; margin:7px 0 9px; color:var(--muted); font-size:10px; line-height:1.5; }.xpProbabilities > span { display:inline-flex; align-items:center; gap:4px; }
+.xpRouteDetails { margin:4px 0 10px; border-bottom:1px solid var(--line); }
+.xpRouteDetails > summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; color:#b9cfe7; font-size:11px; line-height:1.5; list-style:none; }
+.xpRouteDetails > summary::-webkit-details-marker { display:none; }
+.xpRouteDetails > summary .gameIcon { flex-shrink:0; transform:rotate(90deg); }
+.xpRouteDetails[open] > summary .gameIcon { transform:rotate(-90deg); }
+.xpRouteDetails > summary:focus-visible,.xpHistory > summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:5px; }
+.expeditionsPanel .xpRouteDetails > p { margin:0 0 10px; color:var(--muted); font-size:11px; line-height:1.6; }
+.expeditionsPanel .xpLaunchBlocker { margin:8px 0; color:#d9c7a6; font-size:11px; line-height:1.5; }
 .xpGate { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:9px 0; font-size:11px; color:#b9cfe7; line-height:1.5; }.xpGate .miniButton { font-size:11px; }
-.xpHistory { padding-top:12px; margin-top:18px; border-top:1px solid var(--line); }.xpHistory > summary { cursor:pointer; color:#bdcfdb; font-size:12px; line-height:1.5; }
+.xpHistory { padding-top:12px; margin-top:18px; border-top:1px solid var(--line); }.xpHistory > summary { cursor:pointer; color:#bdcfdb; font-size:12px; line-height:1.5; min-height:44px; align-content:center; }
 .xpHistory > ol { padding:0; list-style:none; margin:10px 0 0; display:flex; flex-direction:column; gap:9px; }.xpHistory li { padding:11px; border:1px solid var(--line); border-radius:10px; }.xpHistory li > strong { display:block; margin-bottom:8px; color:var(--text); font-size:12px; line-height:1.5; }.expeditionsPanel .xpHistory li > p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; }
 @media(max-width:340px) { .xpRun,.xpRoute { padding:10px; }.xpEventChoice { padding:9px; }.xpHeading > .buildingArt { width:50px; }.xpRunHeading { flex-wrap:wrap; }.xpChoiceExchange { gap:7px; } }
 @media(prefers-reduced-motion:reduce) { .expeditionsPanel { scroll-behavior:auto; }.xpClaim,.xpLaunch { transition:none; } }
