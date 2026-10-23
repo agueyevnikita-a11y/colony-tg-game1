@@ -48,6 +48,29 @@ export function supportsTelegram(app: TelegramWebApp | undefined, minimumVersion
   return true;
 }
 
+/** Request only from an explicit gesture; late SDK callbacks cannot revive a cancelled attempt. */
+export function requestTelegramWriteAccess(app: TelegramWebApp | undefined, signal?: AbortSignal, timeoutMs = 30_000): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new Error('Запрос разрешения отменён.')); return; }
+    if (!app?.requestWriteAccess || !supportsTelegram(app, '6.9')) {
+      reject(new Error('Разрешение на сообщения доступно внутри актуального Telegram.')); return;
+    }
+    let settled = false;
+    const finish = (granted: boolean, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
+      if (error) reject(error); else resolve(granted);
+    };
+    const cancel = () => finish(false, new Error('Запрос разрешения отменён.'));
+    const timer = setTimeout(() => finish(false, new Error('Telegram пока не ответил. Повтори запрос разрешения.')), timeoutMs);
+    signal?.addEventListener('abort', cancel, { once: true });
+    try { app.requestWriteAccess(granted => finish(granted === true)); }
+    catch { finish(false, new Error('Не удалось запросить разрешение. Обнови Telegram и попробуй снова.')); }
+  });
+}
+
 /** Resolve even when the SDK CDN is unavailable; the launch gate can retry it. */
 export function waitForTelegram(signal: AbortSignal, timeoutMs = 8_000, read = () => window.Telegram?.WebApp): Promise<TelegramWebApp | undefined> {
   return new Promise((resolve) => {

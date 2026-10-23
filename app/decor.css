@@ -25,6 +25,7 @@
 .decorCatalogTile:hover { border-color:rgba(126,209,167,.4); }
 .decorItemArt { display:grid; place-items:center; flex:0 0 52px; width:52px; height:52px; margin-bottom:7px; }
 .decorItemArt > * { width:100%; height:auto; max-height:100%; }
+.decorItemArt > .decorArt,.decorDetailArt > .decorArt { max-width:100%; min-width:0; }
 .decorCatalogTile > strong { max-width:100%; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
 .decorItemGain { display:block; margin-top:5px; color:#a3dfb4; font-size:10px; line-height:1.4; }.decorItemGain.isNeutral { color:var(--muted); }
 .decorItemOwned { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.5; }
@@ -54,9 +55,10 @@
 .decorDetailCost > span { font-size:11px; color:var(--muted); }.decorDetailCost > strong { font-size:14px; }
 .colonyApp .decorCopyHint,.colonyApp .decorPlacementHint { font-size:11px; line-height:1.65; color:var(--muted); margin:12px 0; }
 .decorDetails .action { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:6px; white-space:normal; }
-.colonyApp .decorItemShortage { margin:9px 0 0; color:#eac7a0; font-size:11px; line-height:1.6; }
+.colonyApp .decorItemShortage { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:9px 0 0; color:#eac7a0; font-size:11px; line-height:1.6; }
 .decorItemGate { display:flex; flex-direction:column; gap:6px; margin-top:12px; color:#c5bfa5; font-size:11px; line-height:1.6; }.decorItemGate .action { margin-top:5px; }
 .decorPanel button:focus-visible,.decorPanel summary:focus-visible,.decorDetails button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.decorPanel .mechanicGuide,.decorDetails p { overflow-wrap:anywhere; }
 @media (min-width:620px) { .decorItems { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width:360px) { .decorPanelHeading { gap:7px; }.decorComfortValue { padding:8px 7px; gap:3px; }.decorComfortValue strong { font-size:18px; }.decorCatalogTile { padding:10px 6px 9px; }.decorDetailHeading { gap:9px; }.decorDetailArt { flex-basis:58px; width:58px; height:58px; } }
 @media (prefers-reduced-motion:reduce) { .decorComfortTrack i { transition:none; } }

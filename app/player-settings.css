@@ -1,0 +1,18 @@
+.playerSettingsPanel { min-width:0; }
+.playerSettingsPanel .cardTitleRow { flex-wrap:wrap; align-items:flex-start; }
+.playerSettingsPanel .cardTitleRow>div { flex:1 1 160px; min-width:0; }
+.playerSettingsPanel .pill { max-width:100%; white-space:normal; font-size:10px; }
+.playerSettingsPanel .profileField { margin-bottom:5px; }
+.playerSettingsPanel input,.playerSettingsPanel textarea,.playerSettingsPanel select { width:100%; min-width:0; min-height:44px; box-sizing:border-box; font:inherit; font-size:16px; }
+.playerSettingsPanel textarea { min-height:85px; resize:vertical; border:1px solid var(--line); border-radius:13px; background:var(--panel2); color:var(--text); padding:12px; }
+.playerSettingsPanel .feedbackForm { margin-top:12px; }
+.playerSettingsPanel .feedbackForm label { display:grid; gap:6px; color:var(--muted); font-size:12px; }
+.playerSettingsPanel .settingsFieldHint { margin:5px 0 12px; color:var(--muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.playerSettingsPanel .action,.playerSettingsPanel .miniButton { min-height:44px; white-space:normal; }
+.settingsActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.settingsActions>.action { flex:1 1 170px; }
+.settingsActions>.miniButton { flex:1 1 120px; }
+.settingsFeedback { margin-top:12px; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.settingsFeedback>.miniButton { margin-top:9px; }
+.settingsCollection,.settingsRefresh { margin-top:12px; }
+.playerSettingsPanel button:focus-visible,.playerSettingsPanel input:focus-visible,.playerSettingsPanel textarea:focus-visible,.playerSettingsPanel select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.5-beta.1 — Clear Player Controls
+- Applied compact, collapsible explanations to market views, shop collections, decor and player settings. Market controls fit touch screens, partial own orders show the sold amount, and a pending trade hub's timer updates even without orders.
+- Shop recovery no longer promises an unconfirmed purchase or Premium renewal. Crystal Premium buttons state their action and duration; preview and application remain separate. Exact paid-receipt holds and all payment rules are preserved.
+- Decor separates free cell selection from the paid placement and shows requirements beside the action. Demolition previews use the canonical catalog when a UI entry is missing, avoiding a false zero refund; actual server refunds and comfort are unchanged.
+- Profile editing preserves an intentionally empty description and unsaved drafts during background refresh. Save, cancel, validation and results live beside the form; saved feedback uses the server-normalized profile. Player changes isolate drafts.
+- Notification controls show pending, disabled, declined and server-confirmation states locally. Permission timeouts and unmount cancellation ignore late Telegram callbacks. Feedback keeps its text on failure, prevents duplicate pending submits and clears only after a confirmed saved message.
+- No migration, dependency, price, reward, production or saved-city change is required. Notification delivery, profile validation and feedback processing on the server retain their existing rules.
+
 ## 1.14.4-beta.1 — From Stock to a Clear Result
 - Brought production, expeditions, supply projects and colony contracts into the shared compact mechanics-guide pattern. Main costs and actions remain visible; recipe settings, route details and probabilities can be expanded separately.
 - Production distinguishes insufficient space for a whole finished cycle from a completely full warehouse, and offers a direct status refresh for building or upgrading foundries. Changing a recipe, mode, link or batch remains free.

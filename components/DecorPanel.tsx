@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { DecorArt } from '@/components/DecorArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { COMFORT_MAX, COMFORT_MILESTONES, calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
 import { decorRequirements, type DecorCatalogItem } from '@/lib/game/decor';
 import { RESEARCH_TREE } from '@/lib/game/research';
@@ -68,12 +69,17 @@ export function DecorPanel(props: Props) {
       </div>
       {props.onAchievements && rewardsUnlocked && <button type="button" className="miniButton decorRewardsLink" disabled={props.busy} onClick={props.onAchievements}>К наградам за комфорт<GameIcon name="arrow" size={13} /></button>}
       {full && <div className="decorFullMap" role="status"><strong>На карте нет свободных клеток</strong><span>Для нового декора нужно освободить место. На карте можно выбрать объект и посмотреть его действия.</span>{props.onOpenMap && <button type="button" className="miniButton" data-decor-open-map disabled={props.busy} onClick={props.onOpenMap}>Открыть карту<GameIcon name="arrow" size={13} /></button>}</div>}
+      <MechanicGuide steps={[
+        'Выбор объекта и переход к выбору клетки бесплатны. Кредиты спишутся, когда нажмёшь свободную клетку на карте. До этого можно отменить размещение.',
+        'Первый объект вида даёт полный бонус к комфорту, второй — половину. Остальные копии нужны для оформления. Максимум — 100 очков.',
+        'Награды открываются за рекорд комфорта и забираются в достижениях. Перенос бесплатный; демонтаж возвращает половину цены и может снизить текущий комфорт, сохраняя рекорд.',
+      ]} />
       <div className="decorFilters" role="group" aria-label="Доступность декора"><button type="button" className={view === 'available' ? 'isActive' : ''} aria-pressed={view === 'available'} onClick={() => setView('available')}>Открыто <span>{available.length}</span></button><button type="button" className={view === 'locked' ? 'isActive' : ''} aria-pressed={view === 'locked'} onClick={() => setView('locked')}>Предстоит открыть <span>{locked.length}</span></button></div>
       <p className="decorCatalogHint">Выбери объект — откроются стоимость и условия размещения.</p>
       <div className="decorItems">{items.map(item => {
         const requirements = decorRequirements(item, props.hqLevel, props.completedResearch);
         const gain = comfortPlacementGain(props.decor, item.type);
-        const status = !requirements.hqMet ? `База ур. ${item.unlockHq}` : !requirements.researchMet ? 'Нужна технология' : full ? 'Нужно место на карте' : balance < item.credits ? 'Нужны кредиты' : 'Можно разместить';
+        const status = !requirements.hqMet ? `Центр ур. ${item.unlockHq}` : !requirements.researchMet ? 'Нужна технология' : full ? 'Нужно место на карте' : balance < item.credits ? 'Нужны кредиты' : 'Можно разместить';
         return <button type="button" className={`decorCatalogTile${requirements.unlocked ? '' : ' isLocked'}`} key={item.type} data-decor-type={item.type} aria-haspopup="dialog" onClick={() => setSelectedType(item.type)}>
           <span className="decorItemArt" aria-hidden="true"><DecorArt type={item.type} /></span><strong>{item.name}</strong>
           <span className={`decorItemGain${gain === 0 ? ' isNeutral' : ''}`}>{gainLabel(gain)}</span>
@@ -82,23 +88,24 @@ export function DecorPanel(props: Props) {
         </button>;
       })}</div>
       {items.length === 0 && <p className="decorEmpty">{view === 'locked' ? 'Все виды декора открыты. Комбинируй объекты и выбирай свой облик города.' : 'Сначала выполни условия открытия в соседнем подразделе.'}</p>}
-      <details className="decorInstructions"><summary><GameIcon name="help" size={15} />Как работают декор и комфорт</summary><p>Растения и вода находятся в герметичных модулях. Вместе с маяками и настилами они делают лунную базу уютнее — это отражает показатель комфорта.</p><ol><li>Выбери объект и нажми «Разместить».</li><li>На карте нажми свободную клетку. Кредиты спишутся только после размещения; отмена бесплатна.</li><li>Нажми на готовый декор, чтобы бесплатно перенести его. При демонтаже вернётся 50% цены.</li></ol><p>Первый объект каждого вида даёт полный бонус к комфорту, второй — половину. Следующие копии украшают город без дополнительных очков. Положение объектов на комфорт не влияет, соединять здания настилами необязательно.</p><p>Разные объекты открывают разовые награды за рекорд комфорта. Текущий комфорт может уменьшиться при демонтаже, рекорд и открытые достижения сохраняются. Отсутствие в игре на комфорт не влияет.</p><p>Декор не меняет производство и рейтинг города. Платные темы и монументы из магазина на комфорт не влияют.</p><div className="decorMilestones" aria-label="Награды за комфорт">{COMFORT_MILESTONES.map(milestone => <div className={best >= milestone.target ? 'isReached' : ''} key={milestone.target}><strong><GameIcon name={best >= milestone.target ? 'check' : 'comfort'} size={13} />{milestone.target} очков</strong><span>{milestone.reward}</span><small>{best >= milestone.target ? 'Открыта в достижениях' : 'Предстоит открыть'}</small></div>)}</div></details>
+      <details className="decorInstructions"><summary><GameIcon name="comfort" size={15} />Правила комфорта и все награды</summary><p>Растения и вода находятся в герметичных модулях. Вместе с маяками и настилами они делают лунную базу уютнее — это отражает показатель комфорта.</p><p>Положение объектов на комфорт не влияет, соединять здания настилами необязательно. Отсутствие в игре на комфорт не влияет.</p><p>Декор не меняет производство и рейтинг города. Платные темы и монументы из магазина на комфорт не влияют.</p><div className="decorMilestones" aria-label="Награды за комфорт">{COMFORT_MILESTONES.map(milestone => <div className={best >= milestone.target ? 'isReached' : ''} key={milestone.target}><strong><GameIcon name={best >= milestone.target ? 'check' : 'comfort'} size={13} />{milestone.target} очков</strong><span>{milestone.reward}</span><small>{best >= milestone.target ? 'Открыта в достижениях' : 'Предстоит открыть'}</small></div>)}</div></details>
     </section>
     <CityActionSheet open={!!selected} title={selected?.name ?? 'Декор'} eyebrow="Объект благоустройства" closeLabel="Закрыть описание декора" onClose={() => setSelectedType(null)}>
       {selected && selectedRequirements && <section className="card decorDetails" data-decor-details={selected.type}>
         <div className="decorDetailHeading"><span className="decorDetailArt" aria-hidden="true"><DecorArt type={selected.type} /></span><div><h2>{selected.name}</h2><span>{gainLabel(selectedGain)} · в городе {number(selectedCount)}</span></div></div>
         <p className="decorDetailDescription">{selected.description}</p>
-        <div className="decorDetailCost"><span>Стоимость размещения</span><strong><GameAmount resource="credits">{number(selected.credits)}</GameAmount></strong></div>
+        <div className="decorDetailCost"><span>Размещение на клетке</span><strong><GameAmount resource="credits">{number(selected.credits)}</GameAmount></strong></div>
         <p className="decorCopyHint">{comfort.score === COMFORT_MAX ? 'Комфорт уже достиг 100. Объект изменит оформление города.' : selectedCount === 0 ? 'Первый объект этого вида даёт полный бонус. Разные виды помогают быстрее повысить комфорт.' : selectedCount === 1 ? 'Это будет второй объект вида: он даёт половину базового бонуса к комфорту.' : 'Два объекта этого вида уже учитываются в комфорте. Новые копии нужны только для оформления.'}</p>
         {selectedRequirements.unlocked ? <>
-          <button type="button" className="action" data-decor-place disabled={props.busy || balance < selected.credits || full} onClick={() => closeThen(() => props.onPlace(selected.type, selected.name))}><GameIcon name="build" size={16} />Разместить на карте</button>
-          {balance < selected.credits && <p className="decorItemShortage">Не хватает {number(Math.ceil(selected.credits - balance))} кредитов</p>}
-          {full ? <div className="decorFullMap"><strong>На карте нет свободных клеток</strong><span>Освободи место для нового объекта.</span>{props.onOpenMap && <button type="button" className="miniButton" data-decor-open-map disabled={props.busy} onClick={() => closeThen(props.onOpenMap!)}>Открыть карту<GameIcon name="arrow" size={13} /></button>}</div> : <p className="decorPlacementHint">Кредиты спишутся после выбора свободной клетки. Отмена и перемещение бесплатны.</p>}
+          <button type="button" className="action" data-decor-place disabled={props.busy || balance < selected.credits || full} onClick={() => closeThen(() => props.onPlace(selected.type, selected.name))}><GameIcon name="build" size={16} />Выбрать клетку</button>
+          {balance < selected.credits && <p className="decorItemShortage" role="status">Не хватает <GameAmount resource="credits">{number(Math.ceil(selected.credits - balance))}</GameAmount></p>}
+          {full ? <div className="decorFullMap"><strong>На карте нет свободных клеток</strong><span>Освободи место для нового объекта.</span>{props.onOpenMap && <button type="button" className="miniButton" data-decor-open-map disabled={props.busy} onClick={() => closeThen(props.onOpenMap!)}>Открыть карту<GameIcon name="arrow" size={13} /></button>}</div> : <p className="decorPlacementHint">Переход на карту бесплатный. Нажатие свободной клетки спишет <GameAmount resource="credits">{number(selected.credits)}</GameAmount>. До этого можно отменить размещение.</p>}
         </> : <div className="decorItemGate">
-          {!selectedRequirements.hqMet && <span>Нужна база ур. {selected.unlockHq}</span>}
+          {!selectedRequirements.hqMet && <span>Нужен центр колонии ур. {selected.unlockHq}</span>}
           {!selectedRequirements.researchMet && <span>Технология «{researchName}»</span>}
-          {!selectedRequirements.hqMet ? <button type="button" className="action secondary" data-decor-upgrade disabled={props.busy} onClick={() => closeThen(props.onUpgradeHq)}>Улучшить базу<GameIcon name="arrow" size={15} /></button> : selected.unlockResearch && <button type="button" className="action secondary" data-decor-research disabled={props.busy} onClick={() => closeThen(() => props.onResearch(selected.unlockResearch!))}>К исследованию<GameIcon name="arrow" size={15} /></button>}
+          {!selectedRequirements.hqMet ? <button type="button" className="action secondary" data-decor-upgrade disabled={props.busy} onClick={() => closeThen(props.onUpgradeHq)}>К центру колонии<GameIcon name="arrow" size={15} /></button> : selected.unlockResearch && <button type="button" className="action secondary" data-decor-research disabled={props.busy} onClick={() => closeThen(() => props.onResearch(selected.unlockResearch!))}>К исследованию<GameIcon name="arrow" size={15} /></button>}
         </div>}
+        {props.busy && <p className="decorPlacementHint" role="status">Дождись завершения текущего действия колонии.</p>}
       </section>}
     </CityActionSheet>
   </>;

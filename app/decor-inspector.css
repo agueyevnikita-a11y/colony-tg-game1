@@ -1,6 +1,7 @@
 .decorInspectorComfort { display:flex; align-items:flex-start; gap:9px; padding:12px; margin:12px 0; border:1px solid var(--line); border-radius:12px; background:rgba(91,167,130,.07); }
 .decorInspectorComfort > .gameIcon { flex:0 0 auto; color:var(--accent); }
 .decorInspectorComfort > div { min-width:0; }
+.decorInspector { min-width:0; }.decorInspector .inspectorHead > div:last-child { min-width:0; }.decorInspector h2,.decorInspector p,.decorInspector span,.decorInspector small { overflow-wrap:anywhere; }.decorInspector .inspectorEmoji > .decorArt { width:100%; height:100%; min-width:0; max-width:100%; }
 .decorInspectorComfort strong { display:block; font-size:13px; line-height:1.5; }
 .decorInspectorComfort span { display:block; color:var(--muted); font-size:11px; line-height:1.6; margin-top:4px; }
 .decorRemoveConfirm { margin-top:12px; padding:12px; border:1px solid rgba(230,180,122,.3); border-radius:13px; background:rgba(230,180,122,.04); }
@@ -14,4 +15,5 @@
 .colonyApp .decorInspector button { min-height:44px; white-space:normal; }
 .colonyApp .decorInspector .decorRemoveSubmit { border-color:rgba(230,180,122,.4); color:#edcba3; font-size:12px; padding-inline:8px; }
 .decorRemoveFeedback { margin-top:12px; font-size:12px; overflow-wrap:anywhere; }
+.colonyApp .decorInspector p.decorRefundHint { margin:9px 0; color:var(--muted); font-size:11px; line-height:1.65; }
 .decorInspector button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }

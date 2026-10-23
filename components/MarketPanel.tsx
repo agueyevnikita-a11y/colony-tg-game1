@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { durationText } from '@/lib/game/format';
 import { MARKET_MAX_AMOUNT, MARKET_MAX_OPEN_ORDERS, MARKET_MIN_ORDER_VALUE, MARKET_ORDER_TTL_HOURS, MARKET_RULES, marketFee, type MarketResource } from '@/lib/game/market';
 import '@/app/market-panel.css';
@@ -25,6 +26,29 @@ type Props = {
 type Feedback = { view: View; target: string; text: string; error: boolean };
 const RESOURCE_KEYS: MarketResource[] = ['ore', 'energy', 'parts'];
 const TITLES: Record<View, string> = { buy: 'Купить ресурсы', sell: 'Продать ресурсы', mine: 'Мои открытые ордера', prices: 'Цены за 24 часа' };
+const VIEW_ICONS: Record<View, string> = { buy: 'buy', sell: 'sell', mine: 'orders', prices: 'chart' };
+const GUIDE_STEPS: Record<View, readonly string[]> = {
+  buy: [
+    'Открой расчёт и выбери нужное количество. Можно купить часть предложения; выбор количества и фильтров не тратит ресурсы.',
+    'Перед покупкой проверь итоговую сумму и свободное место. Место под твои ресурсы в продаже уже исключено из доступного склада; комиссию платит продавец.',
+    'Только кнопка «Купить ресурс» проводит сделку. Если предложение успел выкупить другой игрок, обнови рынок и выбери доступный остаток.',
+  ],
+  sell: [
+    'Выбери ресурс, количество и цену за единицу. Настройка ордера бесплатна; кнопка «Выставить ордер» сразу переносит указанный ресурс в резерв продажи.',
+    'Игроки могут выкупать ордер частями. Кредиты поступают после каждой покупки, а комиссия 5% считается для каждой сделки отдельно, с округлением вниз и минимумом 1 кредит.',
+    'Расчёт дохода показан для одного полного выкупа. При частичных покупках итоговая комиссия может отличаться. Непроданный остаток можно вернуть в разделе «Мои ордера».',
+  ],
+  mine: [
+    'Здесь показаны открытые продажи. «Продано» — уже выкупленный объём, «В резерве» — остаток, который ещё могут купить другие игроки.',
+    'Кнопка «Отменить ордер» возвращает только непроданный остаток. Место для него уже зарезервировано на складе; состоявшиеся сделки сохраняются.',
+    'Ордер действует 24 часа. После окончания срока обнови данные, чтобы увидеть возврат остатка. Свои продажи можно отменять и при недоступной торговле.',
+  ],
+  prices: [
+    'Статистика собирается из состоявшихся сделок за последние 24 часа. Объём — количество проданного ресурса, сделки — число отдельных покупок.',
+    'Цена за единицу — медиана сделок; если её нет, показана средняя цена. Это ориентир для своего ордера, текущие предложения могут стоить иначе.',
+    'Просмотр цен и обновление данных не создают ордеров и не покупают ресурсы.',
+  ],
+};
 const PAGE_SIZE = 8;
 function number(value: number) { return value.toLocaleString('ru-RU', { maximumFractionDigits: 2 }); }
 function available(value: unknown) { const amount = Number(value); return Number.isFinite(amount) && amount >= 0 ? amount : 0; }
@@ -73,6 +97,8 @@ export function MarketPanel(props: Props) {
   const maxOrders = mine.filter((order) => !order.expires_at || new Date(order.expires_at).getTime() > now).length >= MARKET_MAX_OPEN_ORDERS;
   const locked = props.busy || pending !== null;
   const canSell = !locked && props.featureEnabled && market.enabled && amountValid && priceValid && valueValid && !sellMissing && !maxOrders;
+  const hubPending = props.tradeHub?.status === 'building' || props.tradeHub?.status === 'upgrading';
+  const hubEnd = Date.parse(props.tradeHub?.completes_at ?? '');
 
   useEffect(() => { setPage(0); setEditingOrderId(null); setFeedback(null); }, [props.view, filter]);
   useEffect(() => {
@@ -80,10 +106,10 @@ export function MarketPanel(props: Props) {
     previousCount.current = filtered.length;
   }, [filtered.length]);
   useEffect(() => {
-    if (!orders.length && !mineSource.length) return;
+    if (!orders.length && !mineSource.length && !hubPending) return;
     const timer = window.setInterval(() => setNow(Date.now()), 15000);
     return () => window.clearInterval(timer);
-  }, [orders.length, mineSource.length]);
+  }, [orders.length, mineSource.length, hubPending]);
   useEffect(() => {
     if (feedback?.view === props.view) feedbackRef.current?.scrollIntoView({ block: 'nearest' });
   }, [feedback, props.view]);
@@ -108,11 +134,11 @@ export function MarketPanel(props: Props) {
   }
   const orphanFeedback = feedback?.view === props.view && feedback.target !== 'create'
     && !shownOrders.some((order) => feedback.target === `buy:${order.id}` || feedback.target === `cancel:${order.id}`);
-  const hubPending = props.tradeHub?.status === 'building' || props.tradeHub?.status === 'upgrading';
-  const hubEnd = Date.parse(props.tradeHub?.completes_at ?? '');
 
   return <section className="card marketPanel" aria-labelledby={`${id}-title`} data-market-view={props.view}>
-    <div className="marketPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="market" size={22} /> {TITLES[props.view]}</h2><p>{props.view === 'buy' ? 'Выбери количество. Кредиты спишутся при покупке, ресурс поступит на склад.' : props.view === 'sell' ? 'Ресурс резервируется при размещении. Комиссия удерживается с продавца после сделки.' : props.view === 'mine' ? 'Здесь только открытые ордера. Отмена возвращает непроданный остаток.' : 'Цены отражают состоявшиеся сделки игроков за последние 24 часа.'}</p></div><button type="button" className="miniButton marketRefresh" disabled={locked} aria-label="Обновить рынок" onClick={props.onRefresh}><GameIcon name="refresh" size={15} /></button></div>
+    <div className="marketPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name={VIEW_ICONS[props.view]} size={22} /> {TITLES[props.view]}</h2><p>{props.view === 'buy' ? 'Выбери количество. Кредиты спишутся при покупке, ресурс поступит на склад.' : props.view === 'sell' ? 'Ресурс резервируется при размещении. Комиссия удерживается с продавца после сделки.' : props.view === 'mine' ? 'Здесь только открытые ордера. Отмена возвращает непроданный остаток.' : 'Цены отражают состоявшиеся сделки игроков за последние 24 часа.'}</p></div><button type="button" className="miniButton marketRefresh" disabled={locked} aria-label="Обновить рынок" onClick={props.onRefresh}><GameIcon name="refresh" size={15} /></button></div>
+    <MechanicGuide steps={GUIDE_STEPS[props.view]} />
+    {props.busy && !pending && <p className="marketWarning" role="status">Дождись завершения текущего действия. Рыночные операции пока недоступны.</p>}
     {!props.featureEnabled && <div className="marketPanelNotice" role="status">Покупка и размещение ордеров временно приостановлены. Свои ордера можно отменить.</div>}
     {!market.enabled && (props.view === 'buy' || props.view === 'sell') && <div className="marketPanelNotice" role="status"><span>{hubPending ? <>Торговый узел {props.tradeHub?.status === 'upgrading' ? 'улучшается' : 'строится'}. {Number.isFinite(hubEnd) && hubEnd > now ? `До готовности: ${durationText((hubEnd - now) / 1000)}.` : 'Обнови данные, чтобы проверить готовность.'} После завершения работ торговля станет доступна.</> : props.tradeHub ? 'Торговый узел есть. Обнови данные, чтобы проверить его готовность.' : 'Для торговли нужен работающий торговый узел.'}</span><button type="button" className="miniButton" disabled={locked} onClick={props.tradeHub ? props.onRefresh : props.onBuild}>{props.tradeHub ? 'Проверить готовность узла' : 'Построить торговый узел'}</button></div>}
     {orphanFeedback && feedback && notice(feedback.target)}
@@ -124,6 +150,7 @@ export function MarketPanel(props: Props) {
         <div className="marketPanelOrders">{shownOrders.map((order) => {
           const key = order.resource as MarketResource;
           const remaining = available(order.amount_remaining);
+          const total = available(order.amount_total);
           const price = available(order.unit_price);
           const typed = buyAmounts[order.id] ?? String(Math.min(remaining, key === 'parts' ? 10 : 50));
           const requested = Number(typed);
@@ -139,6 +166,7 @@ export function MarketPanel(props: Props) {
             <div className="marketOrderHeading"><h3><GameIcon name={key} size={17} />{resourceName(key)}</h3><strong><GameAmount resource="credits">{number(price)}</GameAmount><small>/ ед.</small></strong></div>
             <div className="marketOrderSummary"><span>{props.view === 'mine' ? 'В резерве' : 'Осталось'}: {number(remaining)} ед.</span>{order.expires_at && <span>До {expiresAt(order.expires_at)}</span>}</div>
             {props.view === 'mine' ? <>
+              {total >= remaining && total > 0 && <p className="marketOrderProgress">Продано: {number(total - remaining)} из {number(total)} ед.</p>}
               <p className="marketCancelHint">При отмене вернётся непроданный остаток. Его место на складе уже зарезервировано.</p>
               {expired && <p className="marketWarning">Срок ордера вышел. Обнови данные, чтобы проверить возврат ресурса.</p>}
               <button type="button" className="action secondary marketOrderAction" disabled={locked} data-market-cancel={order.id} onClick={() => void run(target, () => props.onCancel(order.id), 'Ордер отменён. Непроданный остаток возвращён на склад.')}>{pending === target ? 'Отменяем…' : 'Отменить ордер'}<GameIcon name="close" size={15} /></button>

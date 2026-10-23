@@ -5,6 +5,7 @@ import { CosmeticPreview } from '@/components/CosmeticAppearance';
 import { GameIcon } from '@/components/GameIcon';
 import { BuildingArt } from '@/components/BuildingArt';
 import { DecorArt } from '@/components/DecorArt';
+import { MechanicGuide } from '@/components/MechanicGuide';
 import { APPEARANCE_OBJECTS, APPEARANCE_PAGE_SIZE, appearancePage, type AppearanceKind } from '@/lib/game/appearance';
 import { PRODUCTS, CRYSTAL_PREMIUM_PRICE, DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, PREMIUM_PRODUCTION_MULTIPLIER, PREMIUM_BUILD_SPEED_MULTIPLIER } from '@/lib/game/config';
 import '@/app/shop.css';
@@ -201,7 +202,11 @@ export function CosmeticsShop(props: Props) {
 
   return <div className="cosmeticsShop">
     {props.view !== 'collection' && <>
-    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Стиль оформляет все здания и декор одной покупкой. В предпросмотре можно проверить каждый объект. Применение — отдельной кнопкой в коллекции. Оформление не меняет добычу и комфорт.</p><p className="shopCurrencyNote"><span><GameIcon name="stars" size={17} />Telegram Stars — валюта Telegram.</span><span><GameIcon name="crystals" size={17} />Кристаллы — ресурс COLONY.</span></p>{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Telegram Stars и проверка платежей временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
+    <section className="card shopIntroduction" aria-labelledby={`${id}-shop`}><span className="shopEyebrow">Оформление колонии</span><h2 id={`${id}-shop`}>Твой город. Твой стиль.</h2><p>Примеряй оформление бесплатно и применяй полученные предметы в коллекции. Стили и украшения не меняют добычу и комфорт.</p><p className="shopCurrencyNote"><span><GameIcon name="stars" size={17} />Telegram Stars — валюта Telegram.</span><span><GameIcon name="crystals" size={17} />Кристаллы — ресурс COLONY.</span></p><MechanicGuide steps={[
+      'Предпросмотр ничего не покупает и не применяет. Сравни оформление с текущим видом колонии перед выбором.',
+      'Стиль покрывает все здания и декор, включая будущие типы объектов. Он не открывает постройки: для них по-прежнему нужны уровень Центра колонии и технологии.',
+      'Покупка и применение — разные действия. После подтверждения оплаты предмет появится в коллекции; там можно применить по одному оформлению каждого вида. Premium имеет отдельные бонусы и срок.',
+    ]} />{props.view === undefined && <nav className="shopJumpLinks" aria-label="Разделы магазина"><a href={`#${id}-collection`}>Моя коллекция</a><a href={`#${id}-offers`}>Витрина</a><a href={`#${id}-premium`}>Premium</a></nav>}{!props.starsEnabled && <div className="notice shopPaused" role="status">Покупки за Telegram Stars и проверка платежей временно недоступны. Premium можно приобрести за кристаллы.</div>}</section>
 
     <section className="shopOffers" aria-labelledby={`${id}-offers`}><div className="shopSectionHeading"><h2 id={`${id}-offers`}>Витрина</h2><span>Постоянное оформление</span></div><div className="cosmeticOfferGrid">{COSMETIC_PRODUCTS.map(([productId, product]) => {
       const description = DESCRIPTIONS[product.cosmeticId];
@@ -225,7 +230,7 @@ export function CosmeticsShop(props: Props) {
       <p className="premiumExplanation">Выбери один способ оплаты. Каждая покупка добавляет {PRODUCTS.premium_30d.days} дней к действующему сроку Premium. Автоматического продления нет.</p>
       <div className="premiumPurchaseOptions">
         <div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || awaiting.has('premium_30d')} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : awaiting.has('premium_30d') ? 'Ожидаем подтверждения' : <>{props.premium ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="stars" size={17} />{PRODUCTS.premium_30d.stars} Telegram Stars</span></>}</button>{starsAvailability('premium_30d')}{notice('buy:premium_30d')}{awaitingPurchase('premium_30d', false)}{notice('recover:premium_30d')}</div>
-        <div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</>}</button><p className="shopPurchaseNote">В наличии: {number(props.crystals)} кристаллов.</p>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit" role="status">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div>
+        <div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <>{props.premium ? `Продлить на ${PRODUCTS.premium_30d.days} дней` : `На ${PRODUCTS.premium_30d.days} дней`}<span><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</span></>}</button><p className="shopPurchaseNote">В наличии: {number(props.crystals)} кристаллов.</p>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit" role="status">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div>
       </div>
     </section>
 
@@ -235,6 +240,11 @@ export function CosmeticsShop(props: Props) {
     <section className="card cosmeticCollection" aria-labelledby={`${id}-collection`}>
       <div className="shopSectionHeading"><div><span className="shopEyebrow">Полученные предметы</span><h2 id={`${id}-collection`}>Моя коллекция</h2></div><span>{collection.length}</span></div>
       <p>Выбери по одному оформлению каждого вида. Стиль колонии применяется ко всем объектам сразу.</p>
+      {props.view === 'collection' && <MechanicGuide steps={[
+        'Здесь собраны предметы из покупок и игровых наград. Предпросмотр бесплатный: сравнение не меняет твой город.',
+        'Нажми «Применить», чтобы включить выбранное оформление. В каждом виде действует один предмет; кнопка «Снять» возвращает базовый вид.',
+        '«Есть навсегда» означает постоянный доступ. Временный предмет можно применять до указанной даты; после неё он исчезнет из доступной коллекции.',
+      ]} />}
       {collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span></div> : <>
         <div className="collectionCategories" role="group" aria-label="Виды оформления">
           <button type="button" className={selectedCategory === 'all' ? 'isSelected' : ''} aria-pressed={selectedCategory === 'all'} onClick={() => { setCategory('all'); setCollectionPage(0); }}>Все · {collection.length}</button>
@@ -243,7 +253,7 @@ export function CosmeticsShop(props: Props) {
         <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
           <CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" />
           <div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}
-            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Применяем…' : item.equipped ? 'Снять' : 'Применить'}</button></div>{notice(`equip:${item.id}`)}
+            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? item.equipped ? 'Снимаем…' : 'Применяем…' : item.equipped ? 'Снять' : 'Применить'}</button></div>{notice(`equip:${item.id}`)}
           </div>
         </article>)}</div>
         {collectionPages > 1 && <nav className="cosmeticPager" aria-label="Страницы коллекции"><button type="button" disabled={selectedCollectionPage === 0} onClick={() => setCollectionPage(selectedCollectionPage - 1)}>Назад</button><span aria-live="polite">{selectedCollectionPage + 1} / {collectionPages}</span><button type="button" disabled={selectedCollectionPage + 1 === collectionPages} onClick={() => setCollectionPage(selectedCollectionPage + 1)}>Дальше</button></nav>}
@@ -252,11 +262,11 @@ export function CosmeticsShop(props: Props) {
 
     </>}
 
-    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium. Проверка не списывает Telegram Stars или кристаллы.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Покупки проверены. Коллекция и Premium обновлены.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{!props.starsEnabled && <p className="shopPurchaseNote" role="status">Проверка временно недоступна: покупки за Telegram Stars приостановлены. Просмотр и применение коллекции работают.</p>}{notice('recover')}</section>
+    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium. Проверка не списывает Telegram Stars или кристаллы.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Проверка завершена. Если оплата ещё ожидает подтверждения, повторная покупка остаётся заблокированной.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{!props.starsEnabled && <p className="shopPurchaseNote" role="status">Проверка временно недоступна: покупки за Telegram Stars приостановлены. Просмотр и применение коллекции работают.</p>}{notice('recover')}</section>
 
     <dialog ref={dialogRef} className="cosmeticsPreviewDialog" aria-modal="true" aria-labelledby={`${id}-preview-title`} aria-describedby={`${id}-preview-description`} onCancel={event => { event.preventDefault(); setPreview(null); }} onClick={event => { if (event.target === event.currentTarget) setPreview(null); }}>
       {preview && <div className="cosmeticsPreviewBody">
-        <header><div><span className="shopEyebrow">Предпросмотр</span><h2 id={`${id}-preview-title`}>{preview.name}</h2></div><button ref={closeRef} className="cosmeticsPreviewClose" type="button" aria-label="Закрыть предпросмотр" onClick={() => setPreview(null)}><GameIcon name="close" size={21} /></button></header>
+        <header><div><span className="shopEyebrow">Бесплатный предпросмотр</span><h2 id={`${id}-preview-title`}>{preview.name}</h2></div><button ref={closeRef} className="cosmeticsPreviewClose" type="button" aria-label="Закрыть предпросмотр" onClick={() => setPreview(null)}><GameIcon name="close" size={21} /></button></header>
         <p id={`${id}-preview-description`}>{categoryInfo(preview.category).where} Применение доступно в коллекции.</p>
         {themePreview && <section className="themeObjectBrowser" data-theme-object-browser aria-label="Покрытие стиля колонии">
           <div className="themeCoverage"><GameIcon name="palette" size={18} /><span><strong>Весь город в одном стиле</strong>{buildingCount} типов зданий · {decorCount} видов декора</span></div>

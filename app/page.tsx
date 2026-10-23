@@ -42,6 +42,7 @@ import { MechanicsHelp } from '@/components/MechanicsHelp';
 import { CosmeticsShop } from '@/components/CosmeticsShop';
 import { ColonyIdentity } from '@/components/CosmeticAppearance';
 import { AudioSettings, useColonyMedia } from '@/components/AudioSettings';
+import { ColonyProfilePanel, NotificationSettings, FeedbackPanel } from '@/components/PlayerSettingsPanels';
 import { primeColonyAudioFromGesture, playColonySound } from '@/lib/client/colony-audio';
 import './front.css';
 import type { FoundryLink, FoundryMode, FoundryRecipeKey } from '@/lib/game/foundry';
@@ -126,7 +127,6 @@ export default function Home() {
   const [catalogCategory, setCatalogCategory] = useState<BuildingCategory>('resources');
   const [shareFallbackLink, setShareFallbackLink] = useState('');
   const handledStart = useRef(false);
-  const requestingAccess = useRef(false);
   const [viewedCity, setViewedCity] = useState<any | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [placementType, setPlacementType] = useState<string | null>(null);
@@ -170,6 +170,7 @@ export default function Home() {
   const [adminDashboard,setAdminDashboard]=useState<any | null>(null);
   const [profileName,setProfileName]=useState('');
   const [profileBio,setProfileBio]=useState('');
+  const profileDraftSource = useRef<{ owner: string; colonyName: string; bio: string } | null>(null);
   const [betaCode,setBetaCode]=useState('');
   const [feedbackCategory,setFeedbackCategory]=useState('general');
   const [feedbackMessage,setFeedbackMessage]=useState('');
@@ -181,12 +182,24 @@ export default function Home() {
   const awaitingProducts = premiumAwaiting
     ? [...awaitingCosmetics, 'premium_30d'] : awaitingCosmetics;
   const planOwner = purchaseUser ? String(purchaseUser) : '';
+  const settingsOwner = useRef(planOwner);
+  settingsOwner.current = planOwner;
   const supplyProjects = (game?.supplyProjects?.projects ?? []) as SupplyProjectState[];
   const selectedSupplyKey = supplyFocus.owner === planOwner ? supplyFocus.key : null;
   const selectedSupply = supplyProjects.find(project => project.id === selectedSupplyKey)
     ?? supplyProjects.find(project => project.started && !project.completed)
     ?? supplyProjects.find(project => !project.completed) ?? supplyProjects[0];
   const plannedResearchKey = researchTarget.owner === planOwner ? researchTarget.key : null;
+
+  useEffect(() => {
+    if (!game || phase !== 'ready' || !planOwner) return;
+    const previous = profileDraftSource.current;
+    const next = { owner: planOwner, colonyName: game.profile?.colony_name || `Колония ${game.telegramUser?.first_name ?? ''}`.trim(), bio: game.profile?.profile_bio || '' };
+    profileDraftSource.current = next;
+    setProfileName(value => previous?.owner === planOwner && value !== previous.colonyName ? value : next.colonyName);
+    setProfileBio(value => previous?.owner === planOwner && value !== previous.bio ? value : next.bio);
+    if (previous?.owner !== planOwner) { setFeedbackCategory('general'); setFeedbackMessage(''); }
+  }, [planOwner, phase, game?.profile?.colony_name, game?.profile?.profile_bio, game?.telegramUser?.first_name]);
 
   useEffect(() => {
     if (!planOwner || !game?.supplyProjects?.projects) return;
@@ -464,8 +477,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!game || phase !== 'ready') return;
-    setProfileName((value) => value || game.profile?.colony_name || `Колония ${game.telegramUser?.first_name ?? ''}`.trim());
-    setProfileBio((value) => value || game.profile?.profile_bio || '');
     if (handledStart.current || game.limited) return;
     handledStart.current = true;
     void (async () => {
@@ -569,42 +580,6 @@ export default function Home() {
   const equippedEffect = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'effect')?.cosmetic_id ?? '';
   const equippedBadge = (game?.cosmetics ?? []).find((c: any) => c.equipped && c.category === 'badge')?.cosmetic_id ?? '';
 
-  async function toggleNotifications(enable: boolean) {
-    if (enable && game?.flags?.notifications === false) { setMessage('Уведомления временно отключены для закрытого теста'); return; }
-    if (!enable) {
-      try {
-        const data = await api('/api/settings/notifications', { enabled: false });
-        setGame((old:any)=>({ ...old, notifications: data.notifications }));
-        setMessage('Уведомления выключены');
-      } catch {}
-      return;
-    }
-    const app = window.Telegram?.WebApp;
-    if (!app?.requestWriteAccess || !supportsTelegram(app, '6.9')) {
-      setMessage('Разрешение на сообщения доступно только внутри актуального Telegram');
-      return;
-    }
-    if (requestingAccess.current) return;
-    requestingAccess.current = true;
-    const timeout = setTimeout(() => { requestingAccess.current = false; }, 30_000);
-    try {
-      app.requestWriteAccess(async (granted) => {
-        clearTimeout(timeout);
-        requestingAccess.current = false;
-        if (!granted) { setMessage('Telegram не дал разрешение на сообщения'); return; }
-        try {
-          const data = await api('/api/settings/notifications', { enabled: true });
-          setGame((old:any)=>({ ...old, notifications: data.notifications }));
-          setMessage(data.notifications?.bot_write_allowed ? 'Уведомления включены' : 'Разрешение получено, подтверждение Telegram ожидается');
-        } catch {}
-      });
-    } catch {
-      clearTimeout(timeout);
-      requestingAccess.current = false;
-      setMessage('Не удалось запросить разрешение. Обновите Telegram и попробуйте снова.');
-    }
-  }
-
   async function loadAdminDashboard() {
     try {
       const data = await api('/api/admin/dashboard');
@@ -618,14 +593,6 @@ export default function Home() {
       await api('/api/beta/redeem',{code:betaCode});
       setMessage('Доступ к бете активирован');
       await refresh();
-    } catch {}
-  }
-
-  async function sendFeedback() {
-    try {
-      await api('/api/feedback',{category:feedbackCategory,message:feedbackMessage,context:{tab,version:game?.version}});
-      setFeedbackMessage('');
-      setMessage('Спасибо — сообщение сохранено');
     } catch {}
   }
 
@@ -1218,12 +1185,21 @@ export default function Home() {
       /></div>}
       {tab === 'social' && <>
         {subsections.social === 'profile' && <div data-section-panel="social-profile">
-<section className="card profileCard"><div className="cardTitleRow"><div><h2><GameIcon name="social" />Профиль колонии</h2><p>Имя и описание видны другим игрокам. Telegram-имя остаётся только служебным идентификатором.</p></div><span className="pill">@{game.telegramUser?.username ?? 'telegram'}</span></div>
-          <ColonyIdentity name={game.profile?.colony_name || 'Твоя колония'} cosmetics={game.cosmetics ?? []} />
-          <p className="profileCityStats">Центр ур. {s.hq_level} · Рейтинг города {n(s.city_score)}{s.premium ? ' · Premium' : ''}</p>
-          <label className="profileField">Название<input value={profileName} maxLength={24} onChange={e=>setProfileName(e.target.value)}/></label><label className="profileField">Описание<input value={profileBio} maxLength={80} onChange={e=>setProfileBio(e.target.value)} placeholder="До 80 символов"/></label>
-          <button className="action secondary" disabled={busy||profileName.trim().length<3} onClick={()=>api('/api/profile/update',{colonyName:profileName,bio:profileBio}).then(()=>setMessage('Профиль сохранён')).catch(()=>{})}>Сохранить профиль</button>
-        </section>
+          <ColonyProfilePanel key={planOwner} colonyName={game.profile?.colony_name || 'Твоя колония'} bio={game.profile?.profile_bio || ''}
+            draft={{ colonyName: profileDraftSource.current?.owner === planOwner ? profileName : game.profile?.colony_name || 'Твоя колония', bio: profileDraftSource.current?.owner === planOwner ? profileBio : game.profile?.profile_bio || '' }}
+            onDraftChange={draft => { setProfileName(draft.colonyName); setProfileBio(draft.bio); }}
+            cosmetics={game.cosmetics ?? []} hqLevel={Number(s.hq_level)} cityScore={Number(s.city_score)} premium={!!s.premium} busy={busy}
+            onSave={async draft => {
+              try {
+                const data = await api('/api/profile/update', draft);
+                if (settingsOwner.current === planOwner && data.ok === true && typeof data.profile?.colony_name === 'string'
+                  && (data.profile.profile_bio === null || typeof data.profile.profile_bio === 'string')) {
+                  setProfileName(data.profile.colony_name); setProfileBio(data.profile.profile_bio ?? '');
+                }
+                return data;
+              } catch (error) { setMessage(''); throw error; }
+            }}
+            onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}
         {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
           <AlliancePanel key={planOwner} alliance={game.alliance} cooperation={game.alliance?.cooperation} resources={s} hqLevel={Number(s.hq_level)} telegramId={game.telegramUser?.id} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
@@ -1263,11 +1239,25 @@ export default function Home() {
         {subsections.social === 'settings' && <div data-section-panel="social-settings">
         <ColonyGuideEntry onOpen={() => setHelpOpen(true)} />
         <AudioSettings />
-<section className="card notificationCard">
-          <div className="cardTitleRow"><div><h2><GameIcon name="info" />Уведомления Telegram</h2><p>Только готовность стройки, исследований и экспедиций. Без рекламных сообщений.</p></div><span className="pill">{game.notifications?.enabled ? game.notifications?.bot_write_allowed ? 'Включены' : 'Ожидают Telegram' : 'Выключены'}</span></div>
-          <button className={`action ${game.notifications?.enabled?'secondary':''}`} disabled={busy} onClick={()=>toggleNotifications(!game.notifications?.enabled)}>{game.notifications?.enabled?'Выключить':'Разрешить уведомления'}</button>
-        </section>
-        <section className="card feedbackCard"><div className="cardTitleRow"><div><h2><GameIcon name="info" />Обратная связь</h2><p>Баг, баланс или идея — сообщение попадёт в закрытую beta-панель вместе с вашим игровым ID.</p></div><span className="pill">до 2000 знаков</span></div><div className="feedbackForm"><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value)}><option value="general">Общее</option><option value="bug">Баг</option><option value="balance">Баланс</option><option value="idea">Идея</option><option value="payment">Платёж</option></select><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder="Что произошло или что стоит улучшить?"/><button className="action secondary" disabled={busy||feedbackMessage.trim().length<5} onClick={sendFeedback}>Отправить</button></div></section>
+        <NotificationSettings key={planOwner + ':notifications'} preferences={game.notifications} available={game.flags?.notifications !== false} busy={busy}
+          onChange={async enabled => {
+            try {
+              const data = await api('/api/settings/notifications', { enabled });
+              setGame((old: any) => String(old?.userId ?? old?.telegramUser?.id ?? '') === planOwner ? { ...old, notifications: data.notifications } : old);
+              return data.notifications;
+            } catch (error) { setMessage(''); throw error; }
+          }} onRefresh={() => { void refresh(); }} />
+        <FeedbackPanel key={planOwner + ':feedback'} category={feedbackCategory} message={feedbackMessage} onCategoryChange={setFeedbackCategory} onMessageChange={setFeedbackMessage} busy={busy}
+          onSend={async body => {
+            try {
+              const data = await api('/api/feedback', { ...body, context: { tab, version: game?.version } });
+              if (settingsOwner.current === planOwner && data.ok === true && typeof data.id === 'string' && data.id) {
+                setFeedbackMessage(current => current === body.message ? '' : current);
+              }
+              return data;
+            } catch (error) { setMessage(''); throw error; }
+          }}
+          onOpenInbox={() => showSection('social', 'inbox')} />
         </div>}
       </>}
 
