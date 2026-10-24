@@ -6,6 +6,19 @@
 .expeditionsPanel .xpHeading p { margin:6px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
 .xpSlots { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:5px 10px; margin-bottom:13px; font-size:11px; color:#c2d9e0; }
 .xpSlots small { max-width:250px; font-size:10px; color:var(--muted); line-height:1.5; }
+.expeditionsPanel .xpDevelopmentRole { margin:9px 0 12px; font-size:11px; color:var(--muted); line-height:1.6; }
+.expeditionsPanel .xpRoutePurpose { margin:8px 0; color:#c4ded6; font-size:11px; line-height:1.6; }
+.xpScienceDevelopment { margin:8px 0; padding:0 9px; border:1px solid rgba(131,186,178,.2); border-radius:10px; background:rgba(96,157,150,.04); min-width:0; }
+.xpScienceDevelopment > summary { display:flex; gap:6px; align-items:center; min-height:44px; padding:5px 0; color:#b9dbd5; font-size:11px; line-height:1.5; cursor:pointer; list-style:none; overflow-wrap:anywhere; }
+.xpScienceDevelopment > summary::-webkit-details-marker { display:none; }
+.xpScienceDevelopment > summary > .gameIcon { flex-shrink:0; }
+.xpScienceDevelopment > summary > .gameIcon:last-child { margin-left:auto; transform:rotate(90deg); }
+.xpScienceDevelopment[open] > summary > .gameIcon:last-child { transform:rotate(-90deg); }
+.xpScienceDevelopment > summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+.expeditionsPanel .xpScienceDevelopment > p,.xpResearchReturn > p { margin:5px 0 8px; font-size:11px; color:#bed2d9; line-height:1.6; }
+.xpScienceDevelopment > small { display:block; margin:7px 0 9px; color:var(--muted); font-size:10px; line-height:1.6; }
+.colonyApp .xpScienceDevelopment .miniButton,.colonyApp .xpResearchReturn .miniButton { display:flex; align-items:center; gap:6px; min-height:44px; max-width:100%; white-space:normal; text-align:left; font-size:11px; line-height:1.5; }
+.xpResearchReturn { margin-top:9px; padding-top:6px; border-top:1px solid var(--line); }
 .xpPause { border:1px solid rgba(225,194,129,.23); border-radius:10px; padding:10px; margin:10px 0; color:#e0c894; font-size:11px; line-height:1.5; }
 .xpRuns { display:flex; flex-direction:column; gap:10px; margin:14px 0 18px; }
 .xpRun { min-width:0; padding:12px; border:1px solid var(--line); border-radius:13px; background:rgba(19,39,51,.45); scroll-margin-top:14px; scroll-margin-bottom:110px; }

@@ -10,6 +10,8 @@ import { RESEARCH_TREE } from '@/lib/game/research';
 import { FEATURE_RESEARCH } from '@/lib/game/unlocks';
 import { artifactCollectionCounts } from '@/lib/game/artifact-art';
 import { quoteExpeditionSettlement } from '@/lib/game/expedition-quote';
+import { expeditionScienceRange, expeditionScienceComparison, expeditionSettlementReceipt } from '@/lib/game/expedition-guidance';
+import type { ResearchScienceGoal } from '@/lib/game/research-supply';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/expeditions-panel.css';
 
@@ -24,12 +26,14 @@ type Props = {
   busy: boolean;
   accessUnlocked?: boolean;
   artifactFocus?: ArtifactExpeditionFocus | null;
+  completedResearch?: readonly string[];
+  researchGoal?: ResearchScienceGoal | null;
   onArtifacts?: (artifactId?: ArtifactId) => void;
   onStart: (key: string) => Promise<unknown>;
   onResolve: (id: string, choiceId?: string) => Promise<unknown>;
   onBuild: () => void;
   onUpgradeHq: () => void;
-  onResearch: (key: string) => void;
+  onResearch: (key?: string) => void;
   onRefresh: () => void;
 };
 
@@ -77,6 +81,26 @@ function ClaimWarnings({ quote, onRefresh, disabled }: { quote: ReturnType<typeo
     {!quote.canClaim && !missingResources && !missingStorage && <div className="xpFeedback isError"><span>Данные добычи пришли не полностью. Обнови их перед получением.</span><button type="button" className="miniButton" disabled={disabled} onClick={onRefresh}>Обновить добычу</button></div>}
   </>;
 }
+
+function ScienceDevelopment({ range, resources, goal, busy, onResearch }: {
+  range: unknown; resources: Props['resources']; goal: Props['researchGoal']; busy: boolean; onResearch: Props['onResearch'];
+}) {
+  const comparison = expeditionScienceComparison({ currentScience: resources.science, goal, rewardRange: range });
+  if (!comparison || !goal || comparison.rewardRange[1] <= 0) return null;
+  const [least, most] = comparison.afterGapRange;
+  return <details className="xpScienceDevelopment" data-expedition-science-goal={goal.key}>
+    <summary><GameIcon name="science" size={16} />Наука для технологии «{goal.name}»<GameIcon name="arrow" size={13} /></summary>
+    <p>Сейчас не хватает <GameAmount resource="science">{number(comparison.currentGap)}</GameAmount>. {comparison.currentGap === 0 ? 'Науки для этого шага уже хватает.' : most === 0 ? 'После получения этой добычи нехватка науки покроется.' : <>После получения этой добычи останется <GameAmount resource="science">{number(least)}{least !== most ? `–${number(most)}` : ''}</GameAmount>.</>} Остальные ресурсы и требования технологии проверяются отдельно.</p>
+    <button type="button" className="miniButton" disabled={busy} onClick={() => onResearch(goal.key)}>К технологии<GameIcon name="arrow" size={13} /></button>
+    <small>До получения добычи эта наука не входит в запас. Просмотр исследования бесплатный; запуск оплачивается отдельно.</small>
+  </details>;
+}
+
+const ROUTE_PURPOSE: Record<string, string> = {
+  local_survey: 'Быстрый вылет за ресурсами и наукой для короткого визита.',
+  orbital_ruins: 'Часовой вылет с шансом найти звёздную карту.',
+  deep_signal: 'Долгий вылет. Квантовая линза встречается только на этом маршруте.',
+};
 
 export function ExpeditionsPanel(props: Props) {
   const id = useId();
@@ -145,12 +169,11 @@ export function ExpeditionsPanel(props: Props) {
     const quote = quoteExpeditionSettlement(run.baseReward, choice?.reward ?? {}, choice?.cost ?? {}, props.resources, props.capacities);
     if (!quote.canClaim || (run.status === 'event' && !choice)) return;
     const target = `resolve:${run.id}:${choice?.id ?? ''}`;
-    guard.current = true; setPending(target); setFeedback(null);
+    guard.current = true; setPending(target); setFeedback(null); setReceipt(null);
     try {
-      const response = record(await props.onResolve(run.id, choice?.id));
-      const result = record(response.result ?? (RESOURCES.some((key) => key in response) ? response : null));
-      if (Object.keys(result).length) setReceipt({ runId: run.id, name: expeditionName(run), result });
-      else setFeedback({ target, text: 'Результат принят. Обнови данные, чтобы увидеть сохранённую выдачу.', error: false });
+      const result = expeditionSettlementReceipt(await props.onResolve(run.id, choice?.id));
+      if (result && result.choiceId === (choice?.id ?? null)) setReceipt({ runId: run.id, name: expeditionName(run), result });
+      else setFeedback({ target, text: 'Выдача пока не подтверждена полными данными. Обнови колонию и проверь сохранённый результат.', error: true });
     } catch (error) { setFeedback({ target, text: error instanceof Error ? error.message : 'Не удалось получить результат экспедиции.', error: true }); }
     finally { guard.current = false; setPending(null); }
   }
@@ -158,13 +181,16 @@ export function ExpeditionsPanel(props: Props) {
   return <section className="card expeditionsPanel" aria-labelledby={`${id}-title`} data-expeditions-panel="">
     <div className="xpHeading"><div><h2 id={`${id}-title`}><GameIcon name="rocket" size={22} /> Экспедиции</h2><p>Выбирай маршрут, отправляй аппарат и получай добычу после возвращения.</p></div><BuildingArt type="expedition_center" /></div>
     <div className="xpSlots"><span>Занято слотов: <strong>{activeCount} из {slots}</strong></span><small>{returnedCount > 0 ? 'Забери добычу вернувшихся экспедиций, чтобы освободить их слоты.' : slotsFull ? 'После возвращения забери добычу, чтобы освободить слот.' : `Свободно слотов: ${Math.max(0, slots - activeCount)}. Выбери маршрут для нового вылета.`}</small></div>
+    <p className="xpDevelopmentRole">Наука из вылетов помогает открывать технологии, ресурсы — развивать базу. Артефакты собираются в отдельную коллекцию с наградой за четыре разных вида.</p>
     <MechanicGuide steps={[
       'Просмотр маршрутов бесплатный. Кнопка «Отправить экспедицию» списывает указанную стоимость запуска и занимает один слот.',
       'После возвращения забери всю добычу. Если встретилось событие, выбери решение: его стоимость и итоговая награда показаны у кнопки.',
       'Добыча ждёт получения и не пропадает за время отсутствия. При нехватке места освободи склад; слот останется занят до получения результата.',
     ]} />
     {!props.featureEnabled && <div className="xpPause" role="status">Новые запуски временно приостановлены. Результаты отправленных экспедиций можно получить.</div>}
-    {receipt && <div className="xpReceipt" ref={receiptRef} tabIndex={-1} data-expedition-receipt={receipt.runId} role="status"><strong><GameIcon name="check" size={16} /> «{receipt.name}» завершена</strong><Receipt result={receipt.result} onArtifacts={props.onArtifacts} /></div>}
+    {receipt && <div className="xpReceipt" ref={receiptRef} tabIndex={-1} data-expedition-receipt={receipt.runId} role="status"><strong><GameIcon name="check" size={16} /> «{receipt.name}» завершена</strong><Receipt result={receipt.result} onArtifacts={props.onArtifacts} />
+      {Number(receipt.result.science) > 0 && <div className="xpResearchReturn"><p>{props.researchGoal ? `Наука получена. Следующий шаг плана — «${props.researchGoal.name}». Проверь его текущие требования.` : 'Наука получена. Выбери технологию для следующего шага развития.'}</p><button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(props.researchGoal?.key)}>К исследованиям<GameIcon name="arrow" size={14} /></button></div>}
+    </div>}
     {feedback?.target.startsWith('resolve:') && !runs.some((run) => feedback.target.startsWith(`resolve:${run.id}:`)) && notice(feedback.target)}
 
     {runs.length > 0 && <div className="xpRuns" aria-label="Отправленные экспедиции">{runs.map((run) => {
@@ -178,13 +204,14 @@ export function ExpeditionsPanel(props: Props) {
         <div className="xpRunHeading"><h3 id={`${id}-${run.id}`}><GameIcon name="rocket" size={16} />{expeditionName(run)}</h3><span>{run.status === 'active' ? 'В пути' : run.status === 'event' ? 'Нужно решение' : 'Вернулась'}</span></div>
         {run.status === 'active' ? <div className="xpRunWait"><GameIcon name="clock" size={16} /><span>{elapsed ? 'Время вылета вышло. Обнови данные, чтобы проверить возвращение.' : Number.isFinite(endsAt) ? `До возвращения: ${duration((endsAt - now) / 1000)}.` : 'Обнови данные, чтобы проверить время возвращения.'}</span>{(elapsed || !Number.isFinite(endsAt)) && <button className="miniButton" type="button" disabled={locked} onClick={props.onRefresh}>Проверить возвращение</button>}</div> : !hasReward ? <div className="xpRunWait"><span>Обнови данные, чтобы увидеть точную добычу перед получением.</span><button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить добычу</button></div> : <>
           <div className="xpReturnedLoot"><span className="xpMetaLabel">Добыча экспедиции</span><Amounts value={run.baseReward} empty="Без ресурсной добычи" /><ArtifactNames ids={[run.baseArtifactId]} /></div>
-          {run.status === 'ready' && <><ClaimWarnings quote={quote} onRefresh={props.onRefresh} disabled={locked} /><button type="button" className="action xpClaim" disabled={locked || !quote.canClaim} data-expedition-action={`claim:${run.id}`} onClick={() => void resolve(run)}>{pending === claimTarget ? 'Получаем добычу…' : 'Забрать всю добычу'}<GameIcon name="arrow" size={16} /></button>{notice(claimTarget)}</>}
+          {run.status === 'ready' && <><ScienceDevelopment range={[quote.reward.science, quote.reward.science]} resources={props.resources} goal={props.researchGoal} busy={locked} onResearch={props.onResearch} /><ClaimWarnings quote={quote} onRefresh={props.onRefresh} disabled={locked} /><button type="button" className="action xpClaim" disabled={locked || !quote.canClaim} data-expedition-action={`claim:${run.id}`} onClick={() => void resolve(run)}>{pending === claimTarget ? 'Получаем добычу…' : 'Забрать всю добычу'}<GameIcon name="arrow" size={16} /></button>{notice(claimTarget)}</>}
           {run.status === 'event' && run.event && eventChoices.length > 0 && <div className="xpEvent"><h4>{run.event.title}</h4><p>{run.event.description}</p><div className="xpEventChoices">{eventChoices.map((choice: any) => {
             const settlement = quoteExpeditionSettlement(run.baseReward, choice.reward ?? {}, choice.cost ?? {}, props.resources, props.capacities);
             const target = `resolve:${run.id}:${choice.id}`;
             return <article className="xpEventChoice" key={choice.id} data-expedition-choice={choice.id}>
               <h5>{choice.title}</h5><div className="xpChoiceExchange"><div><span className="xpMetaLabel">Спишется за решение</span><Amounts value={choice.cost} /></div><div><span className="xpMetaLabel">Дополнительно за решение</span><Amounts value={choice.reward} empty="Без ресурсной награды" /><ArtifactNames ids={[choice.reward?.artifactId]} /></div></div>
               <div className="xpChoiceTotal"><span className="xpMetaLabel">Получишь всего</span><Amounts value={settlement.reward} empty="Без ресурсной награды" /><ArtifactNames ids={[run.baseArtifactId, choice.reward?.artifactId]} /></div>
+              <ScienceDevelopment range={[settlement.reward.science, settlement.reward.science]} resources={props.resources} goal={props.researchGoal} busy={locked} onResearch={props.onResearch} />
               <ClaimWarnings quote={settlement} onRefresh={props.onRefresh} disabled={locked} /><button type="button" className="action secondary xpClaim" disabled={locked || !settlement.canClaim} aria-label={`Принять решение: ${choice.title}`} data-expedition-action={`${run.id}:${choice.id}`} onClick={() => void resolve(run, choice)}>{pending === target ? 'Применяем решение…' : 'Выбрать и получить добычу'}<GameIcon name="arrow" size={15} /></button>{notice(target)}
             </article>;
           })}</div></div>}
@@ -204,6 +231,7 @@ export function ExpeditionsPanel(props: Props) {
       const gateText = accessLocked ? `Нужно исследование «${FEATURE_RESEARCH.expeditions.name}».` : hqLocked ? `Нужна база ур. ${option.unlockHq}.` : centerLocked ? 'Нужен действующий центр экспедиций.' : researchLocked ? `Нужно исследование «${researchName}».` : !option.unlocked ? String(option.lockReason ?? 'Маршрут пока недоступен.').replace(/HQ(\d+)/g, 'база ур. $1') : '';
       const target = `start:${option.key}`;
       const reward = record(option.reward);
+      const scienceRange = expeditionScienceRange(reward.science, props.completedResearch);
       const isFocused = !!focusedArtifact && option.key === props.artifactFocus?.routeKey;
       const routeFinds = ARTIFACTS.flatMap(artifact => {
         const chance = artifactDropChance(option.key, artifact.id);
@@ -211,17 +239,19 @@ export function ExpeditionsPanel(props: Props) {
       });
       return <article className={`xpRoute${isFocused ? ' isArtifactTarget' : ''}`} key={option.key} ref={isFocused ? focusedRouteRef : undefined} tabIndex={isFocused ? -1 : undefined} data-expedition-catalog={option.key} aria-labelledby={`${id}-route-${option.key}`}>
         <div className="xpRouteHeading"><h4 id={`${id}-route-${option.key}`}><GameIcon name="rocket" size={18} />{option.name}</h4><span><GameIcon name="clock" size={13} />{duration(Number(option.durationSec ?? 0))}</span></div>
+        {ROUTE_PURPOSE[option.key] && <p className="xpRoutePurpose">{ROUTE_PURPOSE[option.key]}</p>}
         {isFocused && <div className="xpArtifactTarget"><ArtifactArt artifactId={focusedArtifact.id} size={40} /><div><strong>Ищем: {focusedArtifact.name}</strong><span>Шанс этой находки за вылет: {percent(artifactDropChance(option.key, focusedArtifact.id))}%. Находка не гарантирована.</span>{props.onArtifacts && <button type="button" className="miniButton" onClick={() => props.onArtifacts?.(focusedArtifact.id)}>К коллекции<GameIcon name="arrow" size={13} /></button>}</div></div>}
-        <div className="xpRouteRewards"><span className="xpMetaLabel">Базовая добыча за вылет</span><div>{['ore', 'credits', 'science'].flatMap((resource) => Array.isArray(reward[resource]) ? [<GameAmount key={resource} resource={resource}>{number(Number(reward[resource][0]))}–{number(Number(reward[resource][1]))}</GameAmount>] : [])}</div>
+        <div className="xpRouteRewards"><span className="xpMetaLabel">Добыча нового вылета без событий</span><div>{['ore', 'credits'].flatMap((resource) => Array.isArray(reward[resource]) ? [<GameAmount key={resource} resource={resource}>{number(Number(reward[resource][0]))}–{number(Number(reward[resource][1]))}</GameAmount>] : [])}{scienceRange ? <GameAmount resource="science">{number(scienceRange[0])}–{number(scienceRange[1])}</GameAmount> : <span>Диапазон науки уточняется после обновления исследований.</span>}</div>
           {Array.isArray(reward.crystals) && Number(reward.crystalsChance) > 0 && <small><GameAmount resource="crystals">{number(Number(reward.crystals[0]))}–{number(Number(reward.crystals[1]))}</GameAmount> · шанс {Math.round(Number(reward.crystalsChance) * 100)}%</small>}
         </div>
+        <ScienceDevelopment range={scienceRange} resources={props.resources} goal={props.researchGoal} busy={locked} onResearch={props.onResearch} />
         <details className="xpRouteDetails"><summary>Находки и особенности маршрута<GameIcon name="arrow" size={14} /></summary><p>{option.description}</p><div className="xpProbabilities"><span><GameIcon name="artifact_lens" size={18} />Любой артефакт: {Math.round(Number(option.artifactChance ?? 0) * 100)}%</span><span>Шанс события: {Math.round(Number(option.eventChance ?? 0) * 100)}%</span></div>
           {routeFinds.length > 0 && <><ul className="xpRouteFinds" aria-label="Основные находки и шанс за вылет">{routeFinds.map(({ artifact, chance }) => {
             const count = artifactCounts.get(artifact.id) ?? 0;
             const content = <><ArtifactArt artifactId={artifact.id} size={28} /><span className="xpFindName"><strong>{artifact.name}</strong><small>{collectionKnown ? count > 0 ? `В коллекции: ${count.toLocaleString('ru-RU')}` : 'Ещё не найден' : 'Основная находка'}</small></span><span className="xpFindChance">{percent(chance)}%</span></>;
             return <li key={artifact.id}>{props.onArtifacts ? <button type="button" className="xpFindLink" aria-label={`Показать в коллекции: ${artifact.name}`} onClick={() => props.onArtifacts?.(artifact.id)}>{content}<GameIcon name="arrow" size={13} /></button> : <div className="xpFindLink">{content}</div>}</li>;
           })}</ul><p>Проценты указаны за один вылет, находка не гарантирована. Дополнительные предметы событий сюда не входят.</p></>}
-          <p>Исследования могут увеличить науку. Диапазоны и шансы указаны за один вылет; точная добыча станет известна после возвращения.</p></details>
+          <p>{props.completedResearch ? props.completedResearch.includes('signal_analysis') ? '«Спектральный анализ» уже учтён в показанной науке: +15% с округлением вниз.' : '«Спектральный анализ» увеличит базовую науку новых вылетов на 15% с округлением вниз.' : 'Обнови исследования, чтобы уточнить научную награду нового вылета.'} Награды событий этим бонусом не умножаются. Уже отправленные вылеты сохраняют добычу, рассчитанную при запуске.</p><p>Диапазоны и шансы указаны за один вылет; точная добыча станет известна после возвращения. {props.completedResearch && !props.completedResearch.includes('signal_analysis') && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch('signal_analysis')}>Показать «Спектральный анализ»<GameIcon name="arrow" size={13} /></button>}</p></details>
         <div className="xpLaunchCost"><span className="xpMetaLabel">Спишется при запуске</span><Amounts value={option.cost} /></div>
         {gateText && <div className="xpGate"><span>{gateText}</span>{accessLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(FEATURE_RESEARCH.expeditions.researchKey)}>Показать исследование</button> : hqLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeHq}>Показать улучшение базы</button> : centerLocked ? <button type="button" className="miniButton" disabled={locked} onClick={props.onBuild}>Показать центр экспедиций</button> : researchLocked ? <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch(option.requiredResearch)}>Показать исследование</button> : null}</div>}
         {missingResources && <div className="xpWarning"><span>Не хватает для запуска:</span><Amounts value={shortages} /></div>}

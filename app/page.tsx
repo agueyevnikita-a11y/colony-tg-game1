@@ -1217,6 +1217,7 @@ export default function Home() {
         {subsections.build === 'expeditions' && <div data-section-panel="build-expeditions">
 {expeditionsLocked && !artifactExpeditionFocus ? <FeatureUnlock feature="expeditions" busy={busy} onResearch={chooseResearchTarget} /> : <ExpeditionsPanel key={planOwner}
           expeditions={game.expeditions} resources={s} hqLevel={Number(s.hq_level)}
+          completedResearch={game.research?.completed} researchGoal={researchScienceGoal}
           featureEnabled={game.flags?.expeditions !== false} busy={busy}
           accessUnlocked={!expeditionsLocked} artifactFocus={artifactExpeditionFocus}
           onArtifacts={(artifactId) => {
@@ -1241,12 +1242,13 @@ export default function Home() {
           }}
           onBuild={() => (game.buildings ?? []).some((building: any) => building.type === 'expedition_center') ? navigateGuide('building:expedition_center') : beginPlacement('expedition_center', 'Центр экспедиций')}
           onUpgradeHq={() => navigateGuide('upgrade_hq')}
-          onResearch={(key) => navigateGuide(`research:${key}`)}
+          onResearch={(key) => navigateGuide(key ? `research:${key}` : 'research')}
           onRefresh={() => { void refresh(); }}
         />}
         </div>}
         {subsections.build === 'artifacts' && <div data-section-panel="build-artifacts">
-<ArtifactsPanel artifacts={game.expeditions?.artifacts} artifactFocus={artifactCollectionFocus} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')}
+<ArtifactsPanel key={planOwner} artifacts={game.expeditions?.artifacts} artifactFocus={artifactCollectionFocus} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')}
+  routeCatalog={game.expeditions?.catalog} accessUnlocked={!expeditionsLocked} featureEnabled={game.flags?.expeditions !== false} onRefresh={() => { void refresh(); }}
   onShowRoute={(routeKey, artifactId) => {
     navigateGuide('expeditions');
     navigationToTop.current = false;

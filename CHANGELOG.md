@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.18-beta.1 — Give Flights and Finds a Clear Next Step
+- Expedition routes explain their purpose and show the science range for a new launch with the player's completed research and the server's exact rounding. Spectral analysis affects only new flights' base science; saved cargo and event bonuses are not multiplied again. Unknown research data makes no science-range promise.
+- Expandable science comparisons connect a possible flight or exact returned cargo to the next unpaid technology in the development plan. They separate unclaimed science from current stock and keep other research requirements explicit. A complete settlement receipt offers a free research return without adding its already-paid science twice; incomplete or different-choice replies require verification.
+- Artifact collections offer a choice of missing types and a short open main route, with its exact per-flight chance, duration and launch price. A closed route can be inspected for its access conditions; browsing never sends an apparatus. A full collection points to its permanent frame reward, while an unloaded collection no longer pretends to be empty.
+- The interface distinguishes research science from collectible finds, explains that repeated finds do not replace a missing type, preserves manual choices during refresh and isolates collection state between players. No migration, dependency, price, reward, probability, production, saved-city or payment-rule change is required.
+
 ## 1.14.17-beta.1 — Connect Research Benefits to Workshop and Supply Goals
 - Industrial technologies show a compact, expandable comparison for one new cycle in an actual active workshop: rounded output, material cost and duration. Locked recipes include their canonical prerequisite chain and bonuses; unavailable workshops make no invented output promise. The comparison distinguishes ordinary production without neighbour links from research costs and preserves already-paid cycle rules.
 - Development plans offer direct goals for thermal recovery and longer offline accumulation. Completed storage and archive technologies explain their practical role and lead freely to workshops and queues; reviewing production never launches a batch.

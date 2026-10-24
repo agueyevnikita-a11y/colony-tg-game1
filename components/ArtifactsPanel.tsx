@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArtifactArt } from '@/components/ArtifactArt';
-import { GameIcon } from '@/components/GameIcon';
+import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ARTIFACTS, EXPEDITIONS, artifactDropChance, type ArtifactId, type ExpeditionKey } from '@/lib/game/expeditions';
-import { ARTIFACT_RARITY_LABELS, artifactCollectionCounts, type ArtifactCollectionEntry } from '@/lib/game/artifact-art';
+import { ARTIFACT_RARITY_LABELS, type ArtifactCollectionEntry } from '@/lib/game/artifact-art';
+import { artifactCollectionGuidance, type ArtifactRouteAccess } from '@/lib/game/artifact-guidance';
 import { durationText } from '@/lib/game/format';
 import '@/app/artifacts.css';
 
@@ -13,6 +14,10 @@ export type ArtifactCollectionFocus = { artifactId: ArtifactId; requestId: numbe
 type Props = {
   artifacts?: readonly ArtifactCollectionEntry[];
   artifactFocus?: ArtifactCollectionFocus | null;
+  routeCatalog?: readonly ArtifactRouteAccess[];
+  accessUnlocked?: boolean;
+  featureEnabled?: boolean;
+  onRefresh?: () => void;
   onExpeditions: () => void;
   onAchievements: () => void;
   onShowRoute: (key: ExpeditionKey, artifactId: ArtifactId) => void;
@@ -20,9 +25,12 @@ type Props = {
 
 const percent = (value: number) => (value * 100).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
-export function ArtifactsPanel({ artifacts, artifactFocus, onExpeditions, onAchievements, onShowRoute }: Props) {
+export function ArtifactsPanel({ artifacts, artifactFocus, routeCatalog, accessUnlocked, featureEnabled, onRefresh, onExpeditions, onAchievements, onShowRoute }: Props) {
   const id = useId();
-  const { counts, unique, total } = artifactCollectionCounts(artifacts);
+  const [selectedArtifactId, setSelectedArtifactId] = useState<ArtifactId | null>(null);
+  const guidance = artifactCollectionGuidance({ artifacts, selectedArtifactId, routeCatalog, accessUnlocked, featureEnabled });
+  const { counts, unique, total } = guidance;
+  const collectionKnown = guidance.state !== 'unknown';
   const focusedArticleRef = useRef<HTMLElement>(null);
   const focusedDetailsRef = useRef<HTMLDetailsElement>(null);
   const handledFocus = useRef<ArtifactCollectionFocus | null>(null);
@@ -35,15 +43,23 @@ export function ArtifactsPanel({ artifacts, artifactFocus, onExpeditions, onAchi
     if (handledFocus.current?.artifactId === focusArtifactId && handledFocus.current.requestId === focusRequestId) return;
     if (!focusedArticleRef.current || !focusedDetailsRef.current) return;
     handledFocus.current = { artifactId: focusArtifactId, requestId: focusRequestId };
+    setSelectedArtifactId(focusArtifactId);
     focusedDetailsRef.current.open = true;
     focusedArticleRef.current.focus({ preventScroll: true });
     focusedArticleRef.current.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [focusArtifactId, focusRequestId, focusAvailable]);
 
   return <section className="card artifactsPanel" aria-labelledby={`${id}-title`} data-artifacts-panel="">
-    <div className="artifactsHeading"><div><h2 id={`${id}-title`}><GameIcon name="artifact_lens" size={24} />Лунные находки</h2><p>Собирай необычные объекты в экспедициях и открывай коллекцию колонии.</p></div><span className="artifactsCounter" aria-label={`Найдено видов: ${unique} из ${total}`}>{unique}<small>из {total}</small></span></div>
-    <div className="artifactsCollectionGoal"><GameIcon name={unique === total ? 'check' : 'trophy'} size={22} /><div><strong>{unique === total ? 'Коллекция собрана' : 'Четыре находки — одна награда'}</strong><span>{unique === total ? 'Рамка первопроходца ждёт в достижениях, если ты ещё не забрал её.' : 'Найди все четыре разных вида и забери постоянную рамку первопроходца в достижениях.'}</span></div></div>
-    <div className="artifactsProgress" role="progressbar" aria-label="Виды артефактов" aria-valuemin={0} aria-valuemax={total} aria-valuenow={unique}><i style={{ width: `${unique / total * 100}%` }} /></div>
+    <div className="artifactsHeading"><div><h2 id={`${id}-title`}><GameIcon name="artifact_lens" size={24} />Лунные находки</h2><p>Находки заполняют коллекцию, а наука из вылетов помогает открывать технологии колонии.</p></div>{collectionKnown && <span className="artifactsCounter" aria-label={`Найдено видов: ${unique} из ${total}`}>{unique}<small>из {total}</small></span>}</div>
+    {collectionKnown ? <><div className="artifactsCollectionGoal"><GameIcon name={unique === total ? 'check' : 'trophy'} size={22} /><div><strong>{unique === total ? 'Коллекция собрана' : 'Четыре находки — одна награда'}</strong><span>{unique === total ? 'Рамка первопроходца ждёт в достижениях, если ты ещё не забрал её.' : 'Найди все четыре разных вида и забери постоянную рамку первопроходца в достижениях.'} Повторная находка не заменяет недостающий вид.</span></div></div>
+    <div className="artifactsProgress" role="progressbar" aria-label="Виды артефактов" aria-valuemin={0} aria-valuemax={total} aria-valuenow={unique}><i style={{ width: `${unique / total * 100}%` }} /></div></> : <div className="artifactCollectionUnknown" role="status" data-artifact-collection-unknown=""><strong>Коллекция пока не загружена</strong><p>Обнови данные колонии, чтобы увидеть найденные виды и выбрать следующую цель.</p>{onRefresh && <button type="button" className="miniButton" onClick={onRefresh}>Обновить коллекцию<GameIcon name="refresh" size={15} /></button>}</div>}
+    {guidance.selected && guidance.route && <div className="artifactNextFind" data-artifact-next-find={guidance.selected.id}>
+      <div className="artifactNextHeading"><ArtifactArt artifactId={guidance.selected.id} size={44} /><div><strong>Следующая находка</strong><span>Осталось видов: {guidance.missing.length}</span></div></div>
+      <label htmlFor={`${id}-next-find`}>Что ищем</label><select id={`${id}-next-find`} value={guidance.selected.id} onChange={event => setSelectedArtifactId(event.target.value as ArtifactId)}>{guidance.missing.map(artifact => <option value={artifact.id} key={artifact.id}>{artifact.name}</option>)}</select>
+      <div className="artifactNextRoute"><small>{guidance.route.available ? 'Короткий открытый маршрут' : 'Короткий маршрут · посмотри условия'}</small><strong>{guidance.route.name}</strong><div><span><GameIcon name="clock" size={14} />{durationText(guidance.route.durationSec)}</span><span>Шанс за вылет: {percent(guidance.route.chance)}%</span></div><small>Цена запуска</small><div aria-label="Стоимость одного запуска">{Object.entries(guidance.route.cost).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{Number(amount).toLocaleString('ru-RU')}</GameAmount>)}</div></div>
+      <p>{featureEnabled === false ? 'Запуски пока приостановлены. Можно заранее посмотреть маршрут.' : guidance.route.available ? 'Перед отправкой проверь ресурсы и свободный слот на маршруте.' : 'На маршруте показано, что открыть или построить для запуска.'} Находка случайна; гарантии за несколько вылетов нет.</p>
+      <button type="button" className="miniButton" onClick={() => onShowRoute(guidance.route!.key, guidance.selected!.id)}>Посмотреть маршрут<GameIcon name="arrow" size={15} /></button><small className="artifactNextSafeHint">Переход бесплатный. Аппарат отправляешь отдельно.</small>
+    </div>}
     <div className="artifactsCards">{ARTIFACTS.map((artifact) => {
       const count = counts.get(artifact.id) ?? 0;
       const found = count > 0;
@@ -53,7 +69,7 @@ export function ArtifactsPanel({ artifacts, artifactFocus, onExpeditions, onAchi
       });
       const isFocused = focusAvailable && artifact.id === focusArtifactId;
       return <article className={`artifactCard rarity-${artifact.rarity}${found ? ' isFound' : ' isUnknown'}${isFocused ? ' isCollectionTarget' : ''}`} key={artifact.id} ref={isFocused ? focusedArticleRef : undefined} tabIndex={isFocused ? -1 : undefined} data-artifact-card={artifact.id} aria-labelledby={`${id}-artifact-${artifact.id}`}>
-        <div className="artifactCardVisual"><ArtifactArt artifactId={artifact.id} size={112} unknown={!found} /><span className="artifactCardStatus">{found ? <><GameIcon name="check" size={12} />Найден</> : <><GameIcon name="lock" size={12} />Не найден</>}</span></div>
+        <div className="artifactCardVisual"><ArtifactArt artifactId={artifact.id} size={112} unknown={!found} /><span className="artifactCardStatus">{!collectionKnown ? 'Нет данных' : found ? <><GameIcon name="check" size={12} />Найден</> : <><GameIcon name="lock" size={12} />Не найден</>}</span></div>
         <h3 id={`${id}-artifact-${artifact.id}`}>{artifact.name}</h3><span className="artifactRarity">{ARTIFACT_RARITY_LABELS[artifact.rarity]}{found && <b> ×{count.toLocaleString('ru-RU')}</b>}</span>
         <details className="artifactDetails" ref={isFocused ? focusedDetailsRef : undefined}><summary>Что это и где найти<GameIcon name="arrow" size={13} /></summary><p>{artifact.description}</p><strong>Основная находка: шанс за вылет</strong><ul>{routes.map((route) => <li key={route.key}><div className="artifactRouteInfo"><span>{route.name}</span><b>{percent(route.chance)}%</b></div><div className="artifactRouteTiming"><span><GameIcon name="clock" size={13} />{durationText(route.durationSec)} за вылет</span>{routes.length === 1 && <small>Только этот маршрут</small>}</div><button type="button" className="miniButton artifactRouteLink" aria-label={`Показать маршрут «${route.name}» для находки «${artifact.name}»`} onClick={() => onShowRoute(route.key, artifact.id)}>Показать маршрут<GameIcon name="arrow" size={13} /></button></li>)}</ul>{artifact.id === 'signal_fragment' && <p className="artifactExtraSource">Дополнительно можно получить при событии «Неизвестный зонд», выбрав «Извлечь ядро». Этот источник не включён в проценты выше.</p>}</details>
       </article>;

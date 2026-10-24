@@ -14,6 +14,22 @@
 .artifactsCollectionGoal span { color:#a6bcc5; font-size:12px; line-height:1.5; }
 .artifactsProgress { height:5px; background:#0d2029; border-radius:20px; margin:14px 0 18px; overflow:hidden; }
 .artifactsProgress i { display:block; height:100%; border-radius:20px; background:linear-gradient(90deg,#63c5ba,#a4ead7); }
+.artifactNextFind,.artifactCollectionUnknown { min-width:0; margin:0 0 16px; padding:12px; border:1px solid #426361; border-radius:15px; background:linear-gradient(140deg,#1a3538,#13252f); }
+.artifactNextHeading { display:flex; align-items:center; gap:9px; margin-bottom:10px; }
+.artifactNextHeading > div { min-width:0; }.artifactNextHeading strong,.artifactNextHeading span { display:block; }
+.artifactNextHeading strong,.artifactCollectionUnknown > strong { font-size:14px; line-height:1.5; }.artifactNextHeading span { color:#aec7ce; font-size:11px; line-height:1.6; }
+.artifactNextFind label { display:block; font-size:11px; line-height:1.6; color:#adc6ce; margin-bottom:4px; }
+.colonyApp .artifactNextFind select { box-sizing:border-box; display:block; min-width:0; width:100%; max-width:100%; min-height:44px; padding:9px; border:1px solid #45636c; border-radius:10px; background:#10232c; color:#e5f2f7; font:inherit; font-size:13px; }
+.artifactNextRoute { margin:11px 0 0; }.artifactNextRoute > small,.artifactNextRoute > strong { display:block; overflow-wrap:anywhere; }
+.artifactNextRoute > small { color:#a6c6cd; font-size:11px; line-height:1.6; }.artifactNextRoute > strong { font-size:14px; line-height:1.6; }
+.artifactNextRoute > div { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; margin-top:5px; font-size:12px; line-height:1.6; }
+.artifactNextRoute > div > span { display:inline-flex; align-items:center; gap:4px; }.artifactNextRoute .gameIcon { flex-shrink:0; }
+.artifactNextFind > p,.artifactCollectionUnknown > p { font-size:12px; color:#adc6ce; line-height:1.6; margin:10px 0; }
+.colonyApp .artifactsPanel .miniButton { min-height:44px; }
+.artifactNextFind > button,.artifactCollectionUnknown > button { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-width:0; white-space:normal; text-align:left; line-height:1.5; }
+.artifactNextFind > button > .gameIcon,.artifactCollectionUnknown > button > .gameIcon { flex-shrink:0; }
+.artifactNextSafeHint { display:block; margin-top:7px; font-size:10px; color:#9eb9c2; line-height:1.6; }
+.artifactNextFind select:focus-visible,.artifactNextFind > button:focus-visible,.artifactCollectionUnknown > button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .artifactsCards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .artifactCard { min-width:0; border:1px solid #334a56; border-radius:17px; padding:10px; background:linear-gradient(150deg,#172e38,#10212b); scroll-margin-top:14px; scroll-margin-bottom:110px; }
 .artifactCard.isCollectionTarget { border-color:#78c4b7; background:linear-gradient(150deg,#24413f,#10212b); }
