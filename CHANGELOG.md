@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.11-beta.1 — Clear Trades and Current Tasks
+- Fixed older open market sales disappearing behind recent completed, cancelled or expired orders. The player's order list and open-order count now use open sales; existing expiry reconciliation, reservations and cancellation remain unchanged. An isolated integration regression covers long history, the eight-order limit, expiry return and replacement after cancellation.
+- Purchase calculations show the quantity affordable with current credits, order stock and free warehouse space. A free shortcut copies that quantity into the form; buying remains a separate explicit action. Sellers can open all their current sales directly after placement or when reaching the order limit.
+- Tasks with a known expired period now explain that the displayed set needs updating, without offering its old rewards. Claim handlers recheck the deadline, unknown deadlines retain server validation, and late receipts remain scoped to the original quest IDs. A zero-reward receipt asks for a refresh without claiming rewards were already received.
+- Task cards explain that expedition progress counts when results are collected and that each prepaid production cycle counts as a smelt. Market touch controls retain a minimum height of 44 pixels with the shared stylesheet loaded last. No migration, dependency, economy or saved-city change is required.
+
 ## 1.14.10-beta.1 — Clear Research Steps
 - Technology blockers now lead to the matching HQ or laboratory improvement, laboratory placement, readiness check or workshop. Viewing a destination does not start research or spend resources; completed building unlocks also lead to the HQ improvement when needed.
 - Removed the implied automatic research queue. Other technologies explain their separate manual launch, and a running technology leads back to its current progress. When the timer ends, the card offers an explicit result check and waits for server confirmation before showing completion.

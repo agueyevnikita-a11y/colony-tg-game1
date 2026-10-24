@@ -3,6 +3,10 @@
 .questPanelHeading h2 { margin:0; }
 .questPeriod { padding:5px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:10px; white-space:nowrap; }
 .colonyApp .questPanel .questReset { margin:5px 0 0; font-size:11px; line-height:1.5; color:var(--muted); }
+.questPeriodNotice { display:grid; gap:8px; min-width:0; margin:12px 0; padding:12px; border:1px solid rgba(202,179,126,.3); border-radius:12px; background:rgba(160,127,59,.06); }
+.questPeriodNotice > strong { display:flex; align-items:center; gap:7px; color:#e3cca0; font-size:12px; }
+.colonyApp .questPanel .questPeriodNotice p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.questPeriodNotice .miniButton { display:inline-flex; align-items:center; justify-content:center; gap:6px; justify-self:start; max-width:100%; white-space:normal; line-height:1.5; }
 .questCounts { display:flex; flex-wrap:wrap; gap:6px 14px; margin:13px 0; color:var(--muted); font-size:11px; line-height:1.7; }
 .questCounts > span { display:inline-flex; gap:6px; }
 .questCounts strong { color:var(--text); }
@@ -19,6 +23,8 @@
 .questEntry { min-width:0; padding:13px; border:1px solid var(--line); border-radius:13px; background:rgba(10,24,33,.23); }
 .questEntry.isReady { border-color:rgba(128,209,171,.32); background:rgba(60,113,89,.08); }
 .questEntry.isClaimed { background:rgba(10,24,33,.12); }
+.questEntry.isExpired { border-style:dashed; background:rgba(10,24,33,.12); }
+.questEntry.isExpired .questProgress > i { background:#738b91; }
 .questEntry.isClaimed .questEntryFoot { margin-top:8px; }
 .questEntryHeading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 10px; }
 .questEntryHeading h3 { margin:0; font-size:13px; line-height:1.5; }
@@ -26,6 +32,7 @@
 .isReady .questStatus { color:#b6e6cc; }
 .isClaimed .questStatus { color:#a2bdad; }
 .colonyApp .questEntry > p { margin:7px 0 10px; font-size:12px; line-height:1.55; }
+.colonyApp .questEntry > p.questActionHint { color:var(--muted); font-size:11px; line-height:1.6; }
 .questProgress { height:5px; overflow:hidden; border-radius:99px; background:rgba(140,179,189,.12); margin-top:10px; }
 .questProgress > i { display:block; height:100%; border-radius:inherit; background:#71bdb6; }
 .isReady .questProgress > i { background:#92d3aa; }
@@ -38,6 +45,7 @@
 .questClaim { border-color:rgba(128,209,171,.4); color:#c6ecd5; }
 .questNavigate { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
 .questReceived { display:inline-flex; align-items:center; gap:5px; color:#a2bdad; font-size:11px; }
+.questExpiredAction { color:var(--muted); font-size:11px; line-height:1.5; }
 .questFeedback { display:flex; flex-wrap:wrap; gap:9px; margin:12px 0; overflow-wrap:anywhere; font-size:12px; }
 .questFeedback > span { flex:1; min-width:130px; }
 .questEmpty { display:flex; align-items:flex-start; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--line); border-radius:12px; color:var(--muted); font-size:12px; line-height:1.6; }

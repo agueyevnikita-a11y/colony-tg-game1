@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import '@/app/quests.css';
@@ -50,6 +50,11 @@ function shortcut(config: QuestConfig | undefined, questKey: string): { destinat
   if (/expedition/.test(event)) return { destination: 'expeditions', label: 'К экспедициям', icon: 'rocket' };
   return { destination: 'city', label: 'В колонию', icon: 'city' };
 }
+function actionHint(event: string | undefined) {
+  if (event === 'expedition_completed') return 'Зачёт — после получения результата экспедиции. Дождаться возвращения аппарата недостаточно.';
+  if (event === 'foundry_started') return 'Каждый оплаченный цикл партии считается отдельной плавкой. Ждать выдачи деталей не нужно.';
+  return null;
+}
 
 export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate, onRefresh, resetsAt }: Props) {
   const id = useId();
@@ -57,14 +62,30 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
   const [pending, setPending] = useState<string | null>(null);
   const [claimedIds, setClaimedIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const submitGuard = useRef(false);
   const scope = `${period}:${quests.map((quest) => quest.id).sort().join(',')}`;
   const locked = busy || pending !== null;
+  const resetAt = Date.parse(resetsAt ?? '');
+  const expired = Number.isFinite(resetAt) && resetAt <= now;
+
+  useEffect(() => {
+    const timestamp = Date.now();
+    setNow(timestamp);
+    if (!Number.isFinite(resetAt) || resetAt <= timestamp) return;
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= resetAt) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resetAt]);
+
   const rows = quests.map((quest, index) => {
     const config = catalog.find((item) => item.key === quest.quest_key);
     const claimed = !!quest.claimed_at || claimedIds.has(quest.id);
     const progress = number(quest.progress), target = number(quest.target);
-    const ready = !claimed && progress >= target && target > 0;
+    const ready = !expired && !claimed && progress >= target && target > 0;
     return { quest, config, claimed, ready, progress, target, index, rank: ready ? 0 : claimed ? 2 : 1 };
   }).sort((left, right) => left.rank - right.rank || left.index - right.index);
   const ready = rows.filter((row) => row.ready);
@@ -77,8 +98,14 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
   const nextReset = resetTime(resetsAt);
 
   async function claim(questKey?: string) {
+    if (locked || submitGuard.current) return;
+    const submittedAt = Date.now();
+    if (Number.isFinite(resetAt) && resetAt <= submittedAt) {
+      setNow(submittedAt);
+      return;
+    }
     const selected = ready.filter((row) => !questKey || row.quest.quest_key === questKey);
-    if (locked || submitGuard.current || !selected.length || (!questKey && selected.length < 2)) return;
+    if (!selected.length || (!questKey && selected.length < 2)) return;
     submitGuard.current = true;
     setPending(questKey ?? 'all');
     setFeedback(null);
@@ -89,7 +116,7 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
       const keys = new Set(result.questKeys);
       // Snapshot IDs keep a response from hiding tomorrow's identically named quests.
       setClaimedIds((previous) => new Set([...previous, ...selected.filter((row) => keys.has(row.quest.quest_key)).map((row) => row.quest.id)]));
-      setFeedback({ scope: requestScope, error: false, text: result.count ? `Получено наград: ${quantity(result.count)}.` : 'Все готовые награды уже получены.', result });
+      setFeedback({ scope: requestScope, error: false, text: result.count ? `Получено наград: ${quantity(result.count)}.` : 'Новых наград не выдано. Обнови задания, чтобы проверить текущий набор.', result });
     } catch (cause) {
       setFeedback({ scope: requestScope, error: true, text: cause instanceof Error ? cause.message : 'Не удалось получить награду. Повтори попытку.' });
     } finally {
@@ -98,26 +125,28 @@ export function QuestPanel({ period, quests, catalog, busy, onClaim, onNavigate,
     }
   }
 
-  return <section className="card questPanel" data-quest-panel={period} aria-labelledby={`${id}-title`} aria-busy={pending !== null}>
-    <div className="questPanelHeading"><h2 id={`${id}-title`}><GameIcon name="missions" />{period === 'daily' ? 'Ежедневные задания' : 'Недельные задания'}</h2><span className="questPeriod">{period === 'daily' ? 'На сегодня' : 'На эту неделю'}</span></div>
-    <p>Награды всех заданий: <GameAmount resource="crystals">{quantity(crystals)}</GameAmount> и <GameAmount resource="credits">{quantity(credits)}</GameAmount>.</p>
+  return <section className="card questPanel" data-quest-panel={period} data-quest-period-state={expired ? 'expired' : 'current'} aria-labelledby={`${id}-title`} aria-busy={pending !== null}>
+    <div className="questPanelHeading"><h2 id={`${id}-title`}><GameIcon name="missions" />{period === 'daily' ? 'Ежедневные задания' : 'Недельные задания'}</h2><span className="questPeriod">{expired ? 'Прошлый набор' : period === 'daily' ? 'На сегодня' : 'На эту неделю'}</span></div>
+    <p>{expired ? 'Награды показанного набора' : 'Награды всех заданий'}: <GameAmount resource="crystals">{quantity(crystals)}</GameAmount> и <GameAmount resource="credits">{quantity(credits)}</GameAmount>.</p>
     <p className="questReset">{nextReset ? <>Обновление: <time dateTime={resetsAt}>{nextReset}</time></> : 'Обновление по времени сервера'}</p>
-    <div className="questCounts" aria-label="Состояние заданий"><span className="questReadyCount">Готово к сбору <strong data-quest-ready-count>{ready.length}</strong></span><span>В процессе <strong>{unfinished}</strong></span><span>Получено <strong>{claimed}/{rows.length}</strong></span></div>
+    {expired && <div className="questPeriodNotice" data-quest-period-expired role="status"><strong><GameIcon name="clock" size={16} />Период завершился</strong><p>Здесь показан прошлый набор. Обнови колонию, чтобы увидеть актуальные задания и проверить награды.</p>{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить задания<GameIcon name="arrow" size={13} /></button>}</div>}
+    <div className="questCounts" aria-label="Состояние заданий"><span className={expired ? undefined : 'questReadyCount'}>Готово к сбору <strong data-quest-ready-count>{ready.length}</strong></span><span>{expired ? 'Требуют обновления' : 'В процессе'} <strong>{unfinished}</strong></span><span>{expired ? 'Получено в этом наборе' : 'Получено'} <strong>{claimed}/{rows.length}</strong></span></div>
     {ready.length >= 2 && <div className="questBulk"><div><strong>Готовы {ready.length} награды</strong><span><GameAmount resource="credits">{quantity(ready.reduce((sum, row) => sum + number(row.quest.credit_reward), 0))}</GameAmount><GameAmount resource="crystals">{quantity(ready.reduce((sum, row) => sum + number(row.quest.crystal_reward), 0))}</GameAmount></span></div><button type="button" className="action secondary" data-quest-claim-all disabled={locked} onClick={() => void claim()}>{pending === 'all' ? 'Получаем награды…' : 'Собрать готовые'}</button></div>}
-    {visibleFeedback && <div className={`notice questFeedback${visibleFeedback.error ? ' error' : ''}`} data-quest-feedback role={visibleFeedback.error ? 'alert' : 'status'}><span>{visibleFeedback.text}</span>{visibleFeedback.error && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить колонию</button>}{!visibleFeedback.error && !!visibleFeedback.result?.count && <strong><GameAmount resource="credits">{quantity(visibleFeedback.result.credits)}</GameAmount><GameAmount resource="crystals">{quantity(visibleFeedback.result.crystals)}</GameAmount></strong>}</div>}
+    {visibleFeedback && <div className={`notice questFeedback${visibleFeedback.error ? ' error' : ''}`} data-quest-feedback role={visibleFeedback.error ? 'alert' : 'status'}><span>{visibleFeedback.text}</span>{(visibleFeedback.error || visibleFeedback.result?.count === 0) && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить задания</button>}{!visibleFeedback.error && !!visibleFeedback.result?.count && <strong><GameAmount resource="credits">{quantity(visibleFeedback.result.credits)}</GameAmount><GameAmount resource="crystals">{quantity(visibleFeedback.result.crystals)}</GameAmount></strong>}</div>}
     {rows.length > 0 && <div className="questFilters" role="group" aria-label="Показать задания"><button type="button" className={filter === 'all' ? 'active' : ''} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Все · {rows.length}</button><button type="button" className={filter === 'ready' ? 'active' : ''} aria-pressed={filter === 'ready'} onClick={() => setFilter('ready')}>Готовые · {ready.length}</button></div>}
     {visibleRows.length ? <div className="questList">{visibleRows.map(({ quest, config, claimed: received, ready: done, progress, target }) => {
       const action = shortcut(config, quest.quest_key);
+      const hint = actionHint(config?.event);
       const percent = Math.min(100, Math.round(progress / Math.max(1, target) * 100));
-      return <article key={quest.id} className={`questEntry${done ? ' isReady' : received ? ' isClaimed' : ''}`} data-quest-key={quest.quest_key} data-quest-status={received ? 'claimed' : done ? 'ready' : 'progress'} aria-labelledby={`${id}-${quest.id}`}>
-        <div className="questEntryHeading"><h3 id={`${id}-${quest.id}`}>{config?.title ?? quest.quest_key}</h3><span className="questStatus"><GameIcon name={received ? 'check' : done ? 'gift' : 'clock'} size={13} />{received ? 'Получено' : done ? 'Награда готова' : 'В процессе'}</span></div>
-        {!received && <>{config?.description && <p>{config.description}</p>}
+      return <article key={quest.id} className={`questEntry${done ? ' isReady' : received ? ' isClaimed' : expired ? ' isExpired' : ''}`} data-quest-key={quest.quest_key} data-quest-status={received ? 'claimed' : expired ? 'expired' : done ? 'ready' : 'progress'} aria-labelledby={`${id}-${quest.id}`}>
+        <div className="questEntryHeading"><h3 id={`${id}-${quest.id}`}>{config?.title ?? quest.quest_key}</h3><span className="questStatus"><GameIcon name={received ? 'check' : done ? 'gift' : 'clock'} size={13} />{received ? 'Получено' : expired ? 'Период завершён' : done ? 'Награда готова' : 'В процессе'}</span></div>
+        {!received && <>{config?.description && <p>{config.description}</p>}{!expired && hint && <p className="questActionHint" data-quest-action-hint>{hint}</p>}
           <div className="questProgress" role="progressbar" aria-label={config?.title ?? quest.quest_key} aria-valuemin={0} aria-valuemax={Math.max(1, target)} aria-valuenow={Math.min(progress, Math.max(1, target))}><i style={{ width: `${percent}%` }} /></div>
-          <div className="questProgressText"><span>{quantity(Math.min(progress, target))}/{quantity(target)}</span><span>{done ? 'Можно забрать награду' : `Осталось: ${quantity(Math.max(0, target - progress))}`}</span></div>
+          <div className="questProgressText"><span>{quantity(Math.min(progress, target))}/{quantity(target)}</span><span>{expired ? 'Данные прошлого периода' : done ? 'Можно забрать награду' : `Осталось: ${quantity(Math.max(0, target - progress))}`}</span></div>
         </>}
-        <div className="questEntryFoot"><div className="questReward" aria-label={received ? 'Полученная награда' : 'Награда'}><GameAmount resource="credits">{quantity(number(quest.credit_reward))}</GameAmount><GameAmount resource="crystals">{quantity(number(quest.crystal_reward))}</GameAmount></div>{!received && (done ? <button type="button" className="miniButton questClaim" data-quest-claim={quest.quest_key} disabled={locked} onClick={() => void claim(quest.quest_key)}>{pending === quest.quest_key ? 'Получаем…' : 'Забрать награду'}</button> : <button type="button" className="miniButton questNavigate" data-quest-navigate={action.destination} disabled={locked} onClick={() => onNavigate(action.destination)}><GameIcon name={action.icon} size={13} />{action.label}<GameIcon name="arrow" size={13} /></button>)}</div>
+        <div className="questEntryFoot"><div className="questReward" aria-label={received ? 'Полученная награда' : expired ? 'Награда прошлого периода' : 'Награда'}><GameAmount resource="credits">{quantity(number(quest.credit_reward))}</GameAmount><GameAmount resource="crystals">{quantity(number(quest.crystal_reward))}</GameAmount></div>{!received && (expired ? <span className="questExpiredAction">Обнови задания</span> : done ? <button type="button" className="miniButton questClaim" data-quest-claim={quest.quest_key} disabled={locked} onClick={() => void claim(quest.quest_key)}>{pending === quest.quest_key ? 'Получаем…' : 'Забрать награду'}</button> : <button type="button" className="miniButton questNavigate" data-quest-navigate={action.destination} disabled={locked} onClick={() => onNavigate(action.destination)}><GameIcon name={action.icon} size={13} />{action.label}<GameIcon name="arrow" size={13} /></button>)}</div>
       </article>;
-    })}</div> : <div className="questEmpty" role="status">{!rows.length ? 'Задания ещё не загружены. Проверь соединение и обнови колонию.' : claimed === rows.length ? 'Все награды получены. Новые задания появятся в следующем периоде.' : 'Пока нет готовых наград. Продолжай выполнять задания.'}{rows.length > 0 ? <button type="button" className="miniButton" onClick={() => setFilter('all')}>Показать все задания</button> : onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить задания</button>}</div>}
+    })}</div> : <div className="questEmpty" role="status">{expired ? 'Период этого набора завершился. Обнови задания, чтобы проверить новый набор.' : !rows.length ? 'Задания ещё не загружены. Проверь соединение и обнови колонию.' : claimed === rows.length ? 'Все награды получены. Новые задания появятся в следующем периоде.' : 'Пока нет готовых наград. Продолжай выполнять задания.'}{rows.length > 0 ? <button type="button" className="miniButton" onClick={() => setFilter('all')}>{expired ? 'Показать прошлый набор' : 'Показать все задания'}</button> : !expired && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить задания</button>}</div>}
     <MechanicGuide steps={[
       'Выполняй указанное действие. Прогресс засчитывается автоматически; кнопка в карточке открывает нужный раздел.',
       'Готовую награду нужно забрать. «Собрать готовые» выдаёт только награды выполненных заданий, без дополнительного бонуса за набор.',

@@ -88,6 +88,53 @@ export async function runUnlocksIntegration({ t, sql, request, initData, playerI
       assert.equal((await sql`SELECT status FROM market_orders WHERE id=${order.id}`)[0].status, 'cancelled');
     });
 
+    await t.test('old open market orders remain visible beyond recent history and still enforce the order limit', async () => {
+      const owner = await player({ hq: 2, hub: true });
+      await research(owner, 'trade_network');
+      const before = await resources(owner);
+      const openOrders = await sql`
+        INSERT INTO market_orders(user_id,resource,amount_total,amount_remaining,unit_price,created_at,expires_at)
+        SELECT ${owner.userId},'ore',25,25,2,now()-interval '20 hours'+n*interval '1 minute',now()+interval '4 hours'
+        FROM generate_series(1,8) AS seed(n) RETURNING id
+      `;
+      // More than thirty newer terminal records must not hide any live sale.
+      await sql`
+        INSERT INTO market_orders(user_id,resource,amount_total,amount_remaining,unit_price,status,created_at,expires_at)
+        SELECT ${owner.userId},'ore',25,0,2,
+          CASE n%3 WHEN 0 THEN 'filled' WHEN 1 THEN 'cancelled' ELSE 'expired' END,
+          now()-interval '1 hour'+n*interval '1 second',now()+interval '1 day'
+        FROM generate_series(1,36) AS history(n)
+      `;
+      const [expired] = await sql`
+        INSERT INTO market_orders(user_id,resource,amount_total,amount_remaining,unit_price,created_at,expires_at)
+        VALUES(${owner.userId},'ore',25,25,2,now()-interval '25 hours',now()-interval '1 hour') RETURNING id
+      `;
+      const visible = await session(owner);
+      const expectedIds = openOrders.map(order => order.id).sort();
+      assert.deepEqual(visible.market.ownOrders.map(order => order.id).sort(), expectedIds);
+      assert.ok(visible.market.ownOrders.every(order => order.status === 'open' && Number(order.amount_remaining) === 25));
+      assert.equal(visible.market.ownOrders.length, 8, 'The client must see the full active order count');
+      assert.equal((await sql`SELECT status FROM market_orders WHERE id=${expired.id}`)[0].status, 'expired');
+      assert.equal((await resources(owner)).ore, before.ore+25, 'Expiry must still return the unsold reservation once');
+
+      const fullBefore = await resources(owner);
+      const rejected = await post(owner, '/api/market/order/create', { resource: 'ore', amount: 25, unitPrice: 2 });
+      assert.equal(rejected.status, 400, JSON.stringify(rejected.data));
+      assert.match(rejected.data.error, /Максимум 8 открытых ордеров/);
+      assert.deepEqual(await resources(owner), fullBefore);
+
+      const cancelled = await post(owner, '/api/market/order/cancel', { orderId: openOrders[0].id });
+      assert.equal(cancelled.status, 200, JSON.stringify(cancelled.data));
+      assert.equal(cancelled.data.market.ownOrders.length, 7);
+      assert.ok(!cancelled.data.market.ownOrders.some(order => order.id === openOrders[0].id));
+      assert.equal((await resources(owner)).ore, fullBefore.ore+25, 'An older visible sale must remain cancellable');
+      const created = await post(owner, '/api/market/order/create', { resource: 'ore', amount: 25, unitPrice: 2 });
+      assert.equal(created.status, 200, JSON.stringify(created.data));
+      assert.equal(created.data.market.ownOrders.length, 8);
+      assert.ok(openOrders.slice(1).every(order => created.data.market.ownOrders.some(current => current.id === order.id)));
+      assert.equal((await resources(owner)).ore, fullBefore.ore, 'Creating a replacement must reserve only its own quantity');
+    });
+
     await t.test('HQ3 and an active expedition center still require completed expedition protocols before charging a launch', async () => {
       const explorer = await player({ center: true });
       const before = await resources(explorer);

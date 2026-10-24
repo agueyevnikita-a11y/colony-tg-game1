@@ -22,6 +22,7 @@ type Props = {
   onCancel: (orderId: string) => Promise<unknown>;
   onBuild: () => void;
   onRefresh: () => void;
+  onOwnOrders?: () => void;
 };
 type Feedback = { view: View; target: string; text: string; error: boolean };
 const RESOURCE_KEYS: MarketResource[] = ['ore', 'energy', 'parts'];
@@ -115,6 +116,10 @@ export function MarketPanel(props: Props) {
   }, [feedback, props.view]);
 
   function clearFeedback() { setFeedback(null); }
+  function showOwnOrders() {
+    setFilter('all'); setPage(0); setEditingOrderId(null);
+    props.onOwnOrders?.();
+  }
   async function run(target: string, operation: () => Promise<unknown>, successText: string) {
     if (locked || guard.current) return;
     const view = props.view;
@@ -158,6 +163,7 @@ export function MarketPanel(props: Props) {
           const cost = valid ? requested * price : 0;
           const creditsMissing = valid ? Math.max(0, cost - available(props.resources.credits)) : 0;
           const free = Math.max(0, available(props.capacities[key]) - available(props.resources[key]));
+          const affordableAmount = price > 0 ? Math.max(0, Math.min(Math.floor(remaining), Math.floor(available(props.resources.credits) / price), Math.floor(free))) : 0;
           const spaceMissing = valid ? Math.max(0, requested - free) : 0;
           const expired = !!order.expires_at && new Date(order.expires_at).getTime() <= now;
           const target = `${props.view === 'mine' ? 'cancel' : 'buy'}:${order.id}`;
@@ -177,6 +183,10 @@ export function MarketPanel(props: Props) {
               <label className="marketBuyAmount" htmlFor={`${id}-${order.id}-amount`}><span>Количество</span><input id={`${id}-${order.id}-amount`} type="text" inputMode="numeric" pattern="[0-9]*" value={typed} disabled={locked} onChange={(event) => { setBuyAmounts((old) => ({ ...old, [order.id]: event.target.value.replace(/\D/g, '') })); clearFeedback(); }} /></label>
               <div className="marketBuyPreview"><div><span>Спишется</span><GameAmount resource="credits">{number(cost)}</GameAmount></div><GameIcon name="arrow" size={14} /><div><span>Получишь</span><GameAmount resource={key}>{number(valid ? requested : 0)}</GameAmount></div></div>
               <p className="marketStorage">Свободно: {number(free)} ед. Резервы продажи учтены.</p>
+              <div className="marketAffordable" data-market-affordable={order.id}>
+                <p>Можно купить сейчас: <GameAmount resource={key}>{number(affordableAmount)}</GameAmount>. По твоим кредитам и свободному месту.</p>
+                <button type="button" className="miniButton" disabled={locked || affordableAmount <= 0 || expired || !props.featureEnabled || !market.enabled} onClick={() => { setBuyAmounts(old => ({ ...old, [order.id]: String(affordableAmount) })); clearFeedback(); }}>Подставить доступное количество</button>
+              </div>
               {!valid && <p className="marketWarning">Укажи целое количество от 1 до {number(remaining)}.</p>}
               {creditsMissing > 0 && <p className="marketWarning">Не хватает: <GameAmount resource="credits">{number(Math.ceil(creditsMissing))}</GameAmount>.</p>}
               {spaceMissing > 0 && <p className="marketWarning">На складе нужно ещё место для <GameAmount resource={key}>{number(Math.ceil(spaceMissing))}</GameAmount>.</p>}
@@ -201,6 +211,7 @@ export function MarketPanel(props: Props) {
       {amountValid && priceValid && !valueValid && <p className="marketWarning">Минимальная стоимость ордера — {number(MARKET_MIN_ORDER_VALUE)} кредитов.</p>}
       {Number.isFinite(sellMissing) && sellMissing > 0 && <p className="marketWarning">Не хватает: <GameAmount resource={resource}>{number(Math.ceil(sellMissing))}</GameAmount>.</p>}
       {maxOrders && <p className="marketWarning">Достигнут лимит: {MARKET_MAX_OPEN_ORDERS} открытых ордеров. Заверши продажу или отмени один из своих ордеров.</p>}
+      {props.onOwnOrders && (maxOrders || feedback?.view === 'sell' && feedback.target === 'create' && !feedback.error) && <button type="button" className="miniButton marketOwnOrdersLink" disabled={locked} data-market-own-orders onClick={showOwnOrders}>Мои открытые ордера<GameIcon name="arrow" size={14} /></button>}
       <button type="submit" className="action marketOrderAction" disabled={!canSell} data-market-create="">{pending === 'create' ? 'Размещаем…' : 'Выставить ордер'}<GameIcon name="arrow" size={16} /></button>
       <p className="marketRules">Ордер действует {MARKET_ORDER_TTL_HOURS} часа. Непроданный остаток возвращается при отмене или после истечения срока.</p>{notice('create')}
     </form>}

@@ -1199,6 +1199,7 @@ export default function Home() {
         onCreate={async (body) => { try { return await api('/api/market/order/create', body); } catch (error) { setMessage(''); throw error; } }}
         onBuy={async (body) => { try { return await api('/api/market/order/buy', body); } catch (error) { setMessage(''); throw error; } }}
         onCancel={async (orderId) => { try { return await api('/api/market/order/cancel', { orderId }); } catch (error) { setMessage(''); throw error; } }}
+        onOwnOrders={() => showSectionFromGuide('market', 'mine')}
         onBuild={() => (game.buildings ?? []).some((building: any) => building.type === 'trade_hub') ? navigateGuide('building:trade_hub') : beginPlacement('trade_hub', 'Торговый узел')} onRefresh={() => { void refresh(); }}
       />}</div>}
 
