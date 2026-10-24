@@ -61,6 +61,19 @@
 .allianceEntryBenefits { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:14px 0; }
 .allianceEntryBenefits>span { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; background:rgba(133,221,191,.035); line-height:1.4; }
 .allianceEntryBenefits b { font-size:11px; font-weight:700; overflow-wrap:anywhere; }.allianceEntryBenefits small { color:var(--muted); font-size:10px; }
+.alliancePurpose { min-width:0; margin:10px 0; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:rgba(133,221,191,.025); }
+.colonyApp .alliancePanel .alliancePurpose>summary { box-sizing:border-box; min-height:44px; align-content:center; padding:10px 0; color:var(--muted); font-size:11px; line-height:1.6; cursor:pointer; overflow-wrap:anywhere; }
+.alliancePurpose>div { display:grid; gap:9px; min-width:0; padding-bottom:12px; }
+.colonyApp .alliancePanel .alliancePurpose p { margin:0; color:var(--muted); font-size:11px; line-height:1.7; }
+.alliancePurpose p>strong { color:var(--text); }
+.alliancePurposeLinks { display:flex; flex-wrap:wrap; gap:7px; min-width:0; }
+.alliancePurpose .miniButton,.allianceFeedback>.miniButton { display:inline-flex; align-items:center; justify-content:center; gap:5px; max-width:100%; margin-top:6px; font-size:11px; line-height:1.6; }
+.alliancePurpose>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:4px; }
+.coopHeroScience>.allianceScienceUnknown { max-width:110px; color:var(--muted); font-size:10px; text-align:center; line-height:1.6; }
+.allianceProjectReward { display:grid; gap:8px; min-width:0; margin-top:12px; padding:11px; border:1px solid var(--line); border-radius:11px; background:rgba(133,221,191,.035); }
+.allianceProjectReward>strong { display:flex; align-items:center; gap:7px; color:var(--text); font-size:12px; line-height:1.6; }
+.allianceProjectReward>span { color:#c4e3d8; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.colonyApp .alliancePanel .allianceProjectReward p { margin:0; color:var(--muted); font-size:11px; line-height:1.7; }
 .allianceEntryWait { display:flex; align-items:flex-start; gap:9px; margin:12px 0; padding:11px; border:1px solid rgba(244,197,111,.28); border-radius:11px; background:rgba(244,197,111,.045); color:#efd19a; }
 .allianceEntryWait>.gameIcon { flex:none; margin-top:2px; }.allianceEntryWait>div { min-width:0; }.allianceEntryWait strong { font-size:12px; }.allianceEntryWait p { margin:5px 0!important; font-size:12px; line-height:1.55; }.allianceEntryWait small { color:var(--muted); font-size:11px; line-height:1.55; }
 .allianceEntry .allianceEntryForm { margin-top:0; padding-top:0; border-top:0; }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.22-beta.1 — Explain Alliance Progress and Weekly League Rewards
+- Alliance guidance separates personal mining cargo, shared science, daily teamwork and cumulative project AP. Free shortcuts connect mining to team technologies, personal research and the weekly league. Joining no longer repeats an empty mining introduction; previously earned shares remain accessible after leaving.
+- Daily team goals show the server day's deadline, stop advertising expired claims and isolate feedback by player, alliance and day. Project rewards explain their exact appearance, duration, automatic issue, cycle contribution threshold and current-membership requirement. Repeating a mining role is explicitly allowed, with distinct people and roles required only for the ore bonus.
+- League guidance explains when modules award points, the personal threshold, prize places, team eligibility, the shared prize pool and permanent cosmetic rewards. City rating, seasonal SP, project AP and league points remain distinct. A free season shortcut and the historical leaderboard explain the separate reward tracks.
+- League receipts must match a unique paid subset of the selected awards; partial payments leave the remainder available. Mining actions require plausible receipts for the submitted action, while unconfirmed results retain their retry identity and never substitute preview rewards. No migration, dependency, economy, reward, point rate or saved-city change is required.
+
 ## 1.14.21-beta.1 — Clarify Season Availability
 - Point-source explanations distinguish unconfirmed dates, a future season and an ended season. Unknown dates request a refresh without claiming that the season is inactive, while future and ended seasons explain their own point boundaries.
 - Completed the remaining wide-screen checks for unconfirmed dates, no season and unavailable quest snapshots. All 40 responsive scenarios pass across 320, 390, 430 and 768 pixels; the changed explanations also pass targeted narrow-screen checks. No migration, dependency, economy, reward, point rate or saved-city change is required.

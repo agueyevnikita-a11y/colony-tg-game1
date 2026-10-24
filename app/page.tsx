@@ -477,6 +477,10 @@ export default function Home() {
       showSectionFromGuide('missions', 'daily');
     } else if (action === 'alliance') {
       showSectionFromGuide('social', 'alliance');
+    } else if (action === 'rating') {
+      showSectionFromGuide('social', 'rating');
+    } else if (action === 'season') {
+      showSectionFromGuide('missions', 'season');
     } else if (action === 'decor') {
       showSectionFromGuide('city', 'decor');
     } else if (action === 'friends') {
@@ -1374,13 +1378,21 @@ export default function Home() {
         </div>}
         {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
           <AlliancePanel key={planOwner} alliance={game.alliance} cooperation={game.alliance?.cooperation} resources={s} hqLevel={Number(s.hq_level)} telegramId={game.telegramUser?.id} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
+            dailyResetsAt={game.questPeriods?.daily?.resetsAt}
+            onPersonalResearch={() => navigateGuide('research')} onOpenRating={() => navigateGuide('rating')}
             onShare={shareAlliance} onViewCity={viewCity} onRefresh={() => { void refresh(); }} onNavigate={navigateGuide}
             onDirectorySearch={async (query, page) => { try { return (await api('/api/alliance/directory', { query, page })).directory; } catch (error) { setMessage(''); throw error; } }}
             onAction={async (path, body) => { try { return await api(path, body); } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'rating' && <div data-section-panel="social-rating">
-          <AllianceCompetitionPanel key={planOwner} state={game.alliance?.competition} currentAllianceId={game.alliance?.membership ? game.alliance?.alliance?.id : null} onOpenAlliance={() => navigateGuide('alliance')} onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} busy={busy} onRefresh={() => { void refresh(); }} onClaim={async periodId => { try { return await api('/api/alliance/competition/claim', { periodId }); } catch (error) { setMessage(''); throw error; } }} />
-<details className="card"><summary>История Первого сигнала · без призового зачёта</summary><h2><GameIcon name="trophy" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div><p className="finePrint">Исторический рейтинг сохранён. Призы недельной лиги рассчитываются отдельно по новому вкладу в совместную добычу.</p></details>
+          <AllianceCompetitionPanel key={planOwner} state={game.alliance?.competition} cosmetics={game.shopCosmetics ?? []} currentAllianceId={game.alliance?.membership ? game.alliance?.alliance?.id : null} onOpenAlliance={() => navigateGuide('alliance')} onOpenSeason={() => navigateGuide('season')} onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} busy={busy} onRefresh={() => { void refresh(); }} onClaim={async periodId => { try { return await api('/api/alliance/competition/claim', { periodId }); } catch (error) { setMessage(''); throw error; } }} />
+          <details className="card"><summary>История Первого сигнала · без призового зачёта</summary>
+            <h2><GameIcon name="trophy" />Рейтинг I сезона</h2>
+            <p className="finePrint">Это история развития, без призов за место. SP — очки личного сезона за действия в колонии. AP — исторический зачёт альянса: взносы в мегапроект и четверть суммы SP его нынешних участников, с округлением вниз.</p>
+            <p className="finePrint">Рейтинг города показывает развитие базы, престиж — успехи альянса. Эти показатели не заменяют очки недельной лиги: в ней учитываются только оплаченные смены совместной добычи.</p>
+            <div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard ?? []).slice(0, 10).map((p: any, i: number) => <div className="leaderRow" key={p.telegram_id}><span>{i + 1}</span><b>{p.colony_name || p.first_name || p.username || p.telegram_id}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard ?? []).slice(0, 10).map((a: any, i: number) => <div className="leaderRow" key={a.id}><span>{i + 1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div>
+            <button type="button" className="miniButton" onClick={() => navigateGuide('season')}>Награды за SP сезона<GameIcon name="arrow" size={13} /></button>
+          </details>
         </div>}
         {subsections.social === 'friends' && <div data-section-panel="social-friends">
           <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onUpgradeHq={() => navigateGuide('upgrade_hq')} onRefresh={() => { void refresh(); }} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />

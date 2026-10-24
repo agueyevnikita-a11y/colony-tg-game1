@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { durationText } from '@/lib/game/format';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
-import { allianceCreationQuote, contributionPoints, type AllianceCreationQuote, type AllianceResource } from '@/lib/game/alliance';
+import { ALLIANCE_DAILY_GOALS, allianceCreationQuote, contributionPoints, type AllianceCreationQuote, type AllianceResource } from '@/lib/game/alliance';
+import { progressGoalForEvent } from '@/lib/game/progress-goals';
 import { AllianceCooperationPanel, type AllianceCooperationState } from '@/components/AllianceCooperationPanel';
 import { AllianceDirectory } from '@/components/AllianceDirectory';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -45,7 +46,7 @@ type AllianceState = {
     ore_contributed: string | number;
     energy_contributed: string | number;
     parts_contributed: string | number;
-    stageConfig: { title: string; description: string; target: Record<AllianceResource, number>; minimumContributionPoints: number };
+    stageConfig: { title: string; description: string; target: Record<AllianceResource, number>; minimumContributionPoints: number; rewardCosmeticId?: string; rewardDays?: number };
     myContribution?: { points: string | number }[];
     canRestart?: boolean;
     restartAvailableAt?: string | null;
@@ -81,9 +82,12 @@ type Props = {
   onDirectorySearch?: (query: string, page: number) => Promise<AllianceDirectoryState>;
   onRefresh?: () => void;
   onNavigate?: (action: 'build' | 'production' | 'contracts') => void;
+  onPersonalResearch?: () => void;
+  onOpenRating?: () => void;
+  dailyResetsAt?: string | null;
 };
 
-type Feedback = { text: string; error: boolean };
+type Feedback = { text: string; error: boolean; scope?: string };
 type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; telegramId: string | number; name: string };
 type AllianceSection = 'mining' | 'technology' | 'project' | 'goals' | 'members';
 type EntrySection = 'find' | 'code' | 'create';
@@ -91,6 +95,7 @@ const MEMBERS_PER_PAGE = 5;
 const RESOURCES: AllianceResource[] = ['ore', 'energy', 'parts'];
 const RESOURCE_LABELS = { ore: 'руды', energy: 'энергии', parts: 'деталей' };
 const RESOURCE_COLUMNS = { ore: 'ore_contributed', energy: 'energy_contributed', parts: 'parts_contributed' } as const;
+const PROJECT_REWARD_NAMES: Record<string, string> = { effect_alliance_signal: 'Эффект «Общий сигнал»', frame_alliance_relay: 'Рамка «Ретранслятор»', monument_alliance_relay: 'Монумент орбитального ретранслятора' };
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU');
 const pct = (value: unknown, target: unknown) => Math.min(100, Math.max(0, Number(value ?? 0) / Math.max(1, Number(target ?? 1)) * 100));
 const memberName = (member: AllianceMember) => member.colony_name || member.first_name || member.username || String(member.telegram_id);
@@ -105,7 +110,7 @@ function timeRemaining(timestamp: string | null | undefined, now: number) {
   return durationText((Date.parse(timestamp) - now) / 1000);
 }
 
-export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh, onNavigate }: Props) {
+export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh, onNavigate, onPersonalResearch, onOpenRating, dailyResetsAt }: Props) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState('');
   const [resource, setResource] = useState<AllianceResource>('ore');
@@ -123,6 +128,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const submittingRef = useRef(false);
   const miningNavigationPending = useRef(false);
   const cooperationPanelRef = useRef<HTMLDivElement>(null);
+  const contextRef = useRef({ owner: String(telegramId ?? ''), allianceKey: '' });
   useEffect(() => {
     if (section !== 'mining' || !miningNavigationPending.current) return;
     miningNavigationPending.current = false;
@@ -131,13 +137,13 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
     element?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [section]);
   useEffect(() => { setCode(initialCode); if (initialCode) setEntrySection('code'); }, [initialCode]);
-  useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); }, [alliance?.alliance?.id, alliance?.alliance?.code, telegramId]);
+  useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); setFeedback({}); }, [alliance?.alliance?.id, alliance?.alliance?.code, telegramId]);
   useEffect(() => {
     setNow(Date.now());
-    if (!(alliance?.project?.status === 'completed' && alliance.project.restartAvailableAt) && !alliance?.entry?.availableAt) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    if (!(alliance?.project?.status === 'completed' && alliance.project.restartAvailableAt) && !alliance?.entry?.availableAt && !Number.isFinite(Date.parse(dailyResetsAt ?? ''))) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [alliance?.project?.status, alliance?.project?.restartAvailableAt, alliance?.entry?.availableAt]);
+  }, [alliance?.project?.status, alliance?.project?.restartAvailableAt, alliance?.entry?.availableAt, dailyResetsAt]);
 
   const locked = busy || !!pendingKey;
   const rules = alliance?.rules;
@@ -154,6 +160,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const entryWaitMessage = entryWaiting ? `После выхода действует перерыв. Осталось ${timeRemaining(entryAvailableAt, now)}.` : '';
   const directoryJoinIssue = entryWaitMessage || (hqLevel < joinLevel ? `Для вступления нужен центр колонии ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : '');
   const group = alliance?.alliance;
+  contextRef.current = { owner: String(telegramId ?? ''), allianceKey: group?.id ?? group?.code ?? '' };
   const project = alliance?.project;
   const members = group?.members ?? [];
   const normalizedSearch = memberSearch.trim().toLocaleLowerCase('ru-RU').replace(/^@/, '');
@@ -162,7 +169,10 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const currentMemberPage = Math.min(memberPage, memberPages - 1);
   const visibleMembers = matchingMembers.slice(currentMemberPage * MEMBERS_PER_PAGE, (currentMemberPage + 1) * MEMBERS_PER_PAGE);
   const dailyGoals = alliance?.dailyGoals ?? [];
-  const readyGoals = dailyGoals.filter((goal) => goal.completed_at && !goal.my_claimed_at && Number(goal.my_contribution ?? 0) > 0).length;
+  const dailyResetAt = Date.parse(dailyResetsAt ?? '');
+  const dailyScope = `${group?.id ?? group?.code ?? ''}:${dailyResetsAt ?? 'unknown'}`;
+  const dailyExpired = Number.isFinite(dailyResetAt) && dailyResetAt <= now;
+  const readyGoals = dailyExpired ? 0 : dailyGoals.filter((goal) => goal.completed_at && !goal.my_claimed_at && Number(goal.my_contribution ?? 0) > 0).length;
   const myRole = alliance?.membership?.role;
   const hasMembership = !!alliance?.membership && !!group;
   const cooperationState = cooperation ?? alliance?.cooperation;
@@ -207,24 +217,29 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
 
   function status(key: string) {
     const item = feedback[key];
-    return item ? <div className={`allianceFeedback ${item.error ? 'isError' : ''}`} role={item.error ? 'alert' : 'status'}>{item.text}</div> : null;
+    if (key.startsWith('daily-') && item?.scope !== dailyScope) return null;
+    return item ? <div className={`allianceFeedback ${item.error ? 'isError' : ''}`} role={item.error ? 'alert' : 'status'}>{item.text}{item.error && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Проверить альянс</button>}</div> : null;
   }
 
   async function act(key: string, path: string, body: Record<string, unknown> | undefined, success: (data: any) => string, membershipChange = false) {
-    if (!enabled || busy || submittingRef.current) return;
+    if (!enabled || busy || submittingRef.current || contextRef.current.owner !== String(telegramId ?? '') || contextRef.current.allianceKey !== (group?.id ?? group?.code ?? '')) return;
     submittingRef.current = true;
     setPendingKey(key);
     setFeedback((previous) => { const next = { ...previous }; delete next[key]; return next; });
     if (membershipChange) setMembershipFeedback(null);
+    const requestContext = contextRef.current;
+    const scope = path === '/api/alliance/daily/claim' ? dailyScope : undefined;
     try {
       const data = await onAction(path, body);
-      const result = { text: success(data), error: false };
+      if (contextRef.current.owner !== requestContext.owner || (!membershipChange && contextRef.current.allianceKey !== requestContext.allianceKey)) return;
+      const result = { text: success(data), error: false, scope };
       setFeedback((previous) => ({ ...previous, [key]: result }));
       if (membershipChange) setMembershipFeedback(result);
       setConfirmation(null);
       setCreateConfirmation(null);
     } catch (cause) {
-      setFeedback((previous) => ({ ...previous, [key]: { text: cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуй ещё раз.', error: true } }));
+      if (contextRef.current.owner !== requestContext.owner || (!membershipChange && contextRef.current.allianceKey !== requestContext.allianceKey)) return;
+      setFeedback((previous) => ({ ...previous, [key]: { text: cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуй ещё раз.', error: true, scope } }));
     } finally {
       submittingRef.current = false;
       setPendingKey('');
@@ -274,7 +289,13 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   return <div className="alliancePanel">
     {hasMembership && group ? <>
       <section className="card allianceHero">
-        <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{group.name}</h2><p>Код: <b>{group.code}</b> · {members.length}/{group.memberLimit} участников · престиж {n(group.prestige)}</p></div><div className="coopHeroScience"><GameAmount resource="science" size={22}>{n(cooperationState?.progress?.sharedScience)}</GameAmount><span>общая наука</span></div></div>
+        <div className="cardTitleRow"><div><h2><GameIcon name="shield" />{group.name}</h2><p>Код: <b>{group.code}</b> · {members.length}/{group.memberLimit} участников · престиж {n(group.prestige)}</p></div><div className="coopHeroScience">{cooperationState?.progress ? <GameAmount resource="science" size={22}>{n(cooperationState.progress.sharedScience)}</GameAmount> : <span className="allianceScienceUnknown">Данные не загружены</span>}<span>общая наука</span></div></div>
+        <details className="alliancePurpose" data-alliance-purpose><summary>Что развивать вместе</summary><div>
+          <p><strong>Добыча</strong> даёт личные ресурсы за оплаченные смены и общую науку для технологий команды. Само вступление запасы колонии не увеличивает.</p>
+          <p><strong>Цели дня</strong> продвигаются обычными стройками, плавками и контрактами. Для личной награды нужен вклад до завершения цели, а получить её нужно до смены игрового дня.</p>
+          <p><strong>Мегапроект</strong> открывает оформление за накопленные AP текущего цикла. Это отдельный вклад; его не заменяют смены добычи или очки лиги.</p>
+          <div className="alliancePurposeLinks"><button type="button" className="miniButton" disabled={locked} onClick={() => changeSection('technology')}>Технологии команды<GameIcon name="arrow" size={13} /></button><button type="button" className="miniButton" disabled={locked} onClick={() => changeSection('goals')}>Цели команды<GameIcon name="arrow" size={13} /></button>{onOpenRating && <button type="button" className="miniButton" disabled={locked} onClick={onOpenRating}>Недельная лига<GameIcon name="arrow" size={13} /></button>}</div>
+        </div></details>
         <div className="allianceHeroActions"><button type="button" className="action" disabled={locked} onClick={onShare}><GameIcon name="share" size={15} />Пригласить</button><button type="button" className="action secondary" disabled={locked || ownerMustTransfer} onClick={() => { setConfirmation({ kind: 'leave' }); setFeedback((previous) => { const next = { ...previous }; delete next.leave; return next; }); }}>Выйти</button></div>
         {ownerMustTransfer && <p className="finePrint">Чтобы выйти, сначала передай руководство в разделе «Участники».</p>}
         {confirmation?.kind === 'leave' && confirmationBox(confirmation)}
@@ -291,9 +312,9 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
         { key: 'members', label: 'Участники', icon: 'social', badge: members.length },
       ]} value={section} onChange={key => changeSection(key as AllianceSection)} />
 
-      <div ref={cooperationPanelRef} tabIndex={-1} hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} onMining={() => { miningNavigationPending.current = true; changeSection('mining'); }} /></div>
+      <div ref={cooperationPanelRef} tabIndex={-1} hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} onMining={() => { miningNavigationPending.current = true; changeSection('mining'); }} onTechnology={() => changeSection('technology')} onPersonalResearch={onPersonalResearch} onOpenRating={onOpenRating} /></div>
 
-      {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section"><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p>{onNavigate && <p className="finePrint">Кнопки открывают нужный раздел. Ресурсы расходуются при подтверждении выбранного действия.</p>}<div className="stack">{dailyGoals.map((goal) => {
+      {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section" data-alliance-daily-state={dailyExpired ? 'expired' : 'current'}><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><p className="finePrint">{Number.isFinite(dailyResetAt) ? <>Обновление: <time dateTime={dailyResetsAt ?? undefined}>{new Date(dailyResetAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</time>.</> : 'Набор обновляется со сменой игрового дня по времени сервера.'} Готовую награду нужно забрать до обновления.</p>{dailyExpired && <div className="allianceFeedback" role="status" data-alliance-daily-expired>Показан прошлый набор целей. Обнови альянс для проверки нового дня.{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить цели</button>}</div>}{onNavigate && !dailyExpired && <p className="finePrint">Кнопки открывают нужный раздел. Ресурсы расходуются при подтверждении выбранного действия.</p>}<details className="alliancePurpose"><summary>Какие действия засчитываются</summary><div>{ALLIANCE_DAILY_GOALS.map(goal => <p key={goal.key}><strong>{goal.title}.</strong> {progressGoalForEvent(goal.event)?.countHint}</p>)}<p>Общий прогресс перестаёт расти после завершения цели. Поздние действия не добавят личный вклад в уже выполненную цель.</p></div></details><div className="stack">{dailyGoals.map((goal) => {
         const done = !!goal.completed_at;
         const contributed = Number(goal.my_contribution ?? 0) > 0;
         const key = `daily-${goal.goal_key}`;
@@ -302,9 +323,16 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
           <div className="missionHead"><div><strong>{goal.title ?? goal.goal_key}</strong><small>{goal.description?.replace('NPC-контрактов', 'контрактов с колонией')}</small></div><span className="missionRewards"><GameAmount resource="crystals">{n(goal.reward_crystals)}</GameAmount><GameAmount resource="credits">{n(goal.reward_credits)}</GameAmount></span></div>
           <div className="progress"><i style={{ width: `${pct(goal.progress, goal.target)}%` }} /></div>
           <div className="missionFoot"><span>{n(goal.progress)}/{n(goal.target)} · твой вклад {n(goal.my_contribution)}</span>
-            {!done && destination && onNavigate
+            {dailyExpired ? <span className="finePrint">Период завершён</span> : !done && destination && onNavigate
               ? <button type="button" className="miniButton" disabled={locked} onClick={() => onNavigate(destination.action)}>{destination.label}<GameIcon name="arrow" size={13} /></button>
-              : <button type="button" className="miniButton" disabled={locked || !done || !contributed || !!goal.my_claimed_at} onClick={() => { void act(key, '/api/alliance/daily/claim', { goalKey: goal.goal_key }, (data) => `Награда получена: ${n(data.result?.credits ?? goal.reward_credits)} кредитов и ${n(data.result?.crystals ?? goal.reward_crystals)} кристаллов.`); }}>{pendingKey === key ? 'Получаем…' : goal.my_claimed_at ? 'Получено' : done ? contributed ? 'Забрать' : 'Нет вклада' : 'В процессе'}</button>}
+              : <button type="button" className="miniButton" disabled={locked || !done || !contributed || !!goal.my_claimed_at} onClick={() => {
+                if (Number.isFinite(dailyResetAt) && Date.now() >= dailyResetAt) { setNow(Date.now()); return; }
+                void act(key, '/api/alliance/daily/claim', { goalKey: goal.goal_key }, (data) => {
+                  const result = data?.result;
+                  if (!result || !Number.isSafeInteger(result.credits) || !Number.isSafeInteger(result.crystals) || result.credits < 0 || result.crystals < 0 || result.credits !== Number(goal.reward_credits) || result.crystals !== Number(goal.reward_crystals)) throw new Error('Обнови цели альянса, чтобы проверить результат получения награды.');
+                  return `Награда получена: ${n(result.credits)} кредитов и ${n(result.crystals)} кристаллов.`;
+                });
+              }}>{pendingKey === key ? 'Получаем…' : goal.my_claimed_at ? 'Получено' : done ? contributed ? 'Забрать' : 'Нет вклада' : 'В процессе'}</button>}
           </div>
           {done && !contributed && <p className="finePrint">В эту цель нужно было внести вклад до её завершения. Участвуй в следующих целях.</p>}{status(key)}
         </div>;
@@ -325,6 +353,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
             void act('contribute', '/api/alliance/contribute', { resource, amount: requested }, (data) => {
               const result = data.result ?? {};
               const actual = Number(result.accepted ?? 0);
+              if (!Number.isSafeInteger(result.accepted) || actual <= 0 || actual > requested || !Number.isSafeInteger(result.points) || result.points !== contributionPoints(resource, actual) || typeof result.stageCompleted !== 'boolean') throw new Error('Обнови проект альянса, чтобы проверить принятый взнос.');
               return `Внесено ${n(actual)} ${RESOURCE_LABELS[resource]} · +${n(result.points)} AP.${actual < requested ? ` Остальные ${n(requested - actual)} ${RESOURCE_LABELS[resource]} не списаны.` : ''}${result.stageCompleted ? ' Этап завершён!' : ''}`;
             });
           }}>
@@ -333,7 +362,8 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
             <p className={`allianceContributionHelp ${contributionIssue ? 'isUnavailable' : ''}`} id="alliance-contribution-help">{contributionIssue || `Спишется ${n(accepted)} ${RESOURCE_LABELS[resource]}, твой вклад +${n(contributionPoints(resource, accepted))} AP.${requested > needed ? ` Оставшиеся ${n(requested - accepted)} не списываются.` : ''}`}</p>
             <button type="submit" className="action" disabled={locked || !!contributionIssue}>{pendingKey === 'contribute' ? 'Вносим…' : 'Внести в проект'}</button>
           </form>
-          <p className="finePrint">Внесённые ресурсы не возвращаются. Stars здесь не используются. Для награды этапа нужно минимум {n(project.stageConfig.minimumContributionPoints)} очков личного вклада в этом цикле. Твой вклад: {n((project.myContribution ?? []).reduce((sum, entry) => sum + Number(entry.points ?? 0), 0))} AP.</p>
+          <div className="allianceProjectReward" data-alliance-project-reward><strong><GameIcon name="palette" size={16} />Награда этапа</strong><span>{project.stageConfig.rewardCosmeticId ? `${PROJECT_REWARD_NAMES[project.stageConfig.rewardCosmeticId] ?? 'Оформление альянса'} · ${project.stageConfig.rewardDays ? `${n(project.stageConfig.rewardDays)} дн. с выдачи` : 'навсегда'}` : 'Обнови альянс, чтобы проверить оформление этапа.'}</span><p>Нужно не менее {n(project.stageConfig.minimumContributionPoints)} AP за текущий цикл. Твой накопленный вклад: {n((project.myContribution ?? []).reduce((sum, entry) => sum + Number(entry.points ?? 0), 0))} AP. Очки прошлых этапов этого цикла учитываются.</p><p>Оформление выдаётся автоматически при завершении этапа. В этот момент нужно оставаться участником альянса и выполнить порог AP.</p></div>
+          <p className="finePrint">Внесённые ресурсы не возвращаются. AP измеряют вклад в проект; это не валюта и не очки недельной лиги. Выход до завершения этапа лишает права на его будущую выдачу. Stars здесь не используются.</p>
         </> : <div className="projectComplete"><b><GameIcon name="check" size={16} />Цикл {project.cycle} завершён</b><span>Каждый новый цикл добавляет к требованиям 35% ресурсов первого цикла, повышает пожизненный престиж альянса и продлевает ветеранский визуальный эффект.</span>{project.canRestart && <><button type="button" className="action" disabled={locked || restartWaiting} onClick={() => { void act('restart', '/api/alliance/project/restart', undefined, () => 'Новый цикл мегапроекта запущен.'); }}><GameIcon name="refresh" size={15} />{pendingKey === 'restart' ? 'Запускаем…' : 'Запустить следующий цикл'}</button>{restartWaiting && <p className="finePrint">Можно запустить через {timeRemaining(project.restartAvailableAt, now)}.</p>}</>}{!project.canRestart && <p className="finePrint">Следующий цикл запускает владелец или офицер альянса после перерыва {rules?.restartCooldownHours ?? 6} ч.</p>}</div>}
         {status('contribute')}
         {status('restart')}
@@ -360,9 +390,10 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
         <div className="allianceMemberPagination" aria-label="Страницы участников"><button type="button" className="miniButton" disabled={currentMemberPage === 0} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage - 1); }}>Назад</button><span aria-live="polite">{currentMemberPage + 1}/{memberPages}</span><button type="button" className="miniButton" disabled={currentMemberPage + 1 >= memberPages} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage + 1); }}>Далее</button></div>
       </section>}
     </> : <>
-      {cooperationState && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(telegramId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
+      {Array.isArray(cooperationState?.pending) && cooperationState.pending.length > 0 && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(telegramId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
       <section className="card allianceEntry"><h2><GameIcon name="shield" />Найди свою команду</h2><p>Добывайте ресурсы вместе, развивайте общие технологии и боритесь за призы недельной лиги.</p>
-        <div className="allianceEntryBenefits"><span><GameIcon name="ore" size={19} /><b>Личная добыча</b><small>За твою помощь команде</small></span><span><GameIcon name="research" size={19} /><b>Общая наука</b><small>Для технологий альянса</small></span><span><GameIcon name="trophy" size={19} /><b>Призы лиги</b><small>За личный и общий вклад</small></span></div>
+        <div className="allianceEntryBenefits"><span><GameIcon name="ore" size={19} /><b>Личная добыча</b><small>Оплати смену и забери долю</small></span><span><GameIcon name="research" size={19} /><b>Общая наука</b><small>Запас команды для её технологий</small></span><span><GameIcon name="trophy" size={19} /><b>Призы лиги</b><small>За личный и общий вклад</small></span></div>
+        <details className="alliancePurpose" data-alliance-entry-purpose><summary>Как команда помогает колонии</summary><div><p>Вступление бесплатно. Начни с общей добычи: запуск не требует ресурсов, затем можно выбрать роль и отдельно оплатить смену из своих запасов. Твоя доля после завершения идёт на развитие колонии.</p><p>Общая наука остаётся альянсу и улучшает будущие операции. Командные цели дня дают личные награды за обычные действия, если ты участвовал до завершения цели и забрал награду до смены дня.</p><p>Мегапроект даёт оформление за отдельные взносы. Само вступление не приносит пассивный бонус и не выдаёт все награды команды.</p>{onOpenRating && <button type="button" className="miniButton" disabled={locked} onClick={onOpenRating}>Недельная лига<GameIcon name="arrow" size={13} /></button>}</div></details>
         {membershipFeedback && <div className="allianceFeedback" role="status">{membershipFeedback.text}</div>}
         {entryWaiting && <div className="allianceEntryWait" role="status"><GameIcon name="clock" size={19} /><div><strong>Перерыв перед новой командой</strong><p>{entryWaitMessage}</p><small>Доступно {new Date(entryAvailableAt!).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Список можно изучать сейчас.</small></div></div>}
         <SectionTabs label="Вступление в альянс" value={entrySection} items={[{ key: 'find', label: 'Найти', icon: 'network' }, { key: 'code', label: 'По коду', icon: 'share' }, { key: 'create', label: 'Создать', icon: 'shield' }]} onChange={key => { setEntrySection(key as EntrySection); setCreateConfirmation(null); }} />
