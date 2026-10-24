@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.14.21-beta.1 — Clarify Season Availability
+- Point-source explanations distinguish unconfirmed dates, a future season and an ended season. Unknown dates request a refresh without claiming that the season is inactive, while future and ended seasons explain their own point boundaries.
+- Completed the remaining wide-screen checks for unconfirmed dates, no season and unavailable quest snapshots. All 40 responsive scenarios pass across 320, 390, 430 and 768 pixels; the changed explanations also pass targeted narrow-screen checks. No migration, dependency, economy, reward, point rate or saved-city change is required.
+
 ## 1.14.20-beta.1 — Explain Season Points through Colony Goals
 - The active season connects one current unfinished daily or weekly task to its actual SP source, practical colony benefit and separate task reward. Ready tasks and repeat login are not suggested for earning more points; expired or unknown task periods make no recommendation. Source details distinguish prepaid workshop cycles, expedition launch, claimed cargo and each claimed artifact, including duplicates.
 - The next reward names its currency or appearance, duration and SP gap, and can be explicitly claimed directly when ready. A free shortcut opens point sources when the threshold is still ahead. Appearance names use the catalog, and receipt details retain each paid level's exact reward; temporary access, extensions and permanent ownership remain explicit.
