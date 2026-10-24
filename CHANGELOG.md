@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.19-beta.1 — Connect Tasks to Colony Goals and Rewards
+- Daily and weekly tasks keep ready rewards first and identify the nearest unfinished goal by actual progress. Expandable explanations describe each action's practical use and exact counting rules. The same action can link to an unfinished task in the other current period and a matching long-term achievement; rewards remain separate explicit claims, and expired or unknown periods make no cross-period promise.
+- Achievements add a Development topic, practical action guides and free navigation to the matching mechanic. Exact goal links select the appropriate topic, state and page, then focus the requested card once without repeating during refresh. Artifact collections now open their specific four-find achievement, and player changes isolate focus state. Page and collection buttons retain touch targets of at least 44 pixels with the shared stylesheet loaded last.
+- Task receipts must match a subset of the selected ready snapshot and its exact credit and crystal totals. Achievement claims require a fresh matching claimed status before local success, show the submitted goal's reward and lead to appearance collection when applicable. Unknown replies offer a free verification instead of announcing an unconfirmed reward.
+- Existing rewards, deadlines, targets, events, temporary appearance ownership and server claim rules are preserved. No migration, dependency, economy, saved-city or payment-rule change is required.
+
 ## 1.14.18-beta.1 — Give Flights and Finds a Clear Next Step
 - Expedition routes explain their purpose and show the science range for a new launch with the player's completed research and the server's exact rounding. Spectral analysis affects only new flights' base science; saved cargo and event bonuses are not multiplied again. Unknown research data makes no science-range promise.
 - Expandable science comparisons connect a possible flight or exact returned cargo to the next unpaid technology in the development plan. They separate unclaimed science from current stock and keep other research requirements explicit. A complete settlement receipt offers a free research return without adding its already-paid science twice; incomplete or different-choice replies require verification.

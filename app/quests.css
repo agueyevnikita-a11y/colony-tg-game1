@@ -46,6 +46,17 @@
 .questNavigate { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
 .questReceived { display:inline-flex; align-items:center; gap:5px; color:#a2bdad; font-size:11px; }
 .questExpiredAction { color:var(--muted); font-size:11px; line-height:1.5; }
+.questNextGoal { display:inline-flex; align-items:center; flex-wrap:wrap; gap:5px; max-width:100%; margin-bottom:2px; color:#b7dedb; font-size:10px; line-height:1.6; }
+.questGoalDetails { min-width:0; margin:0 0 12px; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:rgba(8,22,31,.18); }
+.colonyApp .questPanel .questGoalDetails > summary { min-height:44px; box-sizing:border-box; align-content:center; padding:10px 0; color:#b9d4d7; font-size:11px; line-height:1.6; cursor:pointer; overflow-wrap:anywhere; }
+.questGoalDetails > div { display:grid; min-width:0; gap:9px; padding:0 0 12px; }
+.colonyApp .questPanel .questGoalDetails p { margin:0; color:var(--muted); font-size:11px; line-height:1.65; overflow-wrap:anywhere; }
+.colonyApp .questPanel .questGoalDetails p.questActionHint { color:#c1d6d7; }
+.questRelatedGoal { display:grid; min-width:0; gap:6px; padding:10px; border:1px solid var(--line); border-radius:9px; }
+.questRelatedGoal > strong { font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.questRelatedGoal > span { color:var(--muted); font-size:10px; line-height:1.8; overflow-wrap:anywhere; }
+.colonyApp .questPanel .questRelatedGoal .miniButton { display:inline-flex; align-items:center; justify-content:center; justify-self:start; gap:6px; max-width:100%; min-height:44px; white-space:normal; line-height:1.6; }
+.questGoalDetails > summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:4px; }
 .questFeedback { display:flex; flex-wrap:wrap; gap:9px; margin:12px 0; overflow-wrap:anywhere; font-size:12px; }
 .questFeedback > span { flex:1; min-width:130px; }
 .questEmpty { display:flex; align-items:flex-start; flex-direction:column; gap:10px; padding:12px; border:1px solid var(--line); border-radius:12px; color:var(--muted); font-size:12px; line-height:1.6; }

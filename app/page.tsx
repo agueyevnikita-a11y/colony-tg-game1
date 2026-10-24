@@ -178,7 +178,7 @@ export default function Home() {
   const researchPanelRef = useRef<HTMLDivElement>(null);
   const buildingCatalogRef = useRef<HTMLElement>(null);
   const [allianceCode,setAllianceCode]=useState('');
-  const [achievementFocus, setAchievementFocus] = useState<{ category: AchievementCategory; requestId: number }>({ category: 'all', requestId: 0 });
+  const [achievementFocus, setAchievementFocus] = useState<{ owner: string; category: AchievementCategory; key?: string | null; requestId: number }>({ owner: '', category: 'all', requestId: 0 });
   const [adminDashboard,setAdminDashboard]=useState<any | null>(null);
   const [profileName,setProfileName]=useState('');
   const [profileBio,setProfileBio]=useState('');
@@ -325,10 +325,11 @@ export default function Home() {
     if (alreadyVisible) window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  function openAchievements(category: AchievementCategory = 'all') {
-    setAchievementFocus(previous => ({ category, requestId: previous.requestId + 1 }));
+  function openAchievements(category: AchievementCategory = 'all', key?: string) {
+    setAchievementFocus(previous => ({ owner: planOwner, category, key: key ?? null, requestId: previous.requestId + 1 }));
     openSection('missions');
     showSection('missions', 'achievements');
+    if (key) navigationToTop.current = false;
   }
 
   function openSubsection(section: string) {
@@ -336,7 +337,7 @@ export default function Home() {
     setArtifactExpedition(null);
     setArtifactCollection(null);
     setDecorMapFocus(null);
-    if (tab === 'missions' && section === 'achievements') setAchievementFocus(previous => ({ category: 'all', requestId: previous.requestId + 1 }));
+    if (tab === 'missions' && section === 'achievements') setAchievementFocus(previous => ({ owner: planOwner, category: 'all', key: null, requestId: previous.requestId + 1 }));
     navigationToTop.current = true;
     guideNavigationPending.current = null;
     productionNavigationPending.current = false;
@@ -1247,7 +1248,7 @@ export default function Home() {
         />}
         </div>}
         {subsections.build === 'artifacts' && <div data-section-panel="build-artifacts">
-<ArtifactsPanel key={planOwner} artifacts={game.expeditions?.artifacts} artifactFocus={artifactCollectionFocus} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration')}
+<ArtifactsPanel key={planOwner} artifacts={game.expeditions?.artifacts} artifactFocus={artifactCollectionFocus} onExpeditions={() => navigateGuide('expeditions')} onAchievements={() => openAchievements('exploration', 'artifact_4')}
   routeCatalog={game.expeditions?.catalog} accessUnlocked={!expeditionsLocked} featureEnabled={game.flags?.expeditions !== false} onRefresh={() => { void refresh(); }}
   onShowRoute={(routeKey, artifactId) => {
     navigateGuide('expeditions');
@@ -1275,17 +1276,26 @@ export default function Home() {
             onClaim={async () => { try { return await api('/api/game/daily-login/claim'); } catch (error) { setMessage(''); throw error; } }}
             onRefresh={() => { void refresh(); }} />
           <QuestPanel key={planOwner + ':daily'} period="daily" quests={game.dailyQuests ?? []} catalog={game.dailyQuestCatalog ?? []} resetsAt={game.questPeriods?.daily?.resetsAt} busy={busy}
+            achievements={achievementRows} relatedPeriod={{ period: 'weekly', quests: game.weeklyQuests ?? [], catalog: game.weeklyQuestCatalog ?? [], resetsAt: game.questPeriods?.weekly?.resetsAt }}
+            onAchievements={key => openAchievements('all', key)} onRelatedPeriod={period => showSectionFromGuide('missions', period)}
             onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
             onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'weekly' && <div data-section-panel="missions-weekly">
           <QuestPanel key={planOwner + ':weekly'} period="weekly" quests={game.weeklyQuests ?? []} catalog={game.weeklyQuestCatalog ?? []} resetsAt={game.questPeriods?.weekly?.resetsAt} busy={busy}
+            achievements={achievementRows} relatedPeriod={{ period: 'daily', quests: game.dailyQuests ?? [], catalog: game.dailyQuestCatalog ?? [], resetsAt: game.questPeriods?.daily?.resetsAt }}
+            onAchievements={key => openAchievements('all', key)} onRelatedPeriod={period => showSectionFromGuide('missions', period)}
             onClaim={async (selection) => { try { const data = await api('/api/game/quests/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
             onNavigate={navigateGuide} onRefresh={() => { void refresh(); }} />
         </div>}
         {subsections.missions === 'achievements' && <div data-section-panel="missions-achievements">
-          <AchievementsPanel key={planOwner} rows={achievementRows} cosmetics={game.shopCosmetics ?? []} busy={busy} focusCategory={achievementFocus.category} focusRequestId={achievementFocus.requestId}
-            onClaim={async (achievementKey) => { try { await api('/api/game/achievements/claim', { achievementKey }); } catch (error) { setMessage(''); throw error; } }}
+          <AchievementsPanel key={planOwner} rows={achievementRows} cosmetics={game.shopCosmetics ?? []} busy={busy}
+            focusCategory={achievementFocus.owner === planOwner ? achievementFocus.category : 'all'} focusKey={achievementFocus.owner === planOwner ? achievementFocus.key : null} focusRequestId={achievementFocus.owner === planOwner ? achievementFocus.requestId : 0}
+            onNavigate={navigateGuide} onRefresh={() => { void refresh(); }}
+            onClaim={async (achievementKey) => { try {
+              const data = await api('/api/game/achievements/claim', { achievementKey });
+              return Array.isArray(data.achievements) && data.achievements.some((row: any) => row.achievement_key === achievementKey && typeof row.claimed_at === 'string' && Number.isFinite(Date.parse(row.claimed_at)));
+            } catch (error) { setMessage(''); throw error; } }}
             onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}
         {subsections.missions === 'season' && <div data-section-panel="missions-season">
