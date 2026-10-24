@@ -81,10 +81,12 @@ export function ResearchPanel(props: Props) {
   const submitGuard = useRef(false);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const focusedCardRef = useRef<HTMLElement>(null);
+  const currentResearchRef = useRef<HTMLDivElement>(null);
   const researchFocusPending = useRef(false);
   const { research } = props;
   const completed = new Set([...research.completed, ...research.catalog.filter(item => item.status === 'completed').map(item => item.key)]);
   const locked = props.busy || submittingKey !== null;
+  const offlineCapHours = Number.isFinite(props.offlineCapHours) && props.offlineCapHours > 0 ? props.offlineCapHours : null;
   const activeConfig = research.catalog.find((item) => item.key === research.active?.research_key);
   const activeEndsAt = research.active ? new Date(research.active.completes_at).getTime() : 0;
   const activeStartsAt = research.active ? new Date(research.active.started_at).getTime() : 0;
@@ -129,6 +131,11 @@ export function ResearchPanel(props: Props) {
       && item.status !== 'researching' && item.unlockedByHq && item.unlockedByLab && item.prereqsMet && canAfford(item);
   }
 
+  function showCurrentResearch() {
+    currentResearchRef.current?.focus({ preventScroll: true });
+    currentResearchRef.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
   async function start(item: ResearchItem) {
     if (submitGuard.current || !canStart(item)) return;
     submitGuard.current = true;
@@ -148,6 +155,7 @@ export function ResearchPanel(props: Props) {
   function renderTechnology(item: ResearchItem) {
     const done = isCompleted(item);
     const researching = item.status === 'researching' || research.active?.research_key === item.key;
+    const readyToCheck = researching && research.active?.research_key === item.key && activeReady;
     const unlockedBuilding = item.unlockBuilding ? BUILDINGS[item.unlockBuilding] : undefined;
     const routeOutcome = done ? researchRouteOutcome(item.key) : null;
     const requirements = [
@@ -163,13 +171,23 @@ export function ResearchPanel(props: Props) {
       : research.labStatus === 'upgrading' ? 'Центр улучшается'
       : !item.unlockedByLab ? `Нужен исследовательский центр ур. ${item.labLevel}`
       : !item.prereqsMet ? 'Нужны предыдущие технологии'
-      : research.active ? 'Дождись текущего исследования'
+      : research.active ? 'Дождись текущего исследования. Затем запусти эту технологию отдельно — автоматической очереди нет.'
       : !research.enabled ? 'Запуск временно недоступен. Обнови данные.'
       : !canAfford(item) ? 'Не хватает ресурсов'
       : locked ? 'Дождись завершения текущего действия' : '';
-    const status = done ? 'Изучено' : researching ? 'Исследуется' : available ? 'Можно исследовать'
+    const status = done ? 'Изучено' : researching ? readyToCheck ? 'Готово к проверке' : 'Исследуется' : available ? 'Можно исследовать'
       : requirementsMet && research.enabled && research.labStatus === 'active' && !research.active ? 'Нужно накопить ресурсы'
-      : research.active ? 'Ожидает очереди' : 'Недоступно сейчас';
+      : requirementsMet && research.labStatus === 'active' && research.active ? 'Дождись исследования' : 'Недоступно сейчас';
+    const nextAction = !item.unlockedByHq ? { label: 'Показать улучшение базы', run: props.onUpgradeHq }
+      : research.labStatus === 'missing' ? { label: 'Выбрать место для центра', run: props.onBuildLab }
+      : research.labStatus === 'building' || research.labStatus === 'upgrading' ? { label: 'Проверить готовность центра', run: props.onRefresh }
+      : !item.unlockedByLab ? { label: 'Показать улучшение центра', run: props.onUpgradeLab }
+      : !item.prereqsMet ? null
+      : research.active ? { label: activeReady ? 'Обновить результат исследования' : 'К текущему исследованию', run: activeReady ? props.onRefresh : showCurrentResearch }
+      : !research.enabled ? { label: 'Обновить данные', run: props.onRefresh } : null;
+    const showResourceHelp = requirementsMet && research.labStatus === 'active' && research.enabled && !research.active;
+    const scienceMissing = Math.max(0, item.science - Number(props.resources.science ?? 0));
+    const scienceWaitHours = props.scienceRate > 0 ? scienceMissing / props.scienceRate : 0;
 
     return <article key={item.key} tabIndex={-1} data-research-key={item.key} ref={item.key === props.focusResearchKey ? focusedCardRef : undefined} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''} ${item.key === props.focusResearchKey ? 'isFocused' : ''} ${props.plannedResearchKey === item.key ? 'isPlanned' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
       <div className="technologyTitle"><span aria-hidden="true"><GameIcon name={technologyIcon(item)} size={23} /></span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''}`}>{done && <GameIcon name="check" size={12} />}{status}</span></div></div>
@@ -179,6 +197,10 @@ export function ResearchPanel(props: Props) {
         <p className="technologyDescription">{item.description}</p>
         <ul className="technologyRequirements" aria-label="Требования исследования">{requirements.map((requirement) => <li key={requirement.label} className={requirement.met ? 'isMet' : ''}><span aria-hidden="true">{requirement.met ? <GameIcon name="check" size={11} /> : '○'}</span> {requirement.label}<span className="researchSrOnly">{requirement.met ? ' — выполнено' : ' — требуется'}</span></li>)}</ul>
         {item.prereqs.some(key => !completed.has(key)) && <div className="technologyPrereqLinks">{item.prereqs.filter(key => !completed.has(key)).map(key => <button type="button" className="miniButton" key={key} disabled={locked} onClick={() => props.onInspectResearch(key)}>К технологии «{research.catalog.find(other => other.key === key)?.name ?? key}»<GameIcon name="arrow" size={13} /></button>)}</div>}
+        {researching && <div className="technologyNextStep">
+          <p>{readyToCheck ? 'Время вышло. Проверь результат, чтобы получить подтверждение и применить бонус.' : 'Исследование уже оплачено и продолжается при закрытой игре. Следующую технологию нужно запускать отдельно.'}</p>
+          <button type="button" className="miniButton" disabled={locked} onClick={readyToCheck || !research.active ? props.onRefresh : showCurrentResearch}>{readyToCheck ? 'Обновить результат исследования' : research.active ? 'К текущему исследованию' : 'Проверить исследование'}<GameIcon name="arrow" size={13} /></button>
+        </div>}
         {!researching && <>
           <div className="technologyCost"><span><span className="technologyCostLabel">Стоимость запуска</span>{costText(researchCost(item))}</span><span><GameIcon name="clock" size={13} /> {duration(item.timeSec)}</span></div>
           <button type="button" className={`action ${canStart(item) ? 'researchStart' : 'secondary'}`} disabled={!canStart(item)} aria-describedby={`${panelId}-${item.key}-availability`} onClick={() => void start(item)}>{submittingKey === item.key ? 'Запускаем…' : 'Запустить исследование'}</button>
@@ -186,11 +208,21 @@ export function ResearchPanel(props: Props) {
             {reason && reason !== 'Не хватает ресурсов' && <p className="technologyBlocker">{reason}</p>}
             <ResourceShortage cost={researchCost(item)} resources={props.resources} />
           </div>
-          {!research.enabled && research.labStatus === 'active' && <button type="button" className="miniButton technologyRefresh" disabled={locked} onClick={props.onRefresh}>Обновить данные</button>}
-          {Number(props.resources.science ?? 0) < item.science && props.scienceRate > 0 && <p className="technologyScienceWait">При текущей выработке нужная наука накопится за {duration((item.science - Number(props.resources.science ?? 0)) / props.scienceRate * 3600)} активного накопления.</p>}
+          {nextAction && <div className="technologyNextStep"><button type="button" className="miniButton" disabled={locked} aria-describedby={`${panelId}-${item.key}-availability`} onClick={nextAction.run}>{nextAction.label}<GameIcon name="arrow" size={13} /></button></div>}
+          {showResourceHelp && <>
+            {(Number(item.cost.parts ?? 0) > Number(props.resources.parts ?? 0) || scienceMissing > 0 && props.scienceRate <= 0) && <div className="technologyResourceActions">
+              {Number(item.cost.parts ?? 0) > Number(props.resources.parts ?? 0) && <button type="button" className="miniButton" disabled={locked} onClick={props.onShowProduction}><GameIcon name="parts" size={14} />К производству деталей</button>}
+              {scienceMissing > 0 && props.scienceRate <= 0 && <button type="button" className="miniButton" disabled={locked} onClick={props.onUpgradeLab}><GameIcon name="science" size={14} />Показать исследовательский центр</button>}
+            </div>}
+            {scienceMissing > 0 && props.scienceRate <= 0 && <p className="technologyScienceWait">Наука пока не производится. Проверь состояние исследовательского центра.</p>}
+            {scienceWaitHours > 0 && <p className="technologyScienceWait">При текущей выработке нужная наука накопится за {duration(scienceWaitHours * 3600)} активного накопления. Без будущих улучшений и расходов.{offlineCapHours !== null && scienceWaitHours > offlineCapHours ? ` За одно отсутствие учитывается до ${number(offlineCapHours)} ч. — затем открой колонию, чтобы продолжить накопление.` : ''}</p>}
+          </>}
         </>}
       </>}
-      {done && unlockedBuilding && item.unlockBuilding && <button type="button" className="action secondary technologyBuild" disabled={locked || props.hqLevel < unlockedBuilding.unlockHq} onClick={() => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? `Нужен центр колонии ур. ${unlockedBuilding.unlockHq}` : `К постройке: ${unlockedBuilding.name}`}</button>}
+      {done && unlockedBuilding && item.unlockBuilding && <>
+        {props.hqLevel < unlockedBuilding.unlockHq && <p className="technologyBlocker">Для постройки «{unlockedBuilding.name}» нужен центр колонии ур. {unlockedBuilding.unlockHq}. Технология уже изучена.</p>}
+        <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={props.hqLevel < unlockedBuilding.unlockHq ? props.onUpgradeHq : () => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? 'Показать улучшение базы' : `К постройке: ${unlockedBuilding.name}`}</button>
+      </>}
       {done && item.unlockRecipe && props.onProduction && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onProduction?.(item.unlockRecipe!)}>Открыть рецепт в производстве</button>}
       {done && item.unlockFeature && props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.(item.unlockFeature!)}>{item.unlockFeature === 'market' ? 'Открыть рынок' : item.unlockFeature === 'expeditions' ? 'Открыть экспедиции' : 'Перейти к благоустройству'}</button>}
       {routeOutcome && <><p className="technologyBlocker">{routeOutcome.requirementsText}</p>{props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.('expeditions')}>К маршрутам<GameIcon name="arrow" size={15} /></button>}</>}
@@ -203,7 +235,7 @@ export function ResearchPanel(props: Props) {
     <div className="researchOverview"><span>Наука: <strong><GameAmount resource="science">{number(props.resources.science)}</GameAmount></strong></span><span>Изучено: <strong>{research.catalog.filter(isCompleted).length} / {research.catalog.length}</strong></span></div>
     {research.catalog.some(isCompleted) && <details className="researchApplied"><summary>Что уже работает в колонии</summary><ul>{research.catalog.filter(isCompleted).map((item) => <li key={item.key}><strong><GameIcon name={technologyIcon(item)} size={14} /> {item.name}</strong><span>{item.effectText}</span></li>)}</ul></details>}
 
-    {research.active && <div className="researchCurrent" aria-labelledby={`${panelId}-current`}>
+    {research.active && <div ref={currentResearchRef} tabIndex={-1} className="researchCurrent" aria-labelledby={`${panelId}-current`}>
       <span className="researchCurrentLabel">{activeReady ? 'Исследование готово' : 'Сейчас исследуется'}</span>
       <h3 id={`${panelId}-current`}><GameIcon name={activeConfig ? technologyIcon(activeConfig) : 'research'} size={18} /> {activeConfig?.name ?? research.active.research_key}</h3>
       {activeConfig && <p>{activeConfig.effectText}</p>}
@@ -221,7 +253,7 @@ export function ResearchPanel(props: Props) {
     <ResearchPlanner catalog={research.catalog} completed={[...completed]} active={research.active}
       targetKey={props.plannedResearchKey ?? null} onTargetChange={props.onPlanChange}
       hqLevel={props.hqLevel} labLevel={research.labLevel} labStatus={research.labStatus} enabled={research.enabled}
-      resources={props.resources} scienceRate={props.scienceRate} busy={locked}
+      resources={props.resources} scienceRate={props.scienceRate} offlineCapHours={props.offlineCapHours} busy={locked}
       onResearch={props.onInspectResearch} onUpgradeHq={props.onUpgradeHq} onBuildLab={props.onBuildLab}
       onUpgradeLab={props.onUpgradeLab} onProduction={props.onShowProduction} onRefresh={props.onRefresh}
       onExpeditions={props.onOpenFeature ? () => props.onOpenFeature?.('expeditions') : undefined} />
@@ -236,7 +268,7 @@ export function ResearchPanel(props: Props) {
     <MechanicGuide steps={[
       'Выбери цель бесплатно: план покажет нужные технологии и ближайший шаг.',
       'Открой карточку и запусти исследование. Наука и ресурсы списываются один раз при запуске; одновременно изучается одна технология.',
-      `После завершения бонус применяется к колонии, а открытые постройки и рецепты выбираются отдельно. Наука копится без открытой игры до ${number(props.offlineCapHours)} ч. за одно отсутствие.`,
+      `После завершения бонус применяется к колонии, а открытые постройки и рецепты выбираются отдельно. ${offlineCapHours !== null ? `Наука копится без открытой игры до ${number(offlineCapHours)} ч. за одно отсутствие.` : 'Наука копится и при закрытой игре; за одно отсутствие действует лимит накопления.'}`,
     ]} />
   </section>;
 }

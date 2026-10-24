@@ -5,6 +5,7 @@
 .researchPlanner .researchPlannerHeading p { margin:6px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
 .researchPlannerControls { display:flex; flex-shrink:0; flex-direction:column; align-items:stretch; gap:6px; }
 .colonyApp .researchPlanReset,.colonyApp .researchPlanToggle { flex-shrink:0; min-height:44px; max-width:105px; font-size:11px; white-space:normal; }
+.researchPlanner button.researchPlanReset,.researchPlanner button.researchPlanToggle { min-height:44px; }
 .researchPlanner .researchPlanSafeHint { display:flex; align-items:flex-start; gap:6px; margin:0 0 12px; color:var(--muted); font-size:11px; line-height:1.5; }
 .researchPlanSafeHint > .gameIcon { flex-shrink:0; margin-top:2px; }
 .researchPlanChoices[hidden] { display:none; }
@@ -33,7 +34,7 @@
 .researchPlanner .researchPlanTarget p { color:#d3e2f3; font-size:12px; line-height:1.5; margin:0; }
 .researchPlanBudget { border:1px solid var(--line); border-radius:11px; padding:10px; margin:12px 0; background:rgba(8,20,29,.24); }
 .researchPlanBudget > div { display:flex; align-items:center; flex-wrap:wrap; gap:5px 12px; margin-top:6px; color:var(--text); font-size:12px; line-height:1.6; }
-.researchPlanBudget > summary { min-height:24px; color:#bdcfe2; cursor:pointer; font-size:11px; line-height:1.6; }
+.researchPlanBudget > summary { min-height:44px; align-content:center; color:#bdcfe2; cursor:pointer; font-size:11px; line-height:1.6; }
 .researchPlanner .researchPlanBudget p { margin:7px 0 0; font-size:11px; color:var(--muted); line-height:1.5; }
 .researchPlanNext { padding:12px; margin:12px 0; border:1px solid rgba(122,181,170,.23); border-radius:12px; background:rgba(103,177,155,.035); }
 .researchPlanner .researchPlanNext > p { margin:5px 0 10px; color:#d0e1e7; font-size:12px; line-height:1.55; }
@@ -52,7 +53,7 @@
 .researchPlanComplete > strong { display:flex; align-items:center; gap:6px; color:#a0dfbd; font-size:13px; }
 .researchPlanner .researchPlanComplete p { font-size:12px; line-height:1.5; margin:7px 0 11px; color:var(--muted); }
 .researchPlanChain { margin-top:14px; }
-.researchPlanChain > summary { color:#bdcfe2; font-size:12px; cursor:pointer; padding:7px 0; }
+.researchPlanChain > summary { min-height:44px; align-content:center; color:#bdcfe2; font-size:12px; cursor:pointer; padding:7px 0; }
 .researchPlanChain > h3 { margin:0 0 9px; color:#bdcfe2; font-size:12px; font-weight:600; }
 .researchPlanChain > ol { display:flex; flex-direction:column; list-style:none; gap:7px; padding:0; margin:8px 0 0; }
 .researchPlanStep { position:relative; display:flex; align-items:flex-start; gap:7px; min-width:0; padding:10px 8px; border:1px solid var(--line); border-radius:11px; background:rgba(15,28,39,.2); }

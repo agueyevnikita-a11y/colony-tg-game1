@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.10-beta.1 — Clear Research Steps
+- Technology blockers now lead to the matching HQ or laboratory improvement, laboratory placement, readiness check or workshop. Viewing a destination does not start research or spend resources; completed building unlocks also lead to the HQ improvement when needed.
+- Removed the implied automatic research queue. Other technologies explain their separate manual launch, and a running technology leads back to its current progress. When the timer ends, the card offers an explicit result check and waits for server confirmation before showing completion.
+- Science estimates beside cards and development plans explain when the current offline limit cannot cover a long wait in one absence. Short waits and unknown limits do not invent an extra requirement or a fixed time.
+- Research plan controls and collapsible explanations keep touch targets of at least 44 pixels even when the shared stylesheet loads last. No migration, dependency, economy, saved-city or research-rule change is required.
+
 ## 1.14.9-beta.1 — Turn Team Goals into Actions
 - Unfinished alliance goals now open the matching building catalog, workshops or colony contracts. Viewing a destination spends nothing; completed goals retain their explicit contribution and reward checks.
 - The weekly league leads to joint mining or alliance discovery. It explains when a previous alliance is still bound to this week's score, so a change of team does not promise ineligible points. Ended weeks keep the results-refresh path.

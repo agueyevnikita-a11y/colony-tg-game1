@@ -22,6 +22,7 @@ type Props = {
   enabled?: boolean;
   resources: Record<string, unknown>;
   scienceRate: number;
+  offlineCapHours?: number;
   busy: boolean;
   onResearch: (key: string) => void;
   onUpgradeHq: () => void;
@@ -159,6 +160,8 @@ export function ResearchPlanner(props: Props) {
     }
     const shortages = blocker.kind === 'resources' ? blocker.shortages ?? {} : {};
     const scienceMissing = Number(shortages.science ?? 0);
+    const scienceWaitHours = props.scienceRate > 0 ? scienceMissing / props.scienceRate : 0;
+    const offlineCapHours = props.offlineCapHours;
     const stepCost = { science: next.science, ...next.cost } as Record<string, number>;
     return <div className="researchPlanNext" aria-labelledby={`${id}-next`}>
       <span className="researchPlanEyebrow" id={`${id}-next`}>Ближайшее действие</span>
@@ -166,6 +169,7 @@ export function ResearchPlanner(props: Props) {
       {blocker.kind !== 'researching' && blocker.kind !== 'busy' && blocker.kind !== 'completed' && <div className="researchPlanNextCost"><span>Стоимость этого шага</span><div>{costEntries(stepCost).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{number(amount)}</GameAmount>)}<span><GameIcon name="clock" size={12} /> {duration(next.timeSec)}</span></div></div>}
       {costEntries(shortages).length > 0 && <div className="researchPlanShortages"><span>Не хватает:</span>{costEntries(shortages).map(([resource, amount]) => <GameAmount key={resource} resource={resource}>{number(Math.ceil(amount))}</GameAmount>)}</div>}
       {scienceMissing > 0 && props.scienceRate > 0 && <p className="researchPlanWait">При текущей выработке +{number(props.scienceRate)} науки/ч нехватка науки покроется примерно за {duration(scienceMissing / props.scienceRate * 3600)} накопления. Расчёт без будущих улучшений и расходов.</p>}
+      {Number.isFinite(scienceWaitHours) && typeof offlineCapHours === 'number' && Number.isFinite(offlineCapHours) && offlineCapHours > 0 && scienceWaitHours > offlineCapHours && <p className="researchPlanWait">За одно отсутствие учитывается до {number(offlineCapHours)} ч. накопления науки. Этого недостаточно, чтобы покрыть всю нехватку. После этого срока снова открой колонию, чтобы продолжить накопление.</p>}
       {scienceMissing > 0 && props.scienceRate <= 0 && <p className="researchPlanWait">Наука пока не производится. Проверь готовность исследовательского центра.</p>}
       <div className="researchPlanActions"><button type="button" className="action secondary" disabled={props.busy} onClick={action}>{actionLabel}<GameIcon name="arrow" size={15} /></button>
         {Number(shortages.parts ?? 0) > 0 && <button type="button" className="miniButton" disabled={props.busy} onClick={props.onProduction}><GameIcon name="parts" size={14} /> К производству деталей</button>}
