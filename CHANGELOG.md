@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.16-beta.1 — Connect Workshop Queues to Supply Stages
+- Supply projects show the stage's outstanding parts separately from the draft shipment. Spendable stock and all prepaid workshop queues reduce the new production need, while queued output remains unavailable for delivery until issued. Partial affordable shipments retain their own explicit debit and can open the production plan without entering the full stage amount first.
+- After one resource is fully supplied, an explicit shortcut selects a still-needed resource, preferring available stock. It changes only the form; background refresh preserves manual selections, and a ready stage retains its separate reward claim, including during logistics downtime.
+- Workshop selection shows ready output or queue occupancy. A summary near the selector checks all ready cycles against shared warehouse space in the same completes-at/id order as issuance, retaining whole cycles and allowing smaller output after a larger cycle cannot fit. Unknown capacity makes no issuance promise.
+- Free controls open the selected queue, another workshop with ready output, or an applicable parts supply. Refresh checks issuance across all workshops without launching another batch. No migration, dependency, economy, reward, production, saved-city or payment-rule change is required.
+
 ## 1.14.15-beta.1 — Follow Goals and Check Daily Rewards
 - Login rewards switch to an explicit free refresh when their known server day ends, including a click-time deadline check. Confirmed receipts show the actual paid amounts; an incomplete or different-day response never marks the old reward as received. An uncertain result offers a free check until a fresh snapshot is available.
 - Mission badges follow daily, weekly and seasonal boundaries and refresh on return to the app. Expired snapshots no longer advertise ready rewards; unknown daily and weekly deadlines retain server validation. Boundary scheduling avoids a page-wide ticking clock.

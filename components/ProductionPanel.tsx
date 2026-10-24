@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
-  FOUNDRY_MODES, FOUNDRY_RECIPES, availableFoundryLinks, foundryQueueCapacity, quoteFoundry,
+  FOUNDRY_MODES, FOUNDRY_RECIPES, availableFoundryLinks, foundryQueueCapacity, foundryQueueOverview, quoteFoundry,
   type FoundryBuilding, type FoundryJob, type FoundryLink, type FoundryMode, type FoundryRecipeKey,
 } from '@/lib/game/foundry';
 import { ResourceShortage } from '@/components/ResourceShortage';
@@ -69,6 +69,7 @@ export function ProductionPanel(props: Props) {
   const submittingRef = useRef(false);
   const recipePickerRef = useRef<HTMLDetailsElement>(null);
   const recipeSummaryRef = useRef<HTMLElement>(null);
+  const queueHeadingRef = useRef<HTMLHeadingElement>(null);
   const selected = foundries.find((building) => building.id === selectedId)
     ?? foundries.find((building) => building.status === 'active') ?? foundries[0];
   const requestedFoundryId = foundries.find((building) => building.id === props.selectedBuildingId)?.id;
@@ -121,8 +122,15 @@ export function ProductionPanel(props: Props) {
   const isActive = selected?.status === 'active';
   const locked = props.busy || submitting;
   const readyJobs = selectedJobs.filter((job) => new Date(job.completes_at).getTime() <= now);
-  const storageBlocked = readyJobs.length > 0 && props.partsCapacity !== undefined
-    && Number(props.resources.parts ?? 0) + Math.min(...readyJobs.map((job) => Number(job.parts_reward))) > props.partsCapacity;
+  const queueOverview = foundryQueueOverview({ buildings: props.buildings, jobs: props.jobs, now,
+    currentParts: props.resources.parts, partsCapacity: props.partsCapacity });
+  const selectedQueue = queueOverview.workshops.find(workshop => workshop.id === selected?.id);
+  const otherReadyId = queueOverview.readyBuildingIds.find(id => id !== selected?.id);
+  const otherReady = foundries.find(building => building.id === otherReadyId);
+  const storageBlocked = readyJobs.length > 0 && selectedQueue?.collectableCount === 0;
+  const canOpenSupplyForStorage = queueOverview.collectableCount !== null && queueOverview.collectableCount < queueOverview.readyCount
+    && props.onSupplyProjects && props.supplyGoal && !props.supplyGoal.ready && !props.supplyGoal.completed
+    && props.supplyGoal.requiredParts > 0 && Number(props.resources.parts ?? 0) > 0;
   const storageWillOverflow = props.partsCapacity !== undefined && Number(props.resources.parts ?? 0)
     + props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0) + quote.parts > props.partsCapacity;
   const supplyPlan = props.supplyGoal ? supplyProductionPlan({ requiredParts: props.supplyGoal.requiredParts,
@@ -131,6 +139,14 @@ export function ProductionPanel(props: Props) {
     cycleParts: quote.cycleParts, freeSlots }) : null;
 
   function clearFeedback() { setLocalError(''); props.onChangeSelection?.(); }
+  function selectWorkshop(id: string) {
+    setSelectedId(id); setCycles(1); setLink('none'); clearFeedback();
+    props.onFoundryChange?.(id);
+  }
+  function openQueue() {
+    queueHeadingRef.current?.focus({ preventScroll: true });
+    queueHeadingRef.current?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
 
   async function start() {
     if (!selected || !isActive || locked || submittingRef.current || insufficient || !freeSlots) return;
@@ -178,15 +194,36 @@ export function ProductionPanel(props: Props) {
     </> : <>
       <div className="productionWorkshopRow"><label className="productionSelect" htmlFor={`${panelId}-foundry`}>Управление цехом
         <select id={`${panelId}-foundry`} value={selected.id} disabled={locked} onChange={(event) => {
-          setSelectedId(event.target.value); setCycles(1); setLink('none'); clearFeedback();
-          props.onFoundryChange?.(event.target.value);
+          selectWorkshop(event.target.value);
         }}>
-          {foundries.map((building) => <option key={building.id} value={building.id}>
-            Цех ({building.x + 1}, {building.y + 1}) · ур. {building.level}{building.status === 'active' ? '' : building.status === 'upgrading' ? ' · улучшается' : ' · строится'}
-          </option>)}
+          {foundries.map((building) => {
+            const workshop = queueOverview.workshops.find(item => item.id === building.id);
+            return <option key={building.id} value={building.id}>
+              Цех ({building.x + 1}, {building.y + 1}) · ур. {building.level}{building.status === 'active' ? '' : building.status === 'upgrading' ? ' · улучшается' : ' · строится'} · {workshop?.readyCount ? `готово ${workshop.readyCount}` : `очередь ${workshop?.occupied ?? 0}/${workshop?.capacity ?? 0}`}
+            </option>;
+          })}
         </select>
       </label>
       {props.onSelectBuilding && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onSelectBuilding?.(selected.id)}><GameIcon name="map" size={14} /> На карте</button>}</div>
+
+      {queueOverview.readyCount > 0 && <div className="productionReadySummary" data-production-ready-summary>
+        <div><GameIcon name="parts" size={21} /><strong>Готовые циклы всех цехов: {queueOverview.readyCount}</strong></div>
+        <p>Ожидают выдачи <GameAmount resource="parts">{number(queueOverview.readyParts)}</GameAmount> деталей. Они уже оплачены.</p>
+        <p>{queueOverview.collectableCount === null ? 'Обновление проверит выдачу во всех цехах. Каждый цикл должен целиком поместиться на склад.'
+          : queueOverview.collectableCount === 0 ? 'По текущему складу не помещается ни один готовый цикл. Потрать детали или освободи место — выпуск останется в цехах.'
+            : queueOverview.collectableCount < queueOverview.readyCount ? `По текущему складу помещается ${queueOverview.collectableCount} из ${queueOverview.readyCount} циклов: ${number(queueOverview.collectableParts ?? 0)} деталей. Остальные останутся в цехах до освобождения места.`
+              : 'По текущему складу помещаются все готовые циклы. Обнови выдачу, чтобы получить детали и освободить очередь.'}</p>
+        <div className="productionReadyActions">
+          {props.onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить выдачу всех цехов</button>}
+          {otherReady && <button type="button" className="miniButton" disabled={locked} onClick={() => selectWorkshop(otherReady.id)}>К готовому цеху ({otherReady.x + 1}, {otherReady.y + 1})</button>}
+          {canOpenSupplyForStorage && <button type="button" className="miniButton" disabled={locked} onClick={props.onSupplyProjects}>Открыть поставку деталей</button>}
+        </div>
+        {canOpenSupplyForStorage && <p>Переход к поставке не тратит ресурсы. Отправка деталей — отдельной кнопкой в проекте.</p>}
+      </div>}
+      <div className={`productionQueueStatus ${freeSlots === 0 ? 'isFull' : ''}`}>
+        <div><strong>Очередь этого цеха: {selectedJobs.length} / {capacity}</strong><span>{readyJobs.length ? `Готовых циклов: ${readyJobs.length}. Проверь выдачу перед новой партией.` : freeSlots === 0 ? 'Все места заняты оплаченными циклами.' : selectedJobs.length ? `Для новых циклов свободно мест: ${freeSlots}.` : 'Пока пусто. Выбери рецепт и проверь стоимость партии ниже.'}</span></div>
+        {selectedJobs.length > 0 && <button type="button" className="miniButton" disabled={locked} onClick={openQueue}>К очереди</button>}
+      </div>
 
       {!isActive && <div className="notice productionStatus" role="status"><p>{selected.status === 'upgrading'
         ? 'Цех улучшается. Новые плавки станут доступны после улучшения; уже запущенные продолжаются.'
@@ -299,14 +336,16 @@ export function ProductionPanel(props: Props) {
           </button>
           {props.busy && !submitting && <p className="productionHint" role="status">Дождись завершения текущего действия, чтобы запустить партию.</p>}
           <div aria-live="polite"><ResourceShortage cost={{ ore: quote.ore, energy: quote.energy }} resources={props.resources} /></div>
-        </> : <div className="notice productionStatus">Очередь заполнена. Дождись выдачи деталей, чтобы добавить новые циклы.</div>}
+        </> : <div className="notice productionStatus">{readyJobs.length > 0
+          ? 'Очередь заполнена. Обнови выдачу готовых циклов; если им не хватает места, сначала освободи склад деталей.'
+          : 'Очередь заполнена оплаченными циклами. Дождись готовности и выдачи деталей, чтобы добавить новые циклы.'}</div>}
       </>}
 
       {props.feedback}
       {localError && <div className="notice error actionFeedback" role="alert">{localError}</div>}
 
       <div className="productionQueue">
-        <div className="productionQueueHeading"><h3>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
+        <div className="productionQueueHeading"><h3 ref={queueHeadingRef} tabIndex={-1}>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
         {selectedJobs.length === 0 ? <p>Пока пусто. Цех ждёт задания.</p> : <>
           {readyJobs.length > 0 && <p className={`productionStorage ${storageBlocked ? 'isBlocked' : ''}`} role="status">{storageBlocked
             ? 'Для готового цикла не хватает места на складе. Потрать или продай детали — цикл останется в цехе до освобождения места.'

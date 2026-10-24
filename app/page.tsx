@@ -1104,7 +1104,7 @@ export default function Home() {
           { key: 'contracts', label: 'Контракты', icon: 'contracts' },
         ]} onChange={key => setSupplyView(key as 'projects' | 'contracts')} />
         <div hidden={supplyView !== 'projects'}><SupplyProjectsPanel key={planOwner}
-          state={game.supplyProjects} resources={s} ownerKey={planOwner} selectedProjectKey={selectedSupply?.id ?? ''}
+          state={game.supplyProjects} resources={s} queuedParts={(game.activeJobs ?? []).reduce((total: number, job: any) => total + Number(job.parts_reward), 0)} ownerKey={planOwner} selectedProjectKey={selectedSupply?.id ?? ''}
           onSelectProject={chooseSupplyProject} busy={busy}
           onAction={async body => { try { return await api('/api/game/supply-projects', body); } catch (error) { setMessage(''); throw error; } }}
           onBuildLogistics={() => beginPlacement('logistics', 'Логистический центр')}

@@ -98,3 +98,31 @@ export function collectableFoundryJobs<T extends { id: string; parts_reward: num
   }
   return collected;
 }
+
+/** Snapshot-only guidance: issuance checks all workshops in server order, one whole cycle at a time. */
+export function foundryQueueOverview({ buildings, jobs, now, currentParts, partsCapacity }: {
+  buildings: readonly FoundryBuilding[]; jobs: readonly FoundryJob[]; now: number;
+  currentParts: unknown; partsCapacity?: number;
+}) {
+  const foundries = buildings.filter(building => building.type === 'foundry');
+  const foundryIds = new Set(foundries.map(building => building.id));
+  const cityJobs = jobs.filter(job => foundryIds.has(job.building_id));
+  const ready = cityJobs.filter(job => Number.isFinite(Date.parse(job.completes_at))
+    && Date.parse(job.completes_at) <= now && Number.isFinite(Number(job.parts_reward)) && Number(job.parts_reward) > 0)
+    .sort((a, b) => Date.parse(a.completes_at) - Date.parse(b.completes_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const storedParts = typeof currentParts === 'number' || typeof currentParts === 'string' ? Number(currentParts) : NaN;
+  const knownStorage = partsCapacity !== undefined && Number.isFinite(partsCapacity) && partsCapacity >= 0
+    && Number.isFinite(storedParts) && storedParts >= 0;
+  const collectable = knownStorage ? collectableFoundryJobs(ready, partsCapacity - storedParts) : null;
+  const collectableIds = collectable ? new Set(collectable.map(job => job.id)) : null;
+  const workshops = foundries.map(building => {
+    const ownJobs = cityJobs.filter(job => job.building_id === building.id);
+    const ownReady = ready.filter(job => job.building_id === building.id);
+    const capacity = foundryQueueCapacity(Number(building.level));
+    return { id: building.id, occupied: ownJobs.length, capacity, freeSlots: Math.max(0, capacity - ownJobs.length),
+      readyCount: ownReady.length, collectableCount: collectableIds ? ownReady.filter(job => collectableIds.has(job.id)).length : null };
+  });
+  return { workshops, readyCount: ready.length, readyParts: ready.reduce((sum, job) => sum + Number(job.parts_reward), 0),
+    collectableCount: collectable?.length ?? null, collectableParts: collectable?.reduce((sum, job) => sum + Number(job.parts_reward), 0) ?? null,
+    readyBuildingIds: [...new Set(ready.map(job => job.building_id))] };
+}

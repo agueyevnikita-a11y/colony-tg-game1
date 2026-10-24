@@ -10,6 +10,19 @@
 .productionWorkshopRow > button { flex-shrink:0; margin-top:7px; }
 .productionSelect { display:flex; flex-direction:column; gap:6px; margin:4px 0 15px; color:var(--muted); font-size:11px; }
 .productionSelect select { width:100%; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:12px; padding:11px 9px; background:var(--panel2); color:var(--text); font:inherit; font-size:13px; }
+.productionReadySummary { min-width:0; margin:0 0 12px; padding:11px; border:1px solid rgba(133,221,191,.28); border-radius:12px; background:rgba(133,221,191,.05); }
+.productionReadySummary > div:first-child { display:flex; align-items:center; gap:7px; }
+.productionReadySummary > div:first-child > .gameIcon { flex:none; }
+.productionReadySummary strong { font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.productionPanel .productionReadySummary p { margin:7px 0 0; color:var(--muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.productionReadyActions { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
+.productionReadyActions > button { flex:1 1 180px; min-width:0; min-height:44px; white-space:normal; font-size:11px; }
+.productionQueueStatus { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; margin:0 0 15px; padding:10px; border:1px solid var(--line); border-radius:11px; }
+.productionQueueStatus > div { flex:1 1 140px; min-width:0; }
+.productionQueueStatus strong { display:block; font-size:11px; line-height:1.5; }
+.productionQueueStatus span { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
+.productionQueueStatus.isFull { border-color:rgba(255,193,87,.25); }
+.productionQueueStatus > button { min-height:44px; font-size:11px; }
 .productionField { min-width:0; padding:0; margin:0 0 15px; border:0; }
 .productionField legend { margin:0 0 8px; padding:0; font-size:12px; font-weight:700; }
 .productionSettings { margin:0 0 15px; min-width:0; border:1px solid var(--line); border-radius:12px; background:rgba(10,24,33,.2); }
@@ -113,7 +126,8 @@
 .productionStatus .miniButton { margin-top:9px; }
 .productionQueue { border-top:1px solid var(--line); padding-top:13px; margin-top:16px; }
 .productionQueueHeading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
-.productionQueueHeading h3 { margin:0; font-size:12px; }
+.productionQueueHeading h3 { margin:0; font-size:12px; scroll-margin-top:16px; }
+.productionQueueHeading h3:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:3px; }
 .productionQueueHeading > span { color:var(--muted); font-size:11px; }
 .productionJobs { list-style:none; display:flex; flex-direction:column; gap:6px; padding:0; margin:0; }
 .productionJob { border:1px solid var(--line); background:rgba(255,255,255,.02); border-radius:12px; padding:10px; }
