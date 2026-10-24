@@ -32,7 +32,7 @@
 .dailyLoginPanel .cardTitleRow { align-items:flex-start; }
 .dailyLoginPanel .pill { flex-shrink:0; font-size:10px; padding:6px 8px; }
 .dailyLoginPanel .cardTitleRow > div { min-width:0; }
-.dailyLoginPanel .dailyRewardContent > .action,.dailyLoginPanel .miniButton { min-height:44px; }
+.dailyLoginPanel .dailyRewardContent > .action,.colonyApp .dailyLoginPanel .miniButton,.dailyLoginPanel .miniButton { min-height:44px; white-space:normal; }
 .dailyRewardContent { padding:11px; border:1px solid var(--line); border-radius:12px; background:rgba(16,30,38,.3); }
 .dailyRewardSummary { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
 .dailyRewardSummary > span { color:var(--muted); font-size:12px; }

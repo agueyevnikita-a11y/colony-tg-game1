@@ -17,7 +17,8 @@
 .allianceCompetition .competitionEmpty { margin:0; padding:15px 0; color:var(--muted); font-size:12px; line-height:1.6; }
 .competitionAward { display:grid; gap:10px; margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.02); }
 .competitionAwardLine { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px; font-size:12px; line-height:1.5; }.competitionAwardLine small { grid-column:1/-1; color:var(--muted); font-size:10px; line-height:1.5; }
-.allianceCompetition .action,.allianceCompetition .miniButton { min-width:0; min-height:44px; white-space:normal; }.allianceCompetition .action { font-size:12px; }
+.competitionCollection { display:grid; gap:6px; min-width:0; }.competitionCollection button { justify-self:start; max-width:100%; }.competitionCollection small { color:var(--muted); font-size:11px; line-height:1.5; }
+.allianceCompetition .action,.colonyApp .allianceCompetition .miniButton,.allianceCompetition .miniButton { min-width:0; min-height:44px; white-space:normal; }.allianceCompetition .action { font-size:12px; }
 .competitionFeedback { display:grid; gap:8px; margin:10px 0; padding:10px; border:1px solid rgba(133,221,191,.25); border-radius:10px; background:rgba(133,221,191,.05); font-size:12px; line-height:1.6; }.competitionFeedback.isError { border-color:rgba(240,126,126,.4); color:#ffc3c3; background:rgba(240,126,126,.06); }
 .competitionPagination { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; margin-top:10px; color:var(--muted); font-size:12px; text-align:center; }
 .competitionRules { margin-top:14px; border-top:1px solid var(--line); padding-top:11px; }.competitionRules>summary { cursor:pointer; color:var(--muted); font-size:12px; line-height:1.5; min-height:44px; align-content:center; }.competitionRules>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:4px; }

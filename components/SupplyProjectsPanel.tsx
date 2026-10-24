@@ -18,6 +18,7 @@ type Props = {
   onBuildLogistics: () => void;
   onUpgradeHq?: () => void;
   onProduction: () => void;
+  onOpenCollection?: () => void;
   onRefresh: () => void;
 };
 type Feedback = { projectKey: string; text: string; error: boolean };
@@ -133,7 +134,7 @@ export function SupplyProjectsPanel(props: Props) {
       <details className="supplyPicker" ref={picker}><summary><GameIcon name="target" size={18} /><span>Выбрать цель<span>{props.state.projects.filter(item => item.completed).length}/{props.state.projects.length} проектов завершено</span></span></summary><div className="supplyProjectChoices">{props.state.projects.map(item => <button type="button" className={`supplyProjectChoice${item.id === project?.id ? ' isSelected' : ''}`} aria-pressed={item.id === project?.id} disabled={locked} key={item.id} onClick={() => { props.onSelectProject(item.id); if (picker.current) picker.current.open = false; }}><GameIcon name={item.icon} size={29} /><span><strong>{item.name}</strong><small>{item.completed ? 'Все этапы завершены' : `${item.stageIndex + 1}/${item.stages.length} · ${item.started ? 'Поставки начаты' : 'Можно начать'}`}</small><small>{item.description}</small></span></button>)}</div><p>Цель можно менять. Поставки каждого проекта сохраняются; выбор ничего не списывает.</p></details>
       {project && <>
         <div className="supplyProjectHeading"><GameIcon name={project.icon} size={36} /><div><h3>{project.name}</h3><p>{project.description}</p></div></div>
-        {project.completed ? <div className="supplyCompleted" role="status"><GameIcon name="trophy" size={26} /><div><strong>Проект завершён</strong><p>Все награды получены. Памятный титул доступен в коллекции оформления.</p>{project.completedAt && <small>{new Date(project.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</small>}</div></div> : stage && <>
+        {project.completed ? <div className="supplyCompleted" role="status"><GameIcon name="trophy" size={26} /><div><strong>Проект завершён</strong><p>Все награды получены. Памятный титул доступен в коллекции оформления. Включи его там отдельной кнопкой.</p>{project.completedAt && <small>{new Date(project.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</small>}{props.onOpenCollection && project.stages.some(item => item.reward.cosmeticIds.length > 0) && <button type="button" className="miniButton supplyCollectionLink" disabled={locked} onClick={props.onOpenCollection}><GameIcon name="palette" size={15} />Моё оформление<GameIcon name="arrow" size={14} /></button>}</div></div> : stage && <>
           <div className="supplyStageHeading"><span>Этап {project.stageIndex + 1}/{project.stages.length}</span><h4>{stage.name}</h4></div>
           <div className="supplyProgressList">{RESOURCE_ORDER.map(key => {
             const total = Number(stage.requirements[key]), supplied = Number(project.delivered[key]);

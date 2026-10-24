@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.15-beta.1 — Follow Goals and Check Daily Rewards
+- Login rewards switch to an explicit free refresh when their known server day ends, including a click-time deadline check. Confirmed receipts show the actual paid amounts; an incomplete or different-day response never marks the old reward as received. An uncertain result offers a free check until a fresh snapshot is available.
+- Mission badges follow daily, weekly and seasonal boundaries and refresh on return to the app. Expired snapshots no longer advertise ready rewards; unknown daily and weekly deadlines retain server validation. Boundary scheduling avoids a page-wide ticking clock.
+- Invited players can open their own HQ directly from the referral bonus explanation without starting an upgrade. A reached level awaiting qualification leads to a bonus check instead of suggesting another improvement; missing referral data offers a retry.
+- Received league cosmetics and completed supply-project titles lead directly to the appearance collection. League feedback uses validated actual receipts, keeps zero or unknown results neutral and separates a free collection visit from explicit application. No migration, dependency, economy, reward, saved-city or payment-rule change is required.
+
 ## 1.14.14-beta.1 — Find Your Decor and Compare Your Appearance
 - Decor catalogs separate unlocked types, actual comfort gains, placed types and locked types. Existing objects remain manageable when a new-copy technology is unavailable, with distinct prices and actions for buying another copy.
 - A placed-object picker identifies each copy by its cell. A free map shortcut selects and focuses that exact object without starting placement, movement or demolition; actions open only when the player selects the highlighted cell. Focus requests are consumed once, cancel on navigation and respect reduced motion.

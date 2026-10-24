@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { AllianceCompetitionState } from '@/lib/game/alliance-competition';
+import { competitionClaimReceipt } from '@/lib/game/competition-claim';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { SectionTabs } from '@/components/SectionTabs';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import '@/app/alliance-competition.css';
 
-type Props = { state?: AllianceCompetitionState; busy: boolean; onClaim: (periodId: string) => Promise<any>; onRefresh?: () => void; currentAllianceId?: string | null; onOpenAlliance?: () => void };
+type Props = { state?: AllianceCompetitionState; busy: boolean; onClaim: (periodId: string) => Promise<any>; onRefresh?: () => void; currentAllianceId?: string | null; onOpenAlliance?: () => void; onOpenCollection?: () => void };
 type View = 'players' | 'alliances' | 'rewards';
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU');
 const COSMETIC_NAMES: Record<string, string> = {
@@ -19,12 +20,13 @@ function dateUTC(timestamp: string) {
   return `${new Date(timestamp).toLocaleString('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} UTC`;
 }
 
-export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh, currentAllianceId, onOpenAlliance }: Props) {
+export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh, currentAllianceId, onOpenAlliance, onOpenCollection }: Props) {
   const [view, setView] = useState<View>(() => state?.rewards.some(award => !award.claimedAt && Date.parse(award.endsAt) <= Date.now()) ? 'rewards' : 'players');
   const [page, setPage] = useState(0);
   const [pending, setPending] = useState('');
   const [received, setReceived] = useState<Set<string>>(() => new Set());
-  const [feedback, setFeedback] = useState<Record<string, { text: string; error: boolean }>>({});
+  const [receivedCosmetics, setReceivedCosmetics] = useState<Record<string, string[]>>({});
+  const [feedback, setFeedback] = useState<Record<string, { text: string; error: boolean; refresh?: boolean }>>({});
   const [now, setNow] = useState(() => Date.now());
   const guard = useRef(false);
   const groups = new Map<string, AllianceCompetitionState['rewards']>();
@@ -49,17 +51,25 @@ export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh, curr
     guard.current = true; setPending(periodId);
     setFeedback(previous => { const next = { ...previous }; delete next[periodId]; return next; });
     try {
-      const response = await onClaim(periodId), result = response?.result ?? response;
-      if (result?.periodId !== periodId || !Number.isSafeInteger(result.count) || result.count < 0) throw new Error('Подтверждение награды не получено. Обнови рейтинг и проверь результат.');
+      const response = await onClaim(periodId), result = competitionClaimReceipt(response?.result ?? response, periodId);
+      if (!result) {
+        setFeedback(previous => ({ ...previous, [periodId]: { text: 'Ответ о награде пока не подтверждён. Обнови рейтинг, чтобы проверить получение.', error: false, refresh: true } }));
+        return;
+      }
+      if (!result.count) {
+        setFeedback(previous => ({ ...previous, [periodId]: { text: 'Новых наград не выдано. Обнови рейтинг, чтобы проверить ранее полученные награды.', error: false, refresh: true } }));
+        return;
+      }
       setReceived(previous => new Set([...previous, periodId]));
-      setFeedback(previous => ({ ...previous, [periodId]: { text: result.count ? `Награды получены: ${n(result.crystals)} кристаллов.${result.cosmeticIds?.length ? ' Оформление доступно в коллекции.' : ''}` : 'Награды этой недели уже получены.', error: false } }));
+      setReceivedCosmetics(previous => ({ ...previous, [periodId]: result.cosmeticIds }));
+      setFeedback(previous => ({ ...previous, [periodId]: { text: `Награды получены: ${n(result.crystals)} кристаллов.${result.cosmeticIds.length ? ' Оформление доступно в коллекции; применение выбирается отдельно.' : ''}`, error: false } }));
     } catch (cause) {
-      setFeedback(previous => ({ ...previous, [periodId]: { text: cause instanceof Error ? cause.message : 'Не удалось получить награды. Попробуй ещё раз.', error: true } }));
+      setFeedback(previous => ({ ...previous, [periodId]: { text: cause instanceof Error ? cause.message : 'Не удалось получить награды. Попробуй ещё раз.', error: true, refresh: true } }));
     } finally { guard.current = false; setPending(''); }
   }
   function status(periodId: string) {
     const item = feedback[periodId];
-    return item ? <div className={`competitionFeedback${item.error ? ' isError' : ''}`} role={item.error ? 'alert' : 'status'}>{item.text}</div> : null;
+    return item ? <div className={`competitionFeedback${item.error ? ' isError' : ''}`} role={item.error ? 'alert' : 'status'}>{item.text}{item.refresh && onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить рейтинг</button>}</div> : null;
   }
 
   if (!state?.available) return <section className="card allianceCompetition" data-alliance-competition><h2><GameIcon name="trophy" size={22} />Недельная лига кооперации</h2><p>Лига готовится к открытию. Заработанные награды появятся здесь после обновления.</p>{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить</button>}</section>;
@@ -97,7 +107,8 @@ export function AllianceCompetitionPanel({ state, busy, onClaim, onRefresh, curr
     {view === 'rewards' && <div className="competitionAwards" data-competition-awards>{history.slice(currentPage * 5, currentPage * 5 + 5).map(([periodId, awards]) => {
       const claimed = received.has(periodId) || awards.every(award => Boolean(award.claimedAt));
       const ready = Date.parse(awards[0].endsAt) <= now;
-      return <article className="competitionAward" key={periodId}><h3>Итоги {dateUTC(awards[0].endsAt)}</h3>{awards.map(award => <div className="competitionAwardLine" key={award.kind}><span>{award.kind === 'personal' ? 'Личное место' : `${award.allianceName ?? 'Альянс'} · доля`} №{n(award.rank)}</span><GameAmount resource="crystals">{n(award.crystals)}</GameAmount>{award.cosmeticIds.length > 0 && <small>{award.cosmeticIds.map(cosmetic => COSMETIC_NAMES[cosmetic] ?? 'Памятное оформление').join(' · ')}</small>}</div>)}<button type="button" className="action" disabled={locked || claimed || !ready} onClick={() => { void claim(periodId); }}>{pending === periodId ? 'Получаем…' : claimed ? 'Получено' : !ready ? 'Неделя ещё идёт' : 'Забрать награды недели'}</button>{status(periodId)}</article>;
+      const hasOwnedCosmetics = awards.some(award => Boolean(award.claimedAt) && award.cosmeticIds.length > 0) || (receivedCosmetics[periodId]?.length ?? 0) > 0;
+      return <article className="competitionAward" key={periodId}><h3>Итоги {dateUTC(awards[0].endsAt)}</h3>{awards.map(award => <div className="competitionAwardLine" key={award.kind}><span>{award.kind === 'personal' ? 'Личное место' : `${award.allianceName ?? 'Альянс'} · доля`} №{n(award.rank)}</span><GameAmount resource="crystals">{n(award.crystals)}</GameAmount>{award.cosmeticIds.length > 0 && <small>{award.cosmeticIds.map(cosmetic => COSMETIC_NAMES[cosmetic] ?? 'Памятное оформление').join(' · ')}</small>}</div>)}<button type="button" className="action" disabled={locked || claimed || !ready} onClick={() => { void claim(periodId); }}>{pending === periodId ? 'Получаем…' : claimed ? 'Получено' : !ready ? 'Неделя ещё идёт' : 'Забрать награды недели'}</button>{hasOwnedCosmetics && onOpenCollection && <div className="competitionCollection"><button type="button" className="miniButton" disabled={locked} onClick={onOpenCollection}><GameIcon name="palette" size={16} />Моё оформление<GameIcon name="arrow" size={13} /></button><small>Призовое оформление уже в коллекции. Просмотр бесплатный; применение выбирается отдельно.</small></div>}{status(periodId)}</article>;
     })}{!history.length && <p className="competitionEmpty">Окончательные награды появятся после завершения недели. Получить их можно позже, даже после выхода из альянса.</p>}</div>}
     {pages > 1 && <div className="competitionPagination"><button type="button" className="miniButton" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Назад</button><span>{currentPage + 1}/{pages}</span><button type="button" className="miniButton" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Далее</button></div>}
 

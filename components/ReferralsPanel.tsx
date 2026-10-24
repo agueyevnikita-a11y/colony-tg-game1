@@ -15,20 +15,22 @@ type Props = {
   onClaim: () => Promise<{ count: number; credits: number; crystals: number }>;
   onViewCity: (telegramId: number) => void;
   onAchievements?: () => void;
+  onUpgradeHq?: () => void;
+  onRefresh?: () => void;
 };
 
 const n = (value: number) => value.toLocaleString('ru-RU');
 const PAGE_SIZE = 4;
 const STATUS_LABEL = { locked: 'Впереди', available: 'Забрать в достижениях', received: 'Получено', pending: 'Ожидает выдачи' };
 
-export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShare, onClaim, onViewCity, onAchievements }: Props) {
+export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShare, onClaim, onViewCity, onAchievements, onUpgradeHq, onRefresh }: Props) {
   const [page, setPage] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [copyFeedback, setCopyFeedback] = useState('');
   const submittingRef = useRef(false);
-  if (!program) return <section className="card"><h2><GameIcon name="network" />Сеть колоний</h2><p>Обнови колонию, чтобы увидеть приглашения и награды.</p></section>;
+  if (!program) return <section className="card referralsPanel"><h2><GameIcon name="network" />Сеть колоний</h2><p>Обнови колонию, чтобы увидеть приглашения и награды.</p>{onRefresh && <button type="button" className="miniButton" disabled={busy} onClick={onRefresh}>Обновить приглашения</button>}</section>;
 
   const pending = program.pendingCount > 0;
   const totalPages = Math.max(1, Math.ceil(program.friends.length / PAGE_SIZE));
@@ -36,7 +38,12 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
   const visibleFriends = program.friends.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
   const nextMilestone = program.roadmap.find((entry) => entry.status !== 'received');
   const ownBonusReady = Boolean(program.invitedBy?.qualified && !program.invitedBy.bonusClaimed);
-  const ownBonusAhead = Boolean(program.invitedBy && !program.invitedBy.qualified);
+  const ownBonusAhead = Boolean(program.invitedBy && !program.invitedBy.qualified && !program.invitedBy.bonusClaimed);
+  const ownLevelReached = ownBonusAhead && Number(program.invitedBy?.hqLevel) >= program.qualificationHq;
+  const locked = busy || submitting;
+  const ownBonusHint = ownLevelReached
+    ? 'Твой центр уже достиг нужного уровня. Обнови приглашения, чтобы проверить подтверждение бонуса.'
+    : `Улучши свой центр до ур. ${program.qualificationHq}, чтобы получить бонус по приглашению друга.`;
   async function claim() {
     if (!program?.enabled || !pending || busy || submittingRef.current) return;
     submittingRef.current = true;
@@ -75,12 +82,14 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
 
     <section className="card referralBonusCard">
       <div className="referralCounts"><div><b>{n(program.totalInvited)}</b><span>приглашено</span></div><div><b>{n(program.qualifiedInvited)}</b><span>дошли до ур. {program.qualificationHq}</span></div><div><b>{n(program.receivedCount)}</b><span>наград получено</span></div></div>
-      <div className="referralClaimSummary"><GameIcon name={pending ? 'gift' : 'check'} size={24} /><div><strong>{pending ? `Готово наград: ${n(program.pendingCount)}` : 'Пока нет готовых бонусов'}</strong><span>{pending ? ownBonusReady ? 'Включая бонус за развитие твоей колонии по приглашению друга.' : 'За развитие приглашённых тобой колоний.' : ownBonusAhead ? `Улучши свой центр до ур. ${program.qualificationHq}, чтобы получить бонус по приглашению друга.` : `Новый бонус появится, когда приглашённый друг достигнет центра ур. ${program.qualificationHq}.`}</span></div></div>
+      <div className="referralClaimSummary"><GameIcon name={pending ? 'gift' : 'check'} size={24} /><div><strong>{pending ? `Готово наград: ${n(program.pendingCount)}` : 'Пока нет готовых бонусов'}</strong><span>{pending ? ownBonusReady ? 'Включая бонус за развитие твоей колонии по приглашению друга.' : 'За развитие приглашённых тобой колоний.' : ownBonusAhead ? ownBonusHint : `Новый бонус появится, когда приглашённый друг достигнет центра ур. ${program.qualificationHq}.`}</span></div></div>
       {pending && <div className="referralClaimReward"><GameAmount resource="credits">+{n(program.pendingReward.credits)}</GameAmount><GameAmount resource="crystals">+{n(program.pendingReward.crystals)}</GameAmount></div>}
       <button className="action" disabled={!program.enabled || !pending || busy || submitting} onClick={claim}>{submitting ? 'Получаем…' : pending ? 'Забрать награды' : 'Пока нет готовых наград'}</button>
-      {!program.enabled && <p className="finePrint">Система наград обновляется. Приглашения сохраняются; получение станет доступно после обновления сервера.</p>}
+      {!program.enabled && <div className="referralRefresh"><p className="finePrint">Система наград обновляется. Приглашения сохраняются; получение станет доступно после обновления сервера.</p>{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить приглашения</button>}</div>}
       {feedback && <div className="notice" role="status">{feedback}</div>}{error && <div className="notice error" role="alert">{error}</div>}
-      {program.invitedBy && <div className="referralInvitedBy"><GameIcon name="social" size={19} /><div><strong>Тебя пригласил: {program.invitedBy.name}</strong><span>{program.invitedBy.bonusClaimed ? 'Бонус за развитие твоей колонии получен.' : program.invitedBy.qualified ? 'Твой центр достиг нужного уровня — личный бонус доступен выше.' : `Улучши свой центр: ${program.invitedBy.hqLevel} → ${program.qualificationHq}. Тогда бонус получишь и ты, и друг.`}</span></div></div>}
+      {program.invitedBy && <div className="referralInvitedBy"><GameIcon name="social" size={19} /><div><strong>Тебя пригласил: {program.invitedBy.name}</strong><span>{program.invitedBy.bonusClaimed ? 'Бонус за развитие твоей колонии получен.' : program.invitedBy.qualified ? program.enabled ? 'Твой центр достиг нужного уровня — личный бонус доступен выше.' : 'Твой центр достиг нужного уровня. Получение бонуса станет доступно после обновления системы наград.' : ownLevelReached ? ownBonusHint : `Улучши свой центр: ${program.invitedBy.hqLevel} → ${program.qualificationHq}. Тогда бонус получишь и ты, и друг.`}</span>
+        {ownBonusAhead && (ownLevelReached ? onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Проверить бонус</button> : onUpgradeHq && <><button type="button" className="miniButton" disabled={locked} onClick={onUpgradeHq}><GameIcon name="city" size={16} />К своему центру · бесплатно<GameIcon name="arrow" size={13} /></button><small>Откроется твой центр на карте. Улучшение и его оплата — отдельное действие.</small></>)}
+      </div></div>}
     </section>
 
     <section className="card referralRoadmapCard">

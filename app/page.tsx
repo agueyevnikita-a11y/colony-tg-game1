@@ -58,6 +58,7 @@ import { usePremiumPurchaseHold } from '@/lib/client/use-premium-purchase-hold';
 import { recoverShopPurchases } from '@/lib/client/shop-recovery';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
+import { useMissionReadiness } from '@/lib/client/use-mission-readiness';
 import { RequestCancelled } from '@/lib/client/requests';
 import { botAppLink, playerStartParam, shareTelegramLink, supportsTelegram, telegramHeaders } from '@/lib/client/telegram';
 
@@ -122,6 +123,7 @@ function productionText(p?: { resource: string; perHour: number } | null, type?:
 
 export default function Home() {
   const { game, setGame, busy, message, setMessage, phase, retry, api, refresh, connectionError } = useGameConnection();
+  const readyMissionCounts = useMissionReadiness(game);
   const media = useColonyMedia();
   const [tab, setTab] = useState<Tab>('city');
   const [subsections, setSubsections] = useState(DEFAULT_SUBSECTIONS);
@@ -587,19 +589,6 @@ export default function Home() {
     const unlocked = new Map((game?.achievements ?? []).map((x: any) => [x.achievement_key, x]));
     return (game?.achievementCatalog ?? []).map((a: any) => ({ ...a, status: unlocked.get(a.key), progress: Number(game?.stats?.[a.stat] ?? 0) }));
   }, [game]);
-  const readyAchievementCount = achievementRows.filter((achievement: any) => achievement.status && !achievement.status.claimed_at).length;
-  const readyQuests = (quests: any[]) => quests.filter(quest => !quest.claimed_at && Number(quest.target) > 0 && Number(quest.progress) >= Number(quest.target)).length;
-  const claimedSeasonLevels = new Set((game?.season?.claims ?? []).map((claim: any) => Number(claim.level)));
-  const seasonEnd = new Date(game?.season?.ends_at ?? '').getTime();
-  const seasonStart = game?.season?.starts_at ? new Date(game.season.starts_at).getTime() : 0;
-  const seasonOpen = seasonStart <= Date.now() && seasonEnd > Date.now();
-  const readyMissionCounts: Record<string, number> = {
-    daily: readyQuests(game?.dailyQuests ?? []) + (game?.dailyLogin?.today && !game.dailyLogin.today.claimed_at ? 1 : 0),
-    weekly: readyQuests(game?.weeklyQuests ?? []),
-    achievements: readyAchievementCount,
-    season: seasonOpen ? (game?.season?.rewards ?? []).filter((reward: any) => Number(game.season.points) >= Number(reward.points) && !claimedSeasonLevels.has(Number(reward.level))).length : 0,
-  };
-
   const selectedBuilding = useMemo(
     () => (game?.buildings ?? []).find((b: any) => b.id === selectedBuildingId) ?? null,
     [game, selectedBuildingId],
@@ -964,7 +953,7 @@ export default function Home() {
       {message && <div role="status" className={`notice ${message.toLowerCase().includes('ошиб') || message.toLowerCase().includes('не хватает') || message.toLowerCase().includes('занята') ? 'error' : ''}`}>{message}</div>}
 
       <SectionTabs key={tab} label={`Подразделы: ${SECTION_TITLES[tab].title}`}
-        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, locked: tab === 'build' && item.key === 'expeditions' && expeditionsLocked, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key] : undefined }))}
+        items={SUBSECTIONS[tab].filter(item => item.key !== 'admin' || game.admin).map(item => ({ ...item, locked: tab === 'build' && item.key === 'expeditions' && expeditionsLocked, badge: tab === 'city' && item.key === 'events' && game.colonyEvents?.active ? 1 : tab === 'social' && item.key === 'inbox' ? Number(game.inbox?.unread ?? 0) : tab === 'social' && item.key === 'friends' ? Number(game.referralProgram?.pendingCount ?? 0) : tab === 'missions' ? readyMissionCounts[item.key as keyof typeof readyMissionCounts] : undefined }))}
         value={subsections[tab]} onChange={openSubsection} />
 
       {tab === 'city' && subsections.city === 'map' && <ColonyGuide key={planOwner} tutorial={game.tutorial} buildings={game.buildings ?? []} research={game.research} plannedResearchKey={plannedResearchKey} busy={busy}
@@ -1121,6 +1110,7 @@ export default function Home() {
           onBuildLogistics={() => beginPlacement('logistics', 'Логистический центр')}
           onUpgradeHq={() => navigateGuide('upgrade_hq')}
           onProduction={() => navigateGuide('production')} onRefresh={() => { void refresh(); }}
+          onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }}
         /></div>
         <div hidden={supplyView !== 'contracts'}><ContractsPanel key={planOwner}
           contracts={game.contracts ?? []} info={game.contractsInfo}
@@ -1356,11 +1346,11 @@ export default function Home() {
             onAction={async (path, body) => { try { return await api(path, body); } catch (error) { setMessage(''); throw error; } }} />
         </div>}
         {subsections.social === 'rating' && <div data-section-panel="social-rating">
-          <AllianceCompetitionPanel key={planOwner} state={game.alliance?.competition} currentAllianceId={game.alliance?.membership ? game.alliance?.alliance?.id : null} onOpenAlliance={() => navigateGuide('alliance')} busy={busy} onRefresh={() => { void refresh(); }} onClaim={async periodId => { try { return await api('/api/alliance/competition/claim', { periodId }); } catch (error) { setMessage(''); throw error; } }} />
+          <AllianceCompetitionPanel key={planOwner} state={game.alliance?.competition} currentAllianceId={game.alliance?.membership ? game.alliance?.alliance?.id : null} onOpenAlliance={() => navigateGuide('alliance')} onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} busy={busy} onRefresh={() => { void refresh(); }} onClaim={async periodId => { try { return await api('/api/alliance/competition/claim', { periodId }); } catch (error) { setMessage(''); throw error; } }} />
 <details className="card"><summary>История Первого сигнала · без призового зачёта</summary><h2><GameIcon name="trophy" />Рейтинг I сезона</h2><div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard??[]).slice(0,10).map((p:any,i:number)=><div className="leaderRow" key={p.telegram_id}><span>{i+1}</span><b>{p.colony_name||p.first_name||p.username||p.telegram_id}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard??[]).slice(0,10).map((a:any,i:number)=><div className="leaderRow" key={a.id}><span>{i+1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div><p className="finePrint">Исторический рейтинг сохранён. Призы недельной лиги рассчитываются отдельно по новому вкладу в совместную добычу.</p></details>
         </div>}
         {subsections.social === 'friends' && <div data-section-panel="social-friends">
-          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
+          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onUpgradeHq={() => navigateGuide('upgrade_hq')} onRefresh={() => { void refresh(); }} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
         {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)} · Комфорт {n(viewedCity.comfort?.score ?? calculateComfort(viewedCity.decor ?? []).score)}/100{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
