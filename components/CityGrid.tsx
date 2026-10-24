@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { createProductionNetwork, type ProductionEdge, type ProductionResource } from '@/lib/game/production-network';
 import { BuildingArt } from '@/components/BuildingArt';
 import { GameIcon } from '@/components/GameIcon';
@@ -34,6 +35,8 @@ export function CityGrid(props: {
   gridSize: number;
   selectedId?: string | null;
   selectedDecorId?: string | null;
+  decorFocus?: { id: string; requestId: number } | null;
+  onDecorFocused?: (requestId: number, found: boolean) => void;
   placementMode?: boolean;
   decorPlacementMode?: boolean;
   moveMode?: boolean;
@@ -50,6 +53,23 @@ export function CityGrid(props: {
   onCell?: (x: number, y: number, building?: Building, decor?: Decor) => void;
   compact?: boolean;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const focusRequest = props.decorFocus;
+  useEffect(() => {
+    if (!focusRequest || props.compact) return;
+    // Wait for the parent's section navigation and scroll restoration first.
+    const frame = window.requestAnimationFrame(() => {
+      const cell = [...(gridRef.current?.querySelectorAll<HTMLButtonElement>('[data-city-decor-id]') ?? [])]
+        .find(element => element.dataset.cityDecorId === focusRequest.id);
+      const found = !!cell && cell.isConnected && !cell.disabled;
+      if (found) {
+        cell.focus({ preventScroll: true });
+        cell.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+      props.onDecorFocused?.(focusRequest.requestId, found);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest, props.compact]);
   const byCell = new Map(props.buildings.map((b) => [`${b.x}:${b.y}`, b]));
   const decorByCell = new Map((props.decor ?? []).map((d) => [`${d.x}:${d.y}`, d]));
   const connections = createCityConnections(props.buildings, props.decor ?? [], props.gridSize);
@@ -124,7 +144,8 @@ export function CityGrid(props: {
           onClick={() => props.onCell?.(x, y, b, d)}
           disabled={!props.onCell}
           aria-pressed={(occupied || planningFoundry) && props.onCell ? selected || chosenCandidate : undefined}
-          aria-label={b ? `${cfg?.name ?? b.type}, уровень ${b.level}${constructing ? ', строительство' : ''}${nodeDescription}` : d ? `${decorCfg?.name ?? d.type}` : `${chosenCandidate ? 'Выбрано место для цеха' : 'Пустая клетка'} ${x + 1}, ${y + 1}${linkDescription ? `; ${linkDescription}` : ''}`}
+          aria-label={b ? `${cfg?.name ?? b.type}, уровень ${b.level}${constructing ? ', строительство' : ''}${nodeDescription}` : d ? `${decorCfg?.name ?? d.type}, клетка ${x + 1}:${y + 1}` : `${chosenCandidate ? 'Выбрано место для цеха' : 'Пустая клетка'} ${x + 1}, ${y + 1}${linkDescription ? `; ${linkDescription}` : ''}`}
+          data-city-decor-id={b ? undefined : d?.id}
           title={linkDescription || undefined}
           data-connected-road-count={b || d?.type === 'plaza' ? arrivalCount : undefined}
           data-production-node={nodeLinks.length ? nodeLinks.join(' ') : undefined}
@@ -152,7 +173,7 @@ export function CityGrid(props: {
     }
   }
 
-  return <div className={`cityMap cityArtMap cosmeticSurface ${cosmeticFrameClass(props.frame)} ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${hasOverlay ? 'hasProductionNetwork' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
+  return <div ref={gridRef} className={`cityMap cityArtMap cosmeticSurface ${cosmeticFrameClass(props.frame)} ${props.placementMode || props.decorPlacementMode || props.moveMode ? 'isPlanning' : ''} ${hasOverlay ? 'hasProductionNetwork' : ''} ${props.compact ? 'compactMap' : ''} ${props.theme ?? ''} ${props.weather ?? ''}`}>
     <div className="cityTerrain" aria-hidden="true"><i /><i /><i /><i /></div>
     <CosmeticAtmosphere weather={props.weather} effect={props.effect} />
     <div className="cityMapGrid" style={{ gridTemplateColumns: `repeat(${props.gridSize}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${props.gridSize}, minmax(0, 1fr))` }}>

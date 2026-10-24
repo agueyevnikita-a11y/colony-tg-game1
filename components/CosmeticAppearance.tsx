@@ -36,6 +36,7 @@ export function FounderMonument({ decorative = true }: { decorative?: boolean })
 }
 
 export function CosmeticMonument({ id, decorative = true }: { id: string; decorative?: boolean }) {
+  if (!id) return null;
   if (id === 'founder_monument') return <FounderMonument decorative={decorative} />;
   if (id !== 'monument_network' && id !== 'relay_legend') return <DecorArt type="statue" decorative={decorative} />;
   const legendary = id === 'relay_legend';
@@ -79,9 +80,9 @@ export function CosmeticPreview({ cosmeticId, category, label, className = '', s
   const theme = cityStyleClass(cosmeticId);
   const weather = founderPack ? 'founder_sky' : cosmeticId === 'weather_aurora' || cosmeticId === 'founder_sky' || cosmeticId === 'weather_signal_storm' ? cosmeticId : '';
   const frame = founderPack ? 'founder_frame' : category === 'frame' || FRAME_IDS.has(cosmeticId) ? cosmeticId : '';
-  const monument = founderPack || ['founder_monument', 'monument_network', 'relay_legend'].includes(cosmeticId) || category === 'building_skin';
+  const monument = founderPack || ['founder_monument', 'monument_network', 'relay_legend'].includes(cosmeticId) || (category === 'building_skin' && !!cosmeticId);
   const badge = founderPack || cosmeticId === 'founder_badge' ? 'founder_badge' : category === 'badge' ? cosmeticId : '';
-  const title = label ?? LABELS[cosmeticId] ?? (cosmeticId ? 'Оформление колонии' : 'Базовое оформление');
+  const title = label ?? LABELS[cosmeticId] ?? (cosmeticId ? 'Оформление колонии' : category === 'building_skin' ? 'Монумент не выбран' : 'Базовое оформление');
   return <figure className={`cosmeticPreview ${className}`.trim()} aria-label={subject ? `${subject.name} · ${title}` : title} data-preview-subject={subject?.key}>
     <div className={`cosmeticPreviewSurface cosmeticSurface cityMap cityArtMap ${theme} ${cosmeticFrameClass(frame)}`}>
       <CosmeticAtmosphere weather={weather} effect={category === 'effect' ? cosmeticId : ''} />

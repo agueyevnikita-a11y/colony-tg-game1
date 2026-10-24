@@ -78,6 +78,14 @@
 .collectionCategories { display:flex; flex-wrap:wrap; gap:7px; margin:15px 0; }
 .collectionCategories button { padding:8px 10px; min-height:40px; border:1px solid var(--line); border-radius:11px; color:#a6becb; background:rgba(165,195,208,.035); font-size:12px; line-height:1.4; cursor:pointer; }
 .collectionCategories button.isSelected { color:#b3ead6; background:rgba(115,216,178,.08); border-color:rgba(115,216,178,.35); }
+.collectionStatusFilters { display:flex; flex-wrap:wrap; gap:7px; min-width:0; margin:15px 0 9px; }
+.cosmeticsShop .collectionStatusFilters > button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:44px; min-width:0; padding:9px 11px; border:1px solid var(--line); border-radius:11px; background:rgba(165,195,208,.035); color:var(--shop-muted); font:inherit; font-size:12px; line-height:1.5; overflow-wrap:anywhere; cursor:pointer; }
+.collectionStatusFilters > button.isSelected { color:#b3ead6; border-color:rgba(115,216,178,.35); background:rgba(115,216,178,.08); }
+.collectionStatusFilters .gameIcon { flex:none; }
+.collectionFilterEmpty { display:grid; gap:9px; padding:14px; border:1px dashed var(--line); border-radius:12px; color:var(--shop-muted); font-size:12px; line-height:1.6; }
+.collectionFilterEmpty strong { color:var(--text); }
+.cosmeticsShop .collectionFilterEmpty p { margin:0; font-size:12px; line-height:1.6; }
+.cosmeticsShop .collectionFilterEmpty .action { margin:0; }
 .collectionGrid { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
 .collectionItem { min-width:0; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:rgba(13,27,36,.45); display:flex; flex-direction:column; }
 .collectionItem.isEquipped { border-color:rgba(126,223,186,.3); }
@@ -86,6 +94,7 @@
 .collectionItemBody { display:flex; flex-direction:column; flex:1; min-width:0; padding:12px; }
 .collectionItem h3 { font-size:14px; }
 .cosmeticsShop .collectionItem .cosmeticWhere { color:#96afbc; font-size:12px; line-height:1.5; margin:0 0 8px; }
+.cosmeticsShop .collectionItem .cosmeticReplacementHint,.cosmeticsPreviewBody > .cosmeticReplacementHint { margin:0 0 10px; padding:9px; border:1px solid rgba(146,192,176,.18); border-radius:10px; background:rgba(115,216,178,.035); color:#afc9bf; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
 .collectionItem .cosmeticOwnership { margin-top:auto; }
 .collectionActions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:7px; }
 .collectionActions .action { padding-left:8px; padding-right:8px; font-size:12px; }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.14-beta.1 — Find Your Decor and Compare Your Appearance
+- Decor catalogs separate unlocked types, actual comfort gains, placed types and locked types. Existing objects remain manageable when a new-copy technology is unavailable, with distinct prices and actions for buying another copy.
+- A placed-object picker identifies each copy by its cell. A free map shortcut selects and focuses that exact object without starting placement, movement or demolition; actions open only when the player selects the highlighted cell. Focus requests are consumed once, cancel on navigation and respect reduced motion.
+- Copy descriptions show the actual capped comfort gain. Demolition explains why three identical objects can leave comfort unchanged, while keeping explicit confirmation and the original refund rules.
+- Collections can show only applied appearance. Targeted links reset this filter, keep the right page and avoid repeating focus during refresh or expiry. Cards and comparisons name the appearance that an explicit application would replace, and explain that it remains owned.
+- Fixed an unselected monument appearing as a statue in the current-appearance comparison. Empty and equipped previews now match their captions; five real-render regressions cover empty, known, legacy, bundle and shared-subject previews. No migration, dependency, price, reward, saved-city or payment-rule change is required.
+
 ## 1.14.13-beta.1 — Check Purchases without Paying Again
 - Premium no longer stays visually active past a known deadline while the shop remains open. A free session check confirms the current status; unknown deadlines retain the server's active flag, and a future date alone cannot grant Premium.
 - Purchase recovery shows verified aggregate results instead of a generic success message. A failed session refresh preserves an already completed recovery receipt and offers a separate data refresh without repeating recovery. Unknown receipts remain neutral, and paid receipt identities still govern pending Premium invoices.

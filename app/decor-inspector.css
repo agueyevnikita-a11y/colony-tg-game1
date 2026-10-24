@@ -11,7 +11,7 @@
 .decorRemovePreview { display:flex; flex-direction:column; gap:5px; padding:10px; border:1px solid var(--line); border-radius:10px; }
 .decorRemovePreview > span { color:var(--muted); font-size:11px; }
 .decorRemovePreview > strong { font-size:17px; }
-.decorRemovePreview > small { color:var(--muted); font-size:11px; line-height:1.6; }
+.decorRemovePreview > small { max-width:100%; color:var(--muted); font-size:11px; line-height:1.6; }
 .decorRemoveActions { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
 .colonyApp .decorInspector button { min-height:44px; white-space:normal; }
 .colonyApp .decorInspector .decorRemoveSubmit { border-color:rgba(230,180,122,.4); color:#edcba3; font-size:12px; padding-inline:8px; }

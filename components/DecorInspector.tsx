@@ -31,6 +31,7 @@ export function DecorInspector({ decor, catalogItem, allDecor, open, busy, freeC
   const current = calculateComfort(allDecor).score;
   const after = calculateComfort(allDecor.filter(item => item.id !== decor.id)).score;
   const loss = Math.max(0, current - after);
+  const sameTypeCount = allDecor.filter(item => item.type === decor.type).length;
   const config = catalogItem ?? decorByType(decor.type);
   const displayName = config?.name ?? 'Объект благоустройства';
   const price = Number(config?.credits ?? 0);
@@ -60,7 +61,7 @@ export function DecorInspector({ decor, catalogItem, allDecor, open, busy, freeC
     {!confirming ? <><button ref={removeButton} type="button" className="action secondary" data-decor-remove disabled={locked} onClick={() => { setConfirming(true); setError(null); }}>Убрать декор</button><p className="decorRefundHint">После подтверждения демонтажа вернётся <GameAmount resource="credits">{number(refund)}</GameAmount> — 50% цены.</p></> : <div className="decorRemoveConfirm" role="group" aria-labelledby={`${id}-confirm`}>
       <h3 id={`${id}-confirm`}>Демонтировать «{displayName}»?</h3>
       <p>Вернётся 50% цены: <GameAmount resource="credits">{number(refund)}</GameAmount>. Чтобы поставить объект снова, придётся заплатить полную стоимость.</p>
-      <div className="decorRemovePreview" data-decor-remove-preview><span>Комфорт после демонтажа</span><strong>{current} → {after}/{COMFORT_MAX}</strong><small>{loss ? `Уменьшится на ${loss} очков.` : 'Не изменится: учитываются другие объекты и предел комфорта.'} Уже открытые достижения и награды сохранятся.</small></div>
+      <div className="decorRemovePreview" data-decor-remove-preview><span>Комфорт после демонтажа</span><strong>{current} → {after}/{COMFORT_MAX}</strong><small>{loss ? `Уменьшится на ${loss} очков.` : sameTypeCount > 2 ? 'Не изменится: в комфорте учитываются не более двух объектов одного вида. После демонтажа останутся как минимум два.' : current === COMFORT_MAX ? 'Не изменится: после демонтажа другие объекты сохранят общий предел 100 очков.' : 'Не изменится: этот объект не добавляет очков к текущему комфорту.'} Уже открытые достижения и награды сохранятся.</small></div>
       <div className="decorRemoveActions"><button ref={confirmButton} type="button" className="action secondary decorRemoveSubmit" data-decor-remove-confirm disabled={locked} onClick={() => void remove()}>{pending ? 'Убираем…' : 'Подтвердить демонтаж'}</button><button type="button" className="miniButton" data-decor-remove-cancel disabled={locked} onClick={() => { setConfirming(false); setError(null); requestAnimationFrame(() => removeButton.current?.focus()); }}>Оставить декор</button></div>
     </div>}
     {busy && !pending && <p className="decorRefundHint" role="status">Дождись завершения текущего действия колонии.</p>}

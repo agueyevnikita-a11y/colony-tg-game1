@@ -139,6 +139,8 @@ export default function Home() {
   const [moveDecorId, setMoveDecorId] = useState<string | null>(null);
   const [decorPlacementType, setDecorPlacementType] = useState<string | null>(null);
   const [selectedDecorId, setSelectedDecorId] = useState<string | null>(null);
+  const [decorMapFocus, setDecorMapFocus] = useState<{ owner: string; id: string; requestId: number } | null>(null);
+  const decorMapFocusVersion = useRef(0);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [constructionFeedback, setConstructionFeedback] = useState<{ target: string; text: string; error: boolean } | null>(null);
   const cityMapRef = useRef<HTMLElement>(null);
@@ -210,7 +212,7 @@ export default function Home() {
   const activeGuideFocus = guideFocus.owner === planOwner && guideFocus.kind ? guideFocus.kind
     : plannedResearchKey ? 'research' : selectedSupply?.started && !selectedSupply.completed ? 'supplies' : 'research';
 
-  useEffect(() => { setArtifactExpedition(null); setArtifactCollection(null); }, [planOwner]);
+  useEffect(() => { setArtifactExpedition(null); setArtifactCollection(null); setDecorMapFocus(null); }, [planOwner]);
 
   useEffect(() => {
     if (!planOwner) return;
@@ -305,6 +307,7 @@ export default function Home() {
 
   function showSection(nextTab: Tab, section: string) {
     setInspectorOpen(false);
+    setDecorMapFocus(null);
     setTab(nextTab);
     setSubsections(previous => previous[nextTab] === section ? previous : { ...previous, [nextTab]: section });
   }
@@ -326,6 +329,7 @@ export default function Home() {
     if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
     setArtifactExpedition(null);
     setArtifactCollection(null);
+    setDecorMapFocus(null);
     if (tab === 'missions' && section === 'achievements') setAchievementFocus(previous => ({ category: 'all', requestId: previous.requestId + 1 }));
     navigationToTop.current = true;
     guideNavigationPending.current = null;
@@ -341,6 +345,7 @@ export default function Home() {
   function openSection(nextTab: Tab) {
     setArtifactExpedition(null);
     setArtifactCollection(null);
+    setDecorMapFocus(null);
     setInspectorOpen(false);
     navigationToTop.current = true;
     setFocusedResearch(null);
@@ -391,6 +396,7 @@ export default function Home() {
   function navigateGuide(action: string) {
     setArtifactExpedition(null);
     setArtifactCollection(null);
+    setDecorMapFocus(null);
     setInspectorOpen(false);
     setHelpOpen(false);
     setConstructionFeedback(null);
@@ -723,6 +729,7 @@ export default function Home() {
 
   async function handleCityCell(x: number, y: number, building?: any, decor?: any) {
     if (busy) return;
+    setDecorMapFocus(null);
     if (moveDecorId && (building || decor)) {
       if (decor?.id === moveDecorId) {
         cancelMapAction();
@@ -843,6 +850,17 @@ export default function Home() {
     setInspectorOpen(false); setMoveDecorId(decor.id); setMoveBuildingId(null);
     setPlacementType(null); setDecorPlacementType(null); setSelectedBuildingId(null);
     setMessage(''); setConstructionFeedback({ target: 'map', text: 'Выбери свободную клетку. Перемещение декора бесплатно.', error: false });
+  }
+
+  function findPlacedDecor(decorId: string) {
+    const target = (game?.decor ?? []).find((item: any) => item.id === decorId);
+    if (!target) { setMessage('Объект больше не найден. Обнови данные колонии.'); return; }
+    openSection('city');
+    showSection('city', 'map');
+    setSelectedBuildingId(null);
+    setSelectedDecorId(target.id);
+    setDecorMapFocus({ owner: planOwner, id: target.id, requestId: ++decorMapFocusVersion.current });
+    setConstructionFeedback({ target: 'map', text: 'Декор выделен на карте. Нажми на него, чтобы посмотреть действия: перенос и демонтаж выполняются отдельно.', error: false });
   }
 
   function cancelMapAction() {
@@ -975,6 +993,12 @@ export default function Home() {
             gridSize={Number(game.gridSize ?? 6)}
             selectedId={selectedBuildingId}
             selectedDecorId={selectedDecorId}
+            decorFocus={decorMapFocus?.owner === planOwner ? decorMapFocus : null}
+            onDecorFocused={(requestId, found) => {
+              if (decorMapFocusVersion.current !== requestId || settingsOwner.current !== decorMapFocus?.owner) return;
+              setDecorMapFocus(null);
+              if (!found) setConstructionFeedback({ target: 'map', text: 'Объект больше не виден на карте. Обнови данные колонии.', error: true });
+            }}
             placementMode={!!placementType}
             decorPlacementMode={!!decorPlacementType}
             moveMode={!!moveBuildingId || !!moveDecorId}
@@ -1135,7 +1159,12 @@ export default function Home() {
         /></div>
         </div>}
         {subsections.city === 'decor' && <div data-section-panel="city-decor">
-          <DecorPanel key={planOwner} catalog={game.decorCatalog ?? []} decor={game.decor ?? []} hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy} freeCells={Math.max(0, totalCells - usedCells)} onOpenMap={() => showSection('city', 'map')} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)} onPlace={beginDecorPlacement} onResearch={chooseResearchTarget} onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => openAchievements('comfort')} />
+          <DecorPanel key={planOwner} catalog={game.decorCatalog ?? []} decor={game.decor ?? []}
+            hqLevel={Number(s.hq_level)} completedResearch={game.research?.completed ?? []} resources={s} busy={busy}
+            freeCells={Math.max(0, totalCells - usedCells)} highestComfort={Number(game.stats?.max_comfort ?? comfort.score)}
+            onOpenMap={() => showSection('city', 'map')} onFindOnMap={findPlacedDecor}
+            onPlace={beginDecorPlacement} onResearch={chooseResearchTarget}
+            onUpgradeHq={() => navigateGuide('upgrade_hq')} onAchievements={() => openAchievements('comfort')} />
         </div>}
       </>}
 

@@ -64,6 +64,10 @@ const FOUNDER_ITEMS = [
   { id: 'founder_frame', name: 'Рамка основателя', category: 'frame' },
   { id: 'founder_sky', name: 'Небо основателя', category: 'weather' },
 ];
+const CURRENT_PREVIEW_LABELS: Record<string, string> = {
+  theme: 'Текущий стиль', weather: 'Текущее небо', frame: 'Текущая рамка',
+  badge: 'Текущий знак', title: 'Текущий титул', effect: 'Текущий эффект', building_skin: 'Текущий монумент',
+};
 
 function dateText(value?: string | null) {
   const date = value ? new Date(value) : null;
@@ -75,6 +79,7 @@ function categoryInfo(category: string) { return CATEGORIES[category] ?? { name:
 export function CosmeticsShop(props: Props) {
   const id = useId();
   const [category, setCategory] = useState('all');
+  const [collectionStatus, setCollectionStatus] = useState<'all' | 'equipped'>('all');
   const [collectionPage, setCollectionPage] = useState(0);
   const [preview, setPreview] = useState<PreviewItem | null>(null);
   const [previewKind, setPreviewKind] = useState<AppearanceKind>('building');
@@ -100,7 +105,9 @@ export function CosmeticsShop(props: Props) {
   const awaiting = new Set(props.awaitingProducts ?? []);
   const categories = [...new Set(collection.map((item) => item.category))];
   const selectedCategory = categories.includes(category) ? category : 'all';
-  const shownItems = selectedCategory === 'all' ? collection : collection.filter((item) => item.category === selectedCategory);
+  const equippedCount = collection.filter(item => item.equipped).length;
+  const categoryItems = selectedCategory === 'all' ? collection : collection.filter((item) => item.category === selectedCategory);
+  const shownItems = collectionStatus === 'equipped' ? categoryItems.filter(item => item.equipped) : categoryItems;
   const collectionPages = Math.max(1, Math.ceil(shownItems.length / APPEARANCE_PAGE_SIZE));
   const selectedCollectionPage = Math.min(collectionPage, collectionPages - 1);
   const visibleItems = shownItems.slice(selectedCollectionPage * APPEARANCE_PAGE_SIZE, (selectedCollectionPage + 1) * APPEARANCE_PAGE_SIZE);
@@ -108,6 +115,7 @@ export function CosmeticsShop(props: Props) {
   const founderOwned = FOUNDER_ITEMS.filter((item) => owned.has(item.id)).length;
   const ownedFounderItem = FOUNDER_ITEMS.find(item => owned.has(item.id));
   const currentPreview = preview ? collection.find((item) => item.category === preview.category && item.equipped) : null;
+  const currentPreviewName = currentPreview?.name ?? (preview?.category === 'building_skin' ? 'Монумент не выбран' : 'Базовое оформление');
   const themePreview = preview?.category === 'theme';
   const objects = appearancePage(previewKind, previewPage);
   const previewSubject = objects.items[previewObjectIndex] ?? objects.items[0];
@@ -117,6 +125,10 @@ export function CosmeticsShop(props: Props) {
   useEffect(() => {
     if (props.crystalCheckRequired === false) setCrystalCheckRequired(false);
   }, [props.crystalCheckRequired]);
+
+  useEffect(() => {
+    if (collectionPage !== selectedCollectionPage) setCollectionPage(selectedCollectionPage);
+  }, [collectionPage, selectedCollectionPage]);
 
   // Known deadlines expire even while the player keeps this screen open.
   useEffect(() => {
@@ -162,7 +174,7 @@ export function CosmeticsShop(props: Props) {
       element.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [props.view, collectionFocus, selectedCategory, selectedCollectionPage, collection]);
+  }, [props.view, collectionFocus, selectedCategory, selectedCollectionPage, collectionStatus, collection]);
 
   async function run<T,>(key: string, operation: () => Promise<T>, success: string | ((result: T) => string)) {
     if (locked || inFlight.current) return;
@@ -244,6 +256,7 @@ export function CosmeticsShop(props: Props) {
   function openCollection(cosmeticId?: string) {
     const item = cosmeticId ? owned.get(cosmeticId) : undefined;
     setPreview(null);
+    setCollectionStatus('all');
     if (item) {
       const index = collection.filter(entry => entry.category === item.category).findIndex(entry => entry.id === item.id);
       setCategory(item.category);
@@ -328,16 +341,24 @@ export function CosmeticsShop(props: Props) {
         '«Есть навсегда» означает постоянный доступ. Временный предмет можно применять до указанной даты; после неё он исчезнет из доступной коллекции.',
       ]} />}
       {collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span>{props.onAchievements && <button type="button" className="action secondary" onClick={props.onAchievements}>Посмотреть награды достижений<GameIcon name="arrow" size={14} /></button>}</div> : <>
+        <div className="collectionStatusFilters" role="group" aria-label="Состояние предметов коллекции">
+          <button type="button" data-shop-collection-filter="all" className={collectionStatus === 'all' ? 'isSelected' : ''} aria-pressed={collectionStatus === 'all'} onClick={() => { setCollectionStatus('all'); setCollectionPage(0); }}>Все предметы · {collection.length}</button>
+          <button type="button" data-shop-collection-filter="equipped" className={collectionStatus === 'equipped' ? 'isSelected' : ''} aria-pressed={collectionStatus === 'equipped'} onClick={() => { setCollectionStatus('equipped'); setCollectionPage(0); }}><GameIcon name="check" size={14} />Применённые · {equippedCount}</button>
+        </div>
         <div className="collectionCategories" role="group" aria-label="Виды оформления">
           <button type="button" className={selectedCategory === 'all' ? 'isSelected' : ''} aria-pressed={selectedCategory === 'all'} onClick={() => { setCategory('all'); setCollectionPage(0); }}>Все · {collection.length}</button>
           {categories.map(value => <button key={value} type="button" className={selectedCategory === value ? 'isSelected' : ''} aria-pressed={selectedCategory === value} onClick={() => { setCategory(value); setCollectionPage(0); }}>{categoryInfo(value).name} · {collection.filter(item => item.category === value).length}</button>)}
         </div>
-        <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} ref={item.id === collectionFocus?.id ? focusedCollectionRef : undefined} tabIndex={-1} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} data-shop-collection-item={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
+        {shownItems.length === 0 ? <div className="collectionFilterEmpty" role="status" data-shop-collection-empty><strong>{selectedCategory === 'all' ? 'Оформление пока не применено' : 'В этой категории пока нет применённого оформления'}</strong><p>Открой полученные предметы и выбери оформление для города.</p><button type="button" className="action secondary" onClick={() => { setCollectionStatus('all'); setCollectionPage(0); }}>{selectedCategory === 'all' ? 'Показать все предметы' : 'Показать предметы категории'}</button></div> : <div className="collectionGrid">{visibleItems.map(item => {
+          const replacement = !item.equipped ? collection.find(other => other.category === item.category && other.equipped && other.id !== item.id) : undefined;
+          return <article key={item.id} ref={item.id === collectionFocus?.id ? focusedCollectionRef : undefined} tabIndex={-1} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} data-shop-collection-item={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
           <CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" />
           <div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}
+            {replacement && <p className="cosmeticReplacementHint" data-shop-replacement={item.id}>Заменит «{replacement.name}». Предыдущий предмет останется в коллекции.</p>}
             <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped && !item.needsLongerApplication ? 'secondary' : ''}`} type="button" data-shop-equip={item.id} disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Меняем оформление…' : item.needsLongerApplication ? item.expiresAt === null ? 'Применить навсегда' : 'Применить на весь срок' : item.equipped ? 'Снять' : 'Применить'}</button>{item.needsLongerApplication && <button type="button" className="action secondary collectionRemove" disabled={locked} onClick={() => equip(item, false)}>{pending === `equip:${item.id}` ? 'Меняем оформление…' : 'Снять текущее оформление'}</button>}</div>{notice(`equip:${item.id}`)}
           </div>
-        </article>)}</div>
+        </article>;
+        })}</div>}
         {collectionPages > 1 && <nav className="cosmeticPager" aria-label="Страницы коллекции"><button type="button" disabled={selectedCollectionPage === 0} onClick={() => setCollectionPage(selectedCollectionPage - 1)}>Назад</button><span aria-live="polite">{selectedCollectionPage + 1} / {collectionPages}</span><button type="button" disabled={selectedCollectionPage + 1 === collectionPages} onClick={() => setCollectionPage(selectedCollectionPage + 1)}>Дальше</button></nav>}
       </>}
     </section>
@@ -361,9 +382,10 @@ export function CosmeticsShop(props: Props) {
         </section>}
         {themePreview && previewSubject && <h3 className="themeComparedObject" data-theme-compared-object={previewSubject.key}>{previewSubject.name}</h3>}
         <div className={`cosmeticsComparison${themePreview ? ' isThemeComparison' : ''}`}>
-          <div><span>Сейчас</span><CosmeticPreview cosmeticId={currentPreview?.id ?? ''} category={preview.category} label={currentPreview?.name ?? 'Базовое оформление'} subject={themePreview ? previewSubject : undefined} /><strong>{currentPreview?.name ?? 'Базовое оформление'}</strong></div>
+          <div><span>{CURRENT_PREVIEW_LABELS[preview.category] ?? 'Текущее оформление'}</span><CosmeticPreview cosmeticId={currentPreview?.id ?? ''} category={preview.category} label={currentPreviewName} subject={themePreview ? previewSubject : undefined} /><strong>{currentPreviewName}</strong></div>
           <div><span>{themePreview ? 'Выбранный стиль' : 'Выбранный предмет'}</span><CosmeticPreview cosmeticId={preview.id} category={preview.category} label={preview.name} subject={themePreview ? previewSubject : undefined} /><strong>{preview.name}</strong></div>
         </div>
+        {currentPreview && currentPreview.id !== preview.id && <p className="cosmeticReplacementHint" data-preview-replacement>При применении заменит «{currentPreview.name}». Предыдущий предмет останется в коллекции.</p>}
         {collectionButton(preview.id, 'Показать в коллекции')}
         <button className="action secondary" type="button" onClick={() => setPreview(null)}>Вернуться к выбору</button>
       </div>}

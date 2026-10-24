@@ -20,10 +20,11 @@
 .decorGoalUnlock > .miniButton { display:flex; justify-content:center; align-items:center; gap:6px; max-width:100%; min-height:44px; white-space:normal; font-size:11px; line-height:1.5; text-align:center; overflow-wrap:anywhere; }
 .decorGoalUnlock > .miniButton .gameIcon { flex-shrink:0; }
 .decorRewardsLink { display:flex; width:100%; justify-content:center; align-items:center; gap:6px; margin-top:8px; white-space:normal; }
-.decorFilters { display:flex; gap:6px; margin:15px 0 8px; scroll-margin-top:14px; }
-.decorFilters button { flex:1; min-width:0; padding:7px 6px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:rgba(12,26,33,.35); font:inherit; font-size:11px; line-height:1.45; cursor:pointer; }
+.decorFilters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin:15px 0 8px; scroll-margin-top:14px; }
+.decorFilters button { min-width:0; padding:9px 6px; border:1px solid var(--line); border-radius:10px; color:var(--muted); background:rgba(12,26,33,.35); font:inherit; font-size:11px; line-height:1.45; white-space:normal; overflow-wrap:anywhere; cursor:pointer; }
 .decorFilters button.isActive { border-color:rgba(126,209,167,.45); color:#c2e4d5; background:rgba(86,158,120,.12); }.decorFilters button span { margin-left:3px; font-size:10px; color:#a3c4b7; }
 .colonyApp .decorCatalogHint { margin:0 0 11px; font-size:10px; line-height:1.6; }
+.colonyApp .decorShopDifference { margin:12px 0 0; font-size:11px; line-height:1.65; color:var(--muted); overflow-wrap:anywhere; }
 .decorItems { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .decorCatalogTile { display:flex; align-items:center; flex-direction:column; min-width:0; padding:11px 7px 10px; border:1px solid var(--line); border-radius:13px; background:linear-gradient(155deg,rgba(40,69,72,.18),rgba(15,30,38,.35)); color:var(--text); font:inherit; text-align:center; cursor:pointer; }
 .decorCatalogTile:hover { border-color:rgba(126,209,167,.4); }
@@ -37,6 +38,9 @@
 .decorTileStatus { margin-top:7px; font-size:9px; line-height:1.5; color:#c5bfa5; }.decorTileStatus.isReady { color:#a5d8bd; }
 .decorCatalogTile.isLocked { background:rgba(13,27,34,.45); }.decorCatalogTile.isLocked .decorItemArt { opacity:.65; }
 .decorPanel .decorEmpty { margin:14px 0 0; font-size:12px; line-height:1.6; }
+.colonyApp .decorEmpty p { margin:0; font-size:12px; line-height:1.6; }
+.decorEmptyActions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.decorEmptyActions .miniButton { display:flex; align-items:center; justify-content:center; gap:5px; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
 .decorFullMap { display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:12px; padding:11px; border:1px solid rgba(221,187,122,.23); border-radius:11px; background:rgba(176,130,51,.045); font-size:11px; line-height:1.6; }
 .decorFullMap > strong { color:#dfc69f; }
 .decorFullMap > span { color:var(--muted); }
@@ -58,12 +62,18 @@
 .colonyApp .decorDetailDescription { font-size:12px; line-height:1.65; margin:14px 0; }
 .decorDetailCost { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:7px; padding:11px; border:1px solid var(--line); border-radius:11px; }
 .decorDetailCost > span { font-size:11px; color:var(--muted); }.decorDetailCost > strong { font-size:14px; }
+.decorPlacedObjects { display:grid; gap:9px; min-width:0; margin:14px 0; padding:12px; border:1px solid rgba(126,209,167,.25); border-radius:12px; background:rgba(86,158,120,.06); }
+.decorPlacedObjects h3 { margin:0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.colonyApp .decorPlacedObjects p { margin:0; font-size:11px; line-height:1.65; color:var(--muted); }
+.decorPlacedObjects label { display:grid; gap:6px; min-width:0; font-size:11px; line-height:1.5; color:var(--muted); }
+.colonyApp .decorPlacedObjects select { box-sizing:border-box; min-width:0; width:100%; max-width:100%; min-height:44px; margin:0; padding:10px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--text); font:inherit; font-size:16px; }
+.decorPlacedObjects select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .colonyApp .decorCopyHint,.colonyApp .decorPlacementHint { font-size:11px; line-height:1.65; color:var(--muted); margin:12px 0; }
 .decorDetails .action { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:6px; white-space:normal; }
 .colonyApp .decorItemShortage { display:flex; align-items:center; flex-wrap:wrap; gap:5px; margin:9px 0 0; color:#eac7a0; font-size:11px; line-height:1.6; }
 .decorItemGate { display:flex; flex-direction:column; gap:6px; margin-top:12px; color:#c5bfa5; font-size:11px; line-height:1.6; }.decorItemGate .action { margin-top:5px; }
 .decorPanel button:focus-visible,.decorPanel summary:focus-visible,.decorDetails button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .decorPanel .mechanicGuide,.decorDetails p { overflow-wrap:anywhere; }
-@media (min-width:620px) { .decorItems { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (min-width:620px) { .decorItems { grid-template-columns:repeat(3,minmax(0,1fr)); }.decorFilters { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 @media (max-width:360px) { .decorPanelHeading { gap:7px; }.decorComfortValue { padding:8px 7px; gap:3px; }.decorComfortValue strong { font-size:18px; }.decorCatalogTile { padding:10px 6px 9px; }.decorDetailHeading { gap:9px; }.decorDetailArt { flex-basis:58px; width:58px; height:58px; } }
 @media (prefers-reduced-motion:reduce) { .decorComfortTrack i { transition:none; } }
