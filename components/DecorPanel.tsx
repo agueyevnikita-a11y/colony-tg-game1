@@ -1,12 +1,12 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { CityActionSheet } from '@/components/CityActionSheet';
 import { DecorArt } from '@/components/DecorArt';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { MechanicGuide } from '@/components/MechanicGuide';
-import { COMFORT_MAX, COMFORT_MILESTONES, calculateComfort, comfortPlacementGain } from '@/lib/game/comfort';
+import { COMFORT_MAX, COMFORT_MILESTONES, calculateComfort, comfortAvailableCeiling, comfortPlacementGain } from '@/lib/game/comfort';
 import { decorRequirements, type DecorCatalogItem } from '@/lib/game/decor';
 import { RESEARCH_TREE } from '@/lib/game/research';
 import '@/app/decor.css';
@@ -33,12 +33,14 @@ export function DecorPanel(props: Props) {
   const id = useId();
   const [view, setView] = useState<'available' | 'locked'>('available');
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const lockedFilterRef = useRef<HTMLButtonElement>(null);
   const comfort = calculateComfort(props.decor);
   const best = Math.min(COMFORT_MAX, Math.max(comfort.score, Number.isFinite(props.highestComfort) ? Number(props.highestComfort) : 0));
   const next = COMFORT_MILESTONES.find(milestone => milestone.target > best);
   const rewardsUnlocked = best >= COMFORT_MILESTONES[0].target;
   const available = props.catalog.filter(item => decorRequirements(item, props.hqLevel, props.completedResearch).unlocked);
   const locked = props.catalog.filter(item => !decorRequirements(item, props.hqLevel, props.completedResearch).unlocked);
+  const availableCeiling = comfortAvailableCeiling(available.map(item => item.type));
   const items = view === 'available' ? available : locked;
   const selected = props.catalog.find(item => item.type === selectedType);
   const credits = Number(props.resources.credits ?? 0);
@@ -59,6 +61,12 @@ export function DecorPanel(props: Props) {
     return gain > 0 ? `+${gain} к комфорту` : comfort.score === COMFORT_MAX ? 'Комфорт максимален' : 'Для оформления';
   }
 
+  function showLockedTypes() {
+    setView('locked');
+    lockedFilterRef.current?.focus({ preventScroll: true });
+    lockedFilterRef.current?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
   return <>
     <section className="card decorPanel" data-decor-panel aria-labelledby={`${id}-title`}>
       <div className="decorPanelHeading"><div><h2 id={`${id}-title`}><GameIcon name="decor" />Благоустройство</h2><p>Обустрой лунную базу и открывай награды за комфорт.</p></div><span className="decorComfortValue" aria-label={`Текущий комфорт: ${comfort.score} из ${COMFORT_MAX}`}><GameIcon name="comfort" size={17} /><strong>{comfort.score}</strong><small>/{COMFORT_MAX}</small></span></div>
@@ -66,6 +74,8 @@ export function DecorPanel(props: Props) {
       <div className="decorComfortSummary"><span>Сейчас {comfort.score} · рекорд {best}</span><span>{comfort.unique} видов · {comfort.total} объектов</span></div>
       <div className="decorNextGoal" data-decor-next-goal>
         {next ? <><span>Следующая награда · рекорд {next.target}</span><strong>{next.reward}</strong><small>{best > comfort.score ? `Рекорд ${best} сохраняется. Для новой награды подними текущий комфорт до ${next.target}: ещё ${next.target - comfort.score} очков.` : `Ещё ${next.target - comfort.score} очков комфорта до открытия.`}</small></> : <><strong><GameIcon name="check" size={15} />Все награды за комфорт открыты</strong><small>Можно забрать неполученные награды в достижениях и продолжать украшать город.</small></>}
+        <small data-decor-available-ceiling>Открытые виды дают до {availableCeiling}/{COMFORT_MAX} комфорта при двух объектах каждого вида. Для размещения нужны кредиты и свободные клетки.</small>
+        {next && next.target > availableCeiling && locked.length > 0 && <div className="decorGoalUnlock" data-decor-goal-unlock><small>Для рекорда {next.target} понадобятся новые виды декора: этот предел уже учитывает по две копии каждого открытого вида.</small><button type="button" className="miniButton" data-decor-show-locked onClick={showLockedTypes}>Посмотреть условия открытия · бесплатно<GameIcon name="arrow" size={13} /></button></div>}
       </div>
       {props.onAchievements && rewardsUnlocked && <button type="button" className="miniButton decorRewardsLink" disabled={props.busy} onClick={props.onAchievements}>К наградам за комфорт<GameIcon name="arrow" size={13} /></button>}
       {full && <div className="decorFullMap" role="status"><strong>На карте нет свободных клеток</strong><span>Для нового декора нужно освободить место. На карте можно выбрать объект и посмотреть его действия.</span>{props.onOpenMap && <button type="button" className="miniButton" data-decor-open-map disabled={props.busy} onClick={props.onOpenMap}>Открыть карту<GameIcon name="arrow" size={13} /></button>}</div>}
@@ -74,14 +84,15 @@ export function DecorPanel(props: Props) {
         'Первый объект вида даёт полный бонус к комфорту, второй — половину. Остальные копии нужны для оформления. Максимум — 100 очков.',
         'Награды открываются за рекорд комфорта и забираются в достижениях. Перенос бесплатный; демонтаж возвращает половину цены и может снизить текущий комфорт, сохраняя рекорд.',
       ]} />
-      <div className="decorFilters" role="group" aria-label="Доступность декора"><button type="button" className={view === 'available' ? 'isActive' : ''} aria-pressed={view === 'available'} onClick={() => setView('available')}>Открыто <span>{available.length}</span></button><button type="button" className={view === 'locked' ? 'isActive' : ''} aria-pressed={view === 'locked'} onClick={() => setView('locked')}>Предстоит открыть <span>{locked.length}</span></button></div>
-      <p className="decorCatalogHint">Выбери объект — откроются стоимость и условия размещения.</p>
+      <div className="decorFilters" role="group" aria-label="Доступность декора"><button type="button" className={view === 'available' ? 'isActive' : ''} aria-pressed={view === 'available'} onClick={() => setView('available')}>Открыто <span>{available.length}</span></button><button ref={lockedFilterRef} type="button" className={view === 'locked' ? 'isActive' : ''} aria-pressed={view === 'locked'} onClick={() => setView('locked')}>Предстоит открыть <span>{locked.length}</span></button></div>
+      <p className="decorCatalogHint">Цена указана за один объект. Выбери декор — откроются подробности и условия размещения.</p>
       <div className="decorItems">{items.map(item => {
         const requirements = decorRequirements(item, props.hqLevel, props.completedResearch);
         const gain = comfortPlacementGain(props.decor, item.type);
         const status = !requirements.hqMet ? `Центр ур. ${item.unlockHq}` : !requirements.researchMet ? 'Нужна технология' : full ? 'Нужно место на карте' : balance < item.credits ? 'Нужны кредиты' : 'Можно разместить';
         return <button type="button" className={`decorCatalogTile${requirements.unlocked ? '' : ' isLocked'}`} key={item.type} data-decor-type={item.type} aria-haspopup="dialog" onClick={() => setSelectedType(item.type)}>
           <span className="decorItemArt" aria-hidden="true"><DecorArt type={item.type} /></span><strong>{item.name}</strong>
+          <span className="decorItemPrice" data-decor-price={item.type}><GameAmount resource="credits">{number(item.credits)}</GameAmount></span>
           <span className={`decorItemGain${gain === 0 ? ' isNeutral' : ''}`}>{gainLabel(gain)}</span>
           <span className="decorItemOwned">В городе: {number(comfort.counts[item.type] ?? 0)}</span>
           <span className={`decorTileStatus${status === 'Можно разместить' ? ' isReady' : ''}`}>{status}</span>

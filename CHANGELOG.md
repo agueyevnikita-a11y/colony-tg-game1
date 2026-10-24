@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.12-beta.1 — Use Your Collection and Plan Comfort
+- Cosmetic ownership now separates the longest available access from the expiry of the copy actually applied. A temporary appearance can be explicitly applied permanently or for its full available duration; the server selects permanent access first, then the longest temporary access, preserving category locks and exact acquisition keys.
+- Owned offers and previews lead to the matching collection item. Collection actions lead back to the city, and empty collections offer a route to achievements. Paid appearance and placed comfort decor explain their different roles; purchase notices identify collection delivery separately from application.
+- Decor tiles show the price per object. Comfort goals explain the theoretical ceiling of unlocked types and lead to new unlock conditions when the next reward requires more variety. Existing credit costs, duplicate limits, achievements and rewards are unchanged.
+- A full map explains why decor cannot be moved. Selecting an occupied destination retains the original object, and selecting its current cell cancels the move without a request or charge. No migration, dependency, economy or saved-city change is required.
+
 ## 1.14.11-beta.1 — Clear Trades and Current Tasks
 - Fixed older open market sales disappearing behind recent completed, cancelled or expired orders. The player's order list and open-order count now use open sales; existing expiry reconciliation, reservations and cancellation remain unchanged. An isolated integration regression covers long history, the eight-order limit, expiry return and replacement after cancellation.
 - Purchase calculations show the quantity affordable with current credits, order stock and free warehouse space. A free shortcut copies that quantity into the form; buying remains a separate explicit action. Sellers can open all their current sales directly after placement or when reaching the order limit.

@@ -14,12 +14,13 @@ type Props = {
   allDecor: Decor[];
   open: boolean;
   busy: boolean;
+  freeCells?: number;
   onMove: () => void;
   onRemove: () => Promise<void>;
 };
 const number = (value: number) => value.toLocaleString('ru-RU');
 
-export function DecorInspector({ decor, catalogItem, allDecor, open, busy, onMove, onRemove }: Props) {
+export function DecorInspector({ decor, catalogItem, allDecor, open, busy, freeCells, onMove, onRemove }: Props) {
   const id = useId();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
@@ -35,6 +36,7 @@ export function DecorInspector({ decor, catalogItem, allDecor, open, busy, onMov
   const price = Number(config?.credits ?? 0);
   const refund = Number.isFinite(price) ? Math.max(0, Math.floor(price / 2)) : 0;
   const locked = busy || pending;
+  const full = Number.isFinite(freeCells) && Number(freeCells) <= 0;
 
   useEffect(() => { if (!open) { setConfirming(false); setError(null); } }, [open]);
   useEffect(() => { if (confirming && open) confirmButton.current?.focus(); }, [confirming, open]);
@@ -53,7 +55,8 @@ export function DecorInspector({ decor, catalogItem, allDecor, open, busy, onMov
     <div className="inspectorHead"><div className="inspectorEmoji"><DecorArt type={decor.type} /></div><div><h2>{displayName}</h2><p>Декор · клетка {Number(decor.x) + 1}:{Number(decor.y) + 1}</p></div></div>
     <p className="buildingPurpose">{config?.description ?? 'Благоустройство города.'}</p>
     <div className="decorInspectorComfort"><GameIcon name="comfort" size={19} /><div><strong>Комфорт колонии: {current}/{COMFORT_MAX}</strong><span>Положение объекта не влияет на очки. Его можно бесплатно перенести.</span></div></div>
-    <button type="button" className="action inspectorShortcut" disabled={locked} onClick={onMove}><GameIcon name="move" size={17} />Переместить бесплатно</button>
+    <button type="button" className="action inspectorShortcut" data-decor-move disabled={locked || full} aria-describedby={full ? `${id}-move-unavailable` : undefined} onClick={() => { if (open && !locked && !full) onMove(); }}><GameIcon name="move" size={17} />Переместить бесплатно</button>
+    {full && <p className="decorMoveUnavailable" id={`${id}-move-unavailable`} data-decor-move-unavailable>Для переноса нужна хотя бы одна свободная клетка. Сейчас карта заполнена. Демонтаж — отдельное действие с подтверждением ниже.</p>}
     {!confirming ? <><button ref={removeButton} type="button" className="action secondary" data-decor-remove disabled={locked} onClick={() => { setConfirming(true); setError(null); }}>Убрать декор</button><p className="decorRefundHint">После подтверждения демонтажа вернётся <GameAmount resource="credits">{number(refund)}</GameAmount> — 50% цены.</p></> : <div className="decorRemoveConfirm" role="group" aria-labelledby={`${id}-confirm`}>
       <h3 id={`${id}-confirm`}>Демонтировать «{displayName}»?</h3>
       <p>Вернётся 50% цены: <GameAmount resource="credits">{number(refund)}</GameAmount>. Чтобы поставить объект снова, придётся заплатить полную стоимость.</p>

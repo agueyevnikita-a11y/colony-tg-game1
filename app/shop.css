@@ -31,7 +31,14 @@
 .cosmeticOwnership { display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center; color:#b8ccd5; font-size:12px; line-height:1.5; margin:2px 0 12px; }
 .cosmeticOwnership > span { display:inline-flex; align-items:center; gap:4px; }
 .cosmeticOwnership .cosmeticEquipped { color:#a4e2c8; }
+.cosmeticOwnership .cosmeticApplyHint { width:100%; color:#dac69e; }
+.cosmeticsShop .shopCollectionLink { margin-top:8px; }
+.cosmeticsShop .shopAppearanceHelp { display:grid; gap:8px; margin:12px 0; padding:11px; border:1px solid var(--line); border-radius:11px; }
+.cosmeticsShop .shopAppearanceHelp p { margin:0; color:var(--shop-muted); font-size:12px; line-height:1.6; }
+.cosmeticsShop .shopAppearanceHelp .action { margin:0; }
 .cosmeticsShop .shopFeedback { margin:10px 0 0; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.cosmeticsShop .shopFeedback { display:grid; gap:8px; }
+.cosmeticsShop .shopFeedback .shopMapLink { margin:0; }
 .cosmeticsShop .founderOffer { margin:16px 0; border-color:rgba(231,194,124,.26); }
 .founderOffer .shopEyebrow { color:#e1c78e; }
 .shopSectionHeading .cosmeticPermanent { color:#dcc595; padding:5px 8px; border:1px solid rgba(231,194,124,.2); border-radius:9px; }
@@ -67,6 +74,7 @@
 .collectionGrid { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
 .collectionItem { min-width:0; overflow:hidden; border:1px solid var(--line); border-radius:15px; background:rgba(13,27,36,.45); display:flex; flex-direction:column; }
 .collectionItem.isEquipped { border-color:rgba(126,223,186,.3); }
+.collectionItem:focus { outline:2px solid var(--accent); outline-offset:3px; }
 .collectionCosmeticArt { min-height:125px; }
 .collectionItemBody { display:flex; flex-direction:column; flex:1; min-width:0; padding:12px; }
 .collectionItem h3 { font-size:14px; }
@@ -74,6 +82,7 @@
 .collectionItem .cosmeticOwnership { margin-top:auto; }
 .collectionActions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:7px; }
 .collectionActions .action { padding-left:8px; padding-right:8px; font-size:12px; }
+.collectionActions .collectionRemove { grid-column:1/-1; }
 .collectionActions .cosmeticPreviewButton > svg { display:none; }
 .emptyCosmeticCollection { display:flex; align-items:center; flex-direction:column; text-align:center; gap:10px; border:1px dashed rgba(153,191,206,.2); padding:24px 17px; margin-top:15px; border-radius:15px; color:#a0bbca; }
 .emptyCosmeticCollection strong { color:#c5d6df; font-size:14px; line-height:1.45; }

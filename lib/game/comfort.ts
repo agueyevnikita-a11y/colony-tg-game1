@@ -38,3 +38,9 @@ export function comfortPlacementGain(decor: readonly Decor[], type: string) {
   const points = count === 0 ? base : count === 1 ? Math.floor(base / 2) : 0;
   return Math.max(0, Math.min(points, COMFORT_MAX - current.score));
 }
+
+/** Potential from two copies of each available canonical type, before costs or map space. */
+export function comfortAvailableCeiling(types: readonly string[]) {
+  const uniqueTypes = [...new Set(types.filter(type => decorByType(type)))];
+  return calculateComfort(uniqueTypes.flatMap(type => [{ type }, { type }])).score;
+}

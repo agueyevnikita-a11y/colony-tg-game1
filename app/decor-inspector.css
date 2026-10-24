@@ -4,6 +4,7 @@
 .decorInspector { min-width:0; }.decorInspector .inspectorHead > div:last-child { min-width:0; }.decorInspector h2,.decorInspector p,.decorInspector span,.decorInspector small { overflow-wrap:anywhere; }.decorInspector .inspectorEmoji > .decorArt { width:100%; height:100%; min-width:0; max-width:100%; }
 .decorInspectorComfort strong { display:block; font-size:13px; line-height:1.5; }
 .decorInspectorComfort span { display:block; color:var(--muted); font-size:11px; line-height:1.6; margin-top:4px; }
+.colonyApp .decorInspector p.decorMoveUnavailable { margin:9px 0; padding:10px; border:1px solid rgba(230,180,122,.25); border-radius:10px; background:rgba(230,180,122,.04); color:#d6c7a7; font-size:11px; line-height:1.6; }
 .decorRemoveConfirm { margin-top:12px; padding:12px; border:1px solid rgba(230,180,122,.3); border-radius:13px; background:rgba(230,180,122,.04); }
 .decorRemoveConfirm h3 { font-size:14px; line-height:1.5; margin:0; overflow-wrap:anywhere; }
 .colonyApp .decorRemoveConfirm p { margin:9px 0; font-size:12px; line-height:1.65; }

@@ -29,7 +29,9 @@ export async function fulfillPurchase(tx:any,purchase:any,telegramPaymentChargeI
   }
   await pushInbox(tx,purchase.user_id,{
     kind:'purchase',dedupeKey:`purchase_${purchase.id}`,title:'Покупка Stars получена',
-    body:`${product.title ?? purchase.product_id} активирован${source==='recovery'?' после проверки транзакции':''}. Спасибо за поддержку COLONY.`,
+    body:product.kind === 'premium'
+      ? `К сроку COLONY Premium добавлено ${product.days} дней${source==='recovery'?' после проверки транзакции':''}. Спасибо за поддержку COLONY.`
+      : `Покупка «${product.title ?? purchase.product_id}» получена${source==='recovery'?' после проверки транзакции':''}. Оформление добавлено в коллекцию: открой «Магазин» → «Моё оформление» и примени полученные предметы. Спасибо за поддержку COLONY.`,
     metadata:{ productId:purchase.product_id,source },
   });
   return true;

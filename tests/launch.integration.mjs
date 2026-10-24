@@ -1031,7 +1031,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(first.status, 200, JSON.stringify(first.data));
     assert.deepEqual(activeFrames(first.data).map((item) => item.cosmetic_id), ['frame_orbit']);
     const frameCopies = (await owned()).filter((item) => item.cosmetic_id === 'frame_orbit');
-    assert.deepEqual(frameCopies.map((item) => item.equipped), [false, true], 'Only the latest active copy may be equipped');
+    assert.deepEqual(frameCopies.map((item) => item.equipped), [false, true], 'Equal permanent rights select the newest exact acquisition key');
     assert.ok(first.data.cosmetics.some((item) => item.cosmetic_id === 'theme_neon' && item.equipped));
     assert.ok(!first.data.cosmetics.some((item) => item.cosmetic_id === 'weather_aurora'), 'Expired ownership is absent from the private session');
     const beforeRepeat = await owned();
@@ -1039,6 +1039,45 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal((await equip({ cosmeticId: 'frame_orbit' })).status, 200);
     assert.deepEqual(await owned(), beforeRepeat);
     assert.equal(await appearanceEvents(), eventsBeforeRepeat, 'Repeating an equip is idempotent');
+
+    // A newer temporary reward must not displace permanent ownership. Applying
+    // the permanent right is explicit; merely receiving it does not equip it.
+    await sql`UPDATE user_cosmetics SET equipped=false WHERE user_id=${userId} AND cosmetic_id='frame_orbit'`;
+    await sql`
+      INSERT INTO user_cosmetics(user_id,cosmetic_id,source,expires_at,equipped,acquired_at)
+      VALUES(${userId},'frame_orbit','integration_temporary_applied',now()+interval '1 day',true,'2025-01-01T00:00:00.123999Z')
+    `;
+    const upgraded = await equip({ cosmeticId: 'frame_orbit', equipped: true });
+    assert.equal(upgraded.status, 200, JSON.stringify(upgraded.data));
+    const permanentApplied = (await owned()).filter(item => item.cosmetic_id === 'frame_orbit' && item.equipped);
+    assert.equal(permanentApplied.length, 1);
+    assert.equal(permanentApplied[0].expires_at, null, 'An explicit equip selects permanent ownership before a newer temporary copy');
+    assert.match(permanentApplied[0].acquired_at, /2024-01-01.*\.123999/);
+    await sql`UPDATE user_cosmetics SET expires_at=now()-interval '1 second' WHERE user_id=${userId} AND source='integration_temporary_applied'`;
+    const afterTemporaryExpiry = await request('/api/session', { method: 'POST', auth: initData(playerId) });
+    assert.equal(afterTemporaryExpiry.status, 200);
+    assert.equal(activeFrames(afterTemporaryExpiry.data).length, 1);
+    assert.equal(activeFrames(afterTemporaryExpiry.data)[0].expires_at, null, 'Expiry of the old temporary copy leaves the explicitly applied permanent item active');
+
+    await sql`
+      INSERT INTO user_cosmetics(user_id,cosmetic_id,source,expires_at,equipped,acquired_at)
+      VALUES
+        (${userId},'founder_frame','integration_long_earlier',now()+interval '10 days',false,'2023-01-01T00:00:00.123001Z'),
+        (${userId},'founder_frame','integration_long_later',now()+interval '10 days',false,'2023-01-01T00:00:00.123999Z'),
+        (${userId},'founder_frame','integration_short_newer',now()+interval '2 days',false,'2025-01-01T00:00:00.124001Z'),
+        (${userId},'founder_frame','integration_expired_newest',now()-interval '1 day',false,'2026-01-01T00:00:00.124001Z')
+    `;
+    const longest = await equip({ cosmeticId: 'founder_frame', equipped: true });
+    assert.equal(longest.status, 200, JSON.stringify(longest.data));
+    const selectedLong = await sql`SELECT source,acquired_at::text AS acquired_at FROM user_cosmetics WHERE user_id=${userId} AND cosmetic_id='founder_frame' AND equipped=true`;
+    assert.equal(selectedLong.length, 1);
+    assert.equal(selectedLong[0].source, 'integration_long_later', 'The longest unexpired temporary right wins; exact acquisition order breaks equal-expiry ties');
+    assert.match(selectedLong[0].acquired_at, /2023-01-01.*\.123999/);
+    const longestBeforeRepeat = await owned();
+    const longestEventsBeforeRepeat = await appearanceEvents();
+    assert.equal((await equip({ cosmeticId: 'founder_frame', equipped: true })).status, 200);
+    assert.deepEqual(await owned(), longestBeforeRepeat);
+    assert.equal(await appearanceEvents(), longestEventsBeforeRepeat);
 
     const switched = await equip({ cosmeticId: 'founder_frame', equipped: true });
     assert.equal(switched.status, 200, JSON.stringify(switched.data));

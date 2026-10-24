@@ -7,6 +7,7 @@ import { BuildingArt } from '@/components/BuildingArt';
 import { DecorArt } from '@/components/DecorArt';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import { APPEARANCE_OBJECTS, APPEARANCE_PAGE_SIZE, appearancePage, type AppearanceKind } from '@/lib/game/appearance';
+import { cosmeticInventory, type CosmeticInventoryItem } from '@/lib/game/cosmetic-inventory';
 import { PRODUCTS, CRYSTAL_PREMIUM_PRICE, DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, PREMIUM_PRODUCTION_MULTIPLIER, PREMIUM_BUILD_SPEED_MULTIPLIER } from '@/lib/game/config';
 import '@/app/shop.css';
 
@@ -24,9 +25,13 @@ type Props = {
   onEquip: (cosmeticId: string, equipped?: boolean) => Promise<void>;
   onPremiumCrystals: () => Promise<void>;
   onRecover: () => Promise<void>;
+  onOpenCollection?: () => void;
+  onOpenMap?: () => void;
+  onOpenDecor?: () => void;
+  onAchievements?: () => void;
 };
 
-type Item = { id: string; name: string; category: string; expiresAt: string | null; equipped: boolean };
+type Item = CosmeticInventoryItem;
 type PreviewItem = Pick<Item, 'id' | 'name' | 'category'>;
 type Feedback = { text: string; error: boolean };
 type ProductId = keyof typeof PRODUCTS;
@@ -74,29 +79,17 @@ export function CosmeticsShop(props: Props) {
   const [previewObjectIndex, setPreviewObjectIndex] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [ownershipNow, setOwnershipNow] = useState(() => Date.now());
+  const [collectionFocus, setCollectionFocus] = useState<{ id: string; requestId: number } | null>(null);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const inFlight = useRef(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<Element | null>(null);
+  const focusedCollectionRef = useRef<HTMLElement>(null);
+  const collectionFocusPending = useRef(false);
   const locked = props.busy || pending !== null;
   const catalog = useMemo(() => new Map((props.shopCosmetics ?? []).map((item: any) => [String(item.id), item])), [props.shopCosmetics]);
-  const collection = useMemo(() => {
-    const items = new Map<string, Item>();
-    const now = Date.now();
-    for (const row of props.cosmetics ?? []) {
-      const cosmeticId = String(row.cosmetic_id ?? row.id ?? '');
-      if (!cosmeticId) continue;
-      const expiresAt = row.expires_at == null ? null : String(row.expires_at);
-      if (expiresAt && !(new Date(expiresAt).getTime() > now)) continue;
-      const config = catalog.get(cosmeticId);
-      const item: Item = { id: cosmeticId, name: row.name || config?.name || 'Предмет коллекции', category: row.category || config?.category || 'other', expiresAt, equipped: !!row.equipped };
-      const existing = items.get(cosmeticId);
-      const best = !existing || (existing.expiresAt !== null && (expiresAt === null || new Date(expiresAt).getTime() > new Date(existing.expiresAt).getTime())) ? item : existing;
-      items.set(cosmeticId, { ...best, equipped: !!existing?.equipped || item.equipped });
-    }
-    return [...items.values()].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, 'ru'));
-  }, [props.cosmetics, catalog, ownershipNow]);
+  const collection = useMemo(() => cosmeticInventory(props.cosmetics ?? [], props.shopCosmetics ?? []), [props.cosmetics, props.shopCosmetics, ownershipNow]);
   const owned = new Map(collection.map((item) => [item.id, item]));
   const awaiting = new Set(props.awaitingProducts ?? []);
   const categories = [...new Set(collection.map((item) => item.category))];
@@ -107,6 +100,7 @@ export function CosmeticsShop(props: Props) {
   const visibleItems = shownItems.slice(selectedCollectionPage * APPEARANCE_PAGE_SIZE, (selectedCollectionPage + 1) * APPEARANCE_PAGE_SIZE);
   const founderPermanent = FOUNDER_ITEMS.filter((item) => owned.get(item.id)?.expiresAt === null).length;
   const founderOwned = FOUNDER_ITEMS.filter((item) => owned.has(item.id)).length;
+  const ownedFounderItem = FOUNDER_ITEMS.find(item => owned.has(item.id));
   const currentPreview = preview ? collection.find((item) => item.category === preview.category && item.equipped) : null;
   const themePreview = preview?.category === 'theme';
   const objects = appearancePage(previewKind, previewPage);
@@ -144,6 +138,20 @@ export function CosmeticsShop(props: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!collectionFocusPending.current || !collectionFocus || props.view === 'offers') return;
+    if (!collection.some(item => item.id === collectionFocus.id)) { collectionFocusPending.current = false; return; }
+    const element = focusedCollectionRef.current;
+    if (!element) return;
+    // The parent first scrolls a changed subsection to the top.
+    const frame = window.requestAnimationFrame(() => {
+      collectionFocusPending.current = false;
+      element.focus({ preventScroll: true });
+      element.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.view, collectionFocus, selectedCategory, selectedCollectionPage, collection]);
+
   async function run(key: string, operation: () => Promise<void>, success: string) {
     if (locked || inFlight.current) return;
     inFlight.current = true;
@@ -166,19 +174,36 @@ export function CosmeticsShop(props: Props) {
       ? 'Ответ Telegram получен. После подтверждения оплаты срок Premium обновится.'
       : 'Ответ Telegram получен. После подтверждения оплаты оформление появится в коллекции.');
   }
-  function equip(item: Item) {
+  function equip(item: Item, equipped = !item.equipped || item.needsLongerApplication) {
     if (item.expiresAt && !(new Date(item.expiresAt).getTime() > Date.now())) {
       setOwnershipNow(Date.now());
       return;
     }
-    void run(`equip:${item.id}`, () => props.onEquip(item.id, !item.equipped), item.equipped ? 'Оформление снято.' : 'Оформление применено.');
+    void run(`equip:${item.id}`, () => props.onEquip(item.id, equipped), equipped ? 'Оформление применено.' : 'Оформление снято.');
   }
   function notice(key: string) {
     const value = feedback[key];
-    return value ? <div className={`notice shopFeedback${value.error ? ' error' : ''}`} role={value.error ? 'alert' : 'status'}>{value.text}</div> : null;
+    return value ? <div className={`notice shopFeedback${value.error ? ' error' : ''}`} role={value.error ? 'alert' : 'status'}><span>{value.text}</span>{!value.error && key.startsWith('equip:') && props.onOpenMap && <button type="button" className="action secondary shopMapLink" onClick={props.onOpenMap}>Посмотреть город<GameIcon name="arrow" size={14} /></button>}</div> : null;
   }
   function status(item?: Item) {
-    return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />Применено</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span></div>;
+    return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />{item.appliedExpiresAt === null ? 'Применено навсегда' : `Применено до ${dateText(item.appliedExpiresAt)}`}</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span>{item.needsLongerApplication && <span className="cosmeticApplyHint">{item.expiresAt === null ? 'Постоянное право ещё нужно применить.' : 'Более долгий срок ещё нужно применить.'}</span>}</div>;
+  }
+  function openCollection(cosmeticId?: string) {
+    const item = cosmeticId ? owned.get(cosmeticId) : undefined;
+    setPreview(null);
+    if (item) {
+      const index = collection.filter(entry => entry.category === item.category).findIndex(entry => entry.id === item.id);
+      setCategory(item.category);
+      setCollectionPage(Math.floor(Math.max(0, index) / APPEARANCE_PAGE_SIZE));
+      collectionFocusPending.current = true;
+      setCollectionFocus(previous => ({ id: item.id, requestId: (previous?.requestId ?? 0) + 1 }));
+    } else {
+      setCategory('all'); setCollectionPage(0); collectionFocusPending.current = false;
+    }
+    props.onOpenCollection?.();
+  }
+  function collectionButton(cosmeticId: string, label = 'Найти в коллекции') {
+    return owned.has(cosmeticId) && (props.view !== 'offers' || props.onOpenCollection) ? <button type="button" className="action secondary shopCollectionLink" data-shop-open-collection={cosmeticId} onClick={() => openCollection(cosmeticId)}><GameIcon name="palette" size={16} />{label}<GameIcon name="arrow" size={14} /></button> : null;
   }
   function openPreview(item: PreviewItem) {
     setPreviewKind('building');
@@ -214,14 +239,14 @@ export function CosmeticsShop(props: Props) {
       const item = { id: product.cosmeticId, name: config?.name || description.name, category: config?.category || description.category };
       const inventory = owned.get(item.id);
       const permanent = inventory?.expiresAt === null;
-      return <article key={productId} className="card cosmeticOffer" data-cosmetic-id={item.id} data-product-id={productId} aria-labelledby={`${id}-${productId}`}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="shopCosmeticArt" /><div className="cosmeticOfferBody"><span className="cosmeticCategory">{categoryInfo(item.category).name}</span><h3 id={`${id}-${productId}`}>{item.name}</h3><p>{description.text}</p><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(inventory)}{previewButton(item)}<button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || permanent || awaiting.has(productId)} onClick={() => buy(productId, permanent)}>{pending === `buy:${productId}` ? 'Ожидаем Telegram…' : permanent ? 'Уже есть навсегда' : awaiting.has(productId) ? 'Ожидаем подтверждения' : <>{inventory ? 'Купить навсегда' : 'Купить'}<span><GameIcon name="stars" size={16} />{product.stars} Telegram Stars</span></>}</button>{starsAvailability(productId, permanent)}{notice(`buy:${productId}`)}{awaitingPurchase(productId, permanent)}{notice(`recover:${productId}`)}</div></article>;
+      return <article key={productId} className="card cosmeticOffer" data-cosmetic-id={item.id} data-product-id={productId} aria-labelledby={`${id}-${productId}`}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="shopCosmeticArt" /><div className="cosmeticOfferBody"><span className="cosmeticCategory">{categoryInfo(item.category).name}</span><h3 id={`${id}-${productId}`}>{item.name}</h3><p>{description.text}</p><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(inventory)}{previewButton(item)}{collectionButton(item.id)}<button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || permanent || awaiting.has(productId)} onClick={() => buy(productId, permanent)}>{pending === `buy:${productId}` ? 'Ожидаем Telegram…' : permanent ? 'Уже есть навсегда' : awaiting.has(productId) ? 'Ожидаем подтверждения' : <>{inventory ? 'Купить навсегда' : 'Купить'}<span><GameIcon name="stars" size={16} />{product.stars} Telegram Stars</span></>}</button>{starsAvailability(productId, permanent)}{notice(`buy:${productId}`)}{awaitingPurchase(productId, permanent)}{notice(`recover:${productId}`)}</div></article>;
     })}</div></section>
 
     <section className="card founderOffer" data-product-id="founder_pack" aria-labelledby={`${id}-founder`}><div className="shopSectionHeading"><div><span className="shopEyebrow">Набор основателя</span><h2 id={`${id}-founder`}>{PRODUCTS.founder_pack.title}</h2></div><span className="cosmeticPermanent">4 предмета навсегда</span></div><p>Знак, монумент, рамка и небо основателя составляют единый образ колонии.</p><div className="founderCombinedPreview" data-cosmetic-id="founder_pack"><CosmeticPreview cosmeticId="founder_pack" label="Образ основателя" /></div><div className="founderContents">{FOUNDER_ITEMS.map((base) => {
       const item = { ...base, name: catalog.get(base.id)?.name || base.name };
       const inventory = owned.get(item.id);
       return <button className="founderPreview" type="button" key={item.id} data-cosmetic-id={item.id} aria-haspopup="dialog" aria-label={`Предпросмотр: ${item.name}`} onClick={() => openPreview(item)}><CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="founderCosmeticArt" /><strong>{item.name}</strong><span>{inventory?.expiresAt === null ? 'Есть навсегда' : 'Посмотреть'}</span></button>;
-    })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">Навсегда получено {founderPermanent} из {FOUNDER_ITEMS.length} предметов набора.{founderOwned > founderPermanent && ` Ещё ${founderOwned - founderPermanent} доступны временно.`} Цена полная, без скидки за уже полученные предметы. Все четыре станут постоянными.</p>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="stars" size={17} />{PRODUCTS.founder_pack.stars} Telegram Stars</span></>}</button>{starsAvailability('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
+    })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">Навсегда получено {founderPermanent} из {FOUNDER_ITEMS.length} предметов набора.{founderOwned > founderPermanent && ` Ещё ${founderOwned - founderPermanent} доступны временно.`} Цена полная, без скидки за уже полученные предметы. Все четыре станут постоянными.</p>}{ownedFounderItem && <>{collectionButton(ownedFounderItem.id, 'Открыть предметы в коллекции')}<p className="shopPurchaseNote">Каждый вид оформления применяется отдельно. Найти нужный предмет можно и через его предпросмотр.</p></>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="stars" size={17} />{PRODUCTS.founder_pack.stars} Telegram Stars</span></>}</button>{starsAvailability('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
 
     <section className="card premiumOffer" data-product-id="premium_30d" aria-labelledby={`${id}-premium`}>
       <div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${props.premium ? ' isActive' : ''}`}>{props.premium ? 'Активен' : `${PRODUCTS.premium_30d.days} дней`}</span></div>
@@ -240,20 +265,21 @@ export function CosmeticsShop(props: Props) {
     <section className="card cosmeticCollection" aria-labelledby={`${id}-collection`}>
       <div className="shopSectionHeading"><div><span className="shopEyebrow">Полученные предметы</span><h2 id={`${id}-collection`}>Моя коллекция</h2></div><span>{collection.length}</span></div>
       <p>Выбери по одному оформлению каждого вида. Стиль колонии применяется ко всем объектам сразу.</p>
+      <div className="shopAppearanceHelp"><p>Оформление меняет внешний вид. Комфорт повышают предметы благоустройства, размещённые на карте города.</p>{props.onOpenDecor && <button type="button" className="action secondary" onClick={props.onOpenDecor}>К благоустройству<GameIcon name="arrow" size={14} /></button>}</div>
       {props.view === 'collection' && <MechanicGuide steps={[
         'Здесь собраны предметы из покупок и игровых наград. Предпросмотр бесплатный: сравнение не меняет твой город.',
         'Нажми «Применить», чтобы включить выбранное оформление. В каждом виде действует один предмет; кнопка «Снять» возвращает базовый вид.',
         '«Есть навсегда» означает постоянный доступ. Временный предмет можно применять до указанной даты; после неё он исчезнет из доступной коллекции.',
       ]} />}
-      {collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span></div> : <>
+      {collection.length === 0 ? <div className="emptyCosmeticCollection"><GameIcon name="star" size={29} /><strong>Коллекция начинается с первого предмета</strong><span>Оформление приходит за достижения, задания, сезоны и покупки.</span>{props.onAchievements && <button type="button" className="action secondary" onClick={props.onAchievements}>Посмотреть награды достижений<GameIcon name="arrow" size={14} /></button>}</div> : <>
         <div className="collectionCategories" role="group" aria-label="Виды оформления">
           <button type="button" className={selectedCategory === 'all' ? 'isSelected' : ''} aria-pressed={selectedCategory === 'all'} onClick={() => { setCategory('all'); setCollectionPage(0); }}>Все · {collection.length}</button>
           {categories.map(value => <button key={value} type="button" className={selectedCategory === value ? 'isSelected' : ''} aria-pressed={selectedCategory === value} onClick={() => { setCategory(value); setCollectionPage(0); }}>{categoryInfo(value).name} · {collection.filter(item => item.category === value).length}</button>)}
         </div>
-        <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
+        <div className="collectionGrid">{visibleItems.map(item => <article key={item.id} ref={item.id === collectionFocus?.id ? focusedCollectionRef : undefined} tabIndex={-1} className={`collectionItem${item.equipped ? ' isEquipped' : ''}`} data-cosmetic-id={item.id} data-shop-collection-item={item.id} aria-labelledby={`${id}-owned-${item.id}`}>
           <CosmeticPreview cosmeticId={item.id} category={item.category} label={item.name} className="collectionCosmeticArt" />
           <div className="collectionItemBody"><h3 id={`${id}-owned-${item.id}`}>{item.name}</h3><p className="cosmeticWhere">{categoryInfo(item.category).where}</p>{status(item)}
-            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped ? 'secondary' : ''}`} type="button" disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? item.equipped ? 'Снимаем…' : 'Применяем…' : item.equipped ? 'Снять' : 'Применить'}</button></div>{notice(`equip:${item.id}`)}
+            <div className="collectionActions">{previewButton(item)}<button className={`action ${item.equipped && !item.needsLongerApplication ? 'secondary' : ''}`} type="button" data-shop-equip={item.id} disabled={locked} onClick={() => equip(item)}>{pending === `equip:${item.id}` ? 'Меняем оформление…' : item.needsLongerApplication ? item.expiresAt === null ? 'Применить навсегда' : 'Применить на весь срок' : item.equipped ? 'Снять' : 'Применить'}</button>{item.needsLongerApplication && <button type="button" className="action secondary collectionRemove" disabled={locked} onClick={() => equip(item, false)}>{pending === `equip:${item.id}` ? 'Меняем оформление…' : 'Снять текущее оформление'}</button>}</div>{notice(`equip:${item.id}`)}
           </div>
         </article>)}</div>
         {collectionPages > 1 && <nav className="cosmeticPager" aria-label="Страницы коллекции"><button type="button" disabled={selectedCollectionPage === 0} onClick={() => setCollectionPage(selectedCollectionPage - 1)}>Назад</button><span aria-live="polite">{selectedCollectionPage + 1} / {collectionPages}</span><button type="button" disabled={selectedCollectionPage + 1 === collectionPages} onClick={() => setCollectionPage(selectedCollectionPage + 1)}>Дальше</button></nav>}
@@ -282,6 +308,7 @@ export function CosmeticsShop(props: Props) {
           <div><span>Сейчас</span><CosmeticPreview cosmeticId={currentPreview?.id ?? ''} category={preview.category} label={currentPreview?.name ?? 'Базовое оформление'} subject={themePreview ? previewSubject : undefined} /><strong>{currentPreview?.name ?? 'Базовое оформление'}</strong></div>
           <div><span>{themePreview ? 'Выбранный стиль' : 'Выбранный предмет'}</span><CosmeticPreview cosmeticId={preview.id} category={preview.category} label={preview.name} subject={themePreview ? previewSubject : undefined} /><strong>{preview.name}</strong></div>
         </div>
+        {collectionButton(preview.id, 'Показать в коллекции')}
         <button className="action secondary" type="button" onClick={() => setPreview(null)}>Вернуться к выбору</button>
       </div>}
     </dialog>

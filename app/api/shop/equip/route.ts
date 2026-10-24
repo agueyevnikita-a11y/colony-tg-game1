@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         FROM user_cosmetics uc JOIN cosmetics c ON c.id=uc.cosmetic_id
         WHERE uc.user_id=${userId} AND uc.cosmetic_id=${cosmeticId}
           AND (uc.expires_at IS NULL OR uc.expires_at > clock_timestamp())
-        ORDER BY uc.acquired_at DESC LIMIT 1
+        ORDER BY (uc.expires_at IS NULL) DESC, uc.expires_at DESC NULLS LAST, uc.acquired_at DESC LIMIT 1
         FOR UPDATE OF uc
       `;
       const owned = rows[0];

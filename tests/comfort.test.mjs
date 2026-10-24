@@ -10,7 +10,7 @@ registerHooks({
   },
 });
 const { DECOR_CATALOG, decorByType, decorCoordinates, decorRequirements } = await import('../lib/game/decor.ts');
-const { calculateComfort, comfortPlacementGain } = await import('../lib/game/comfort.ts');
+const { calculateComfort, comfortAvailableCeiling, comfortPlacementGain } = await import('../lib/game/comfort.ts');
 
 test('comfort rewards variety, gives half for the second object, and never rewards further copies', () => {
   assert.equal(calculateComfort([]).score, 0);
@@ -50,6 +50,27 @@ test('placement previews respect the remaining comfort cap and next achievement 
   assert.equal(comfortPlacementGain(almostFull, 'unknown'), 0);
   assert.equal(calculateComfort([{ type: 'park' }, { type: 'statue' }]).nextMilestone.target, 25);
   assert.equal(calculateComfort([{ type: 'park' }, { type: 'statue' }, { type: 'tree' }]).nextMilestone.target, 50);
+});
+
+test('available comfort ceilings identify rewards that need new types at early HQ levels', () => {
+  const opened = (hqLevel, completed = []) => Object.entries(DECOR_CATALOG)
+    .filter(([, config]) => decorRequirements(config, hqLevel, completed).unlocked)
+    .map(([type]) => type);
+  assert.equal(comfortAvailableCeiling(opened(1)), 15, 'Two roads and two biocapsules cannot reach the first 25-point reward');
+  assert.equal(comfortAvailableCeiling(opened(2)), 36);
+  assert.equal(comfortAvailableCeiling(opened(2, ['urban_ecology'])), 48, 'Hydroponics alone at HQ2 still cannot reach the 50-point reward');
+  assert.equal(comfortAvailableCeiling(opened(3)), 54);
+  assert.equal(comfortAvailableCeiling(opened(3, ['urban_ecology', 'public_spaces'])), 100);
+});
+
+test('available comfort ceilings deduplicate canonical types and respect the global cap', () => {
+  const types = ['road', 'tree', 'road', 'tree', 'theme_neon', 'founder_monument', '__proto__', 'unknown'];
+  const snapshot = [...types];
+  assert.equal(comfortAvailableCeiling([]), 0);
+  assert.equal(comfortAvailableCeiling(types), 15, 'Repeated catalog entries and cosmetics must not inflate the ceiling');
+  assert.deepEqual(types, snapshot);
+  assert.equal(comfortAvailableCeiling(Object.keys(DECOR_CATALOG)), 100);
+  assert.equal(comfortAvailableCeiling(['park']), 18, 'A type contributes its full bonus plus the second-copy bonus');
 });
 
 test('legacy decoration keeps its HQ rules and only new advanced objects need research', () => {

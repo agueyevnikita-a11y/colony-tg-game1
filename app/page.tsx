@@ -713,6 +713,17 @@ export default function Home() {
 
   async function handleCityCell(x: number, y: number, building?: any, decor?: any) {
     if (busy) return;
+    if (moveDecorId && (building || decor)) {
+      if (decor?.id === moveDecorId) {
+        cancelMapAction();
+        setSelectedDecorId(moveDecorId);
+        setInspectorOpen(true);
+        setConstructionFeedback({ target: 'map', text: 'Декор остался на прежнем месте. Перенос отменён.', error: false });
+      } else {
+        setConstructionFeedback({ target: 'map', text: 'Клетка занята. Выбери свободную клетку для выбранного декора.', error: true });
+      }
+      return;
+    }
     if (building) {
       if (planningFoundry) setPlanningCell(null);
       setSelectedBuildingId(building.id);
@@ -813,6 +824,11 @@ export default function Home() {
   }
 
   function beginDecorMove(decor: any) {
+    if (busy) return;
+    if ((game?.buildings ?? []).length + (game?.decor ?? []).length >= Number(game?.gridSize ?? 6) ** 2) {
+      setConstructionFeedback({ target: 'map', text: 'Для переноса нужна свободная клетка. Освободи место на карте.', error: true });
+      return;
+    }
     setPlanningCell(null);
     setInspectorOpen(false); setMoveDecorId(decor.id); setMoveBuildingId(null);
     setPlacementType(null); setDecorPlacementType(null); setSelectedBuildingId(null);
@@ -1018,7 +1034,7 @@ export default function Home() {
 
         {selectedDecor && <DecorInspector key={selectedDecor.id} decor={selectedDecor}
           catalogItem={(game.decorCatalog ?? []).find((item: any) => item.type === selectedDecor.type)}
-          allDecor={game.decor ?? []} open={inspectorOpen} busy={busy} onMove={() => beginDecorMove(selectedDecor)}
+          allDecor={game.decor ?? []} open={inspectorOpen} busy={busy} freeCells={Math.max(0, totalCells - usedCells)} onMove={() => beginDecorMove(selectedDecor)}
           onRemove={async () => {
             try {
               const data = await api('/api/game/decor/remove', { decorId: selectedDecor.id });
@@ -1230,12 +1246,16 @@ export default function Home() {
         </div>}
       </>}
 
-      {tab === 'shop' && <div data-section-panel={`shop-${subsections.shop}`}><CosmeticsShop view={subsections.shop as 'offers' | 'collection'}
+      {tab === 'shop' && <div data-section-panel={`shop-${subsections.shop}`}><CosmeticsShop key={planOwner} view={subsections.shop as 'offers' | 'collection'}
         cosmetics={game.cosmetics ?? []} shopCosmetics={game.shopCosmetics ?? []}
         busy={busy || invoiceOpen} starsEnabled={game.flags?.stars_shop !== false}
         awaitingProducts={awaitingProducts}
         premium={!!s.premium} premiumUntil={s.premium_until} crystals={Number(s.crystals ?? 0)}
         onBuy={buyStars}
+        onOpenCollection={() => showSectionFromGuide('shop', 'collection')}
+        onOpenMap={() => { openSection('city'); showSection('city', 'map'); }}
+        onOpenDecor={() => { openSection('city'); showSection('city', 'decor'); }}
+        onAchievements={() => openAchievements()}
         onEquip={async (cosmeticId, equipped = true) => {
           try { await api('/api/shop/equip', { cosmeticId, equipped }); }
           catch (error) { setMessage(''); throw error; }
