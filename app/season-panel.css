@@ -15,6 +15,28 @@
 .seasonNext .progress { margin-top:3px; }
 .seasonRewardValue { display:flex; flex-wrap:wrap; gap:5px 10px; align-items:center; line-height:1.5; font-size:11px; }
 .seasonRewardValue > span { display:inline-flex; align-items:center; gap:4px; }
+.seasonRewardValue > .seasonAppearanceReward { min-width:0; align-items:flex-start; }
+.seasonAppearanceReward > .gameIcon { flex-shrink:0; margin-top:2px; }
+.seasonAppearanceReward > span { min-width:0; overflow-wrap:anywhere; }
+.colonyApp .seasonPanel .seasonNextAction { display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:44px; max-width:100%; margin-top:3px; white-space:normal; text-align:left; line-height:1.5; }
+.seasonDevelopment { margin-top:10px; border:1px solid var(--line); border-radius:12px; padding:0 11px; min-width:0; }
+.seasonDevelopment > summary,.seasonReceiptDetails > summary { display:flex; align-items:center; gap:6px; min-height:44px; cursor:pointer; list-style:none; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.seasonDevelopment > summary::-webkit-details-marker,.seasonReceiptDetails > summary::-webkit-details-marker { display:none; }
+.seasonDevelopment > summary > .gameIcon,.seasonReceiptDetails > summary > .gameIcon { flex-shrink:0; }
+.seasonDevelopment > summary > .gameIcon:last-child,.seasonReceiptDetails > summary > .gameIcon:last-child { margin-left:auto; transform:rotate(90deg); }
+.seasonDevelopment[open] > summary > .gameIcon:last-child,.seasonReceiptDetails[open] > summary > .gameIcon:last-child { transform:rotate(-90deg); }
+.seasonDevelopment > div { padding-bottom:10px; min-width:0; }
+.colonyApp .seasonDevelopment p,.seasonSourceInfo > p { margin:5px 0 9px; color:var(--muted); font-size:11px; line-height:1.65; overflow-wrap:anywhere; }
+.seasonDevelopment strong { font-size:12px; line-height:1.6; }
+.seasonDevelopment b { color:#b7dcc5; }
+.seasonQuestReward { display:flex; flex-wrap:wrap; gap:5px 9px; align-items:center; }
+.seasonDevelopmentActions { display:flex; flex-wrap:wrap; gap:7px; }
+.colonyApp .seasonPanel .seasonDevelopmentActions .miniButton { min-height:44px; max-width:100%; white-space:normal; line-height:1.5; }
+.seasonDevelopment small { display:block; margin-top:8px; color:var(--muted); font-size:10px; line-height:1.65; }
+.seasonReceiptDetails { width:100%; border-top:1px solid var(--line); }
+.seasonReceiptDetails ul { list-style:none; padding:0; margin:0; }
+.seasonReceiptDetails li { margin:0 0 8px; padding:6px 0; }
+.seasonReceiptDetails li > strong { display:block; margin-bottom:5px; font-size:11px; line-height:1.6; }
 .seasonComplete { display:flex; align-items:center; gap:8px; padding:12px; color:#b7dcc5; font-size:12px; }
 .seasonPanel .seasonBulkClaim { margin-top:10px; font-size:12px; }
 .seasonFeedback { display:flex; flex-direction:column; gap:7px; margin-top:10px; font-size:12px; overflow-wrap:anywhere; }
@@ -47,9 +69,11 @@
 .seasonPointSources[open] > summary::after { content:'−'; }
 .colonyApp .seasonPointSources > p { font-size:11px; line-height:1.6; margin:9px 0; }
 .seasonPointSource { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--line); }
-.seasonPointSource > span { font-size:10px; line-height:1.5; min-width:0; }
+.seasonSourceInfo { min-width:0; flex:1; }
+.seasonSourceInfo > summary { font-size:10px; line-height:1.5; cursor:pointer; align-content:center; overflow-wrap:anywhere; }
 .seasonPointSource b { display:block; margin-top:2px; color:#b7dcc5; font-size:10px; }
-.seasonPointSource .miniButton { font-size:9px; flex-shrink:0; padding:7px; }
+.seasonPointSource .miniButton { font-size:11px; flex-shrink:0; padding:7px; white-space:normal; max-width:45%; line-height:1.5; }
+.seasonPointSources:focus { outline:2px solid var(--accent); outline-offset:3px; scroll-margin-top:14px; }
 .seasonEmptyActions { display:flex; flex-wrap:wrap; gap:8px; }
 .seasonRefresh { margin-bottom:8px; }
 .seasonPanel button:focus-visible,.seasonPanel summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }

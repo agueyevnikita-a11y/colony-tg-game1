@@ -1300,6 +1300,8 @@ export default function Home() {
         </div>}
         {subsections.missions === 'season' && <div data-section-panel="missions-season">
           <SeasonPanel key={planOwner + ':' + (game.season?.id ?? 'none')} season={game.season} busy={busy}
+            cosmetics={game.shopCosmetics ?? []} onAction={navigateGuide}
+            questPeriods={{ daily: { quests: game.dailyQuests ?? [], catalog: game.dailyQuestCatalog ?? [], resetsAt: game.questPeriods?.daily?.resetsAt }, weekly: { quests: game.weeklyQuests ?? [], catalog: game.weeklyQuestCatalog ?? [], resetsAt: game.questPeriods?.weekly?.resetsAt } }}
             onClaim={async (selection) => { try { const data = await api('/api/season/claim', selection); return data.result; } catch (error) { setMessage(''); throw error; } }}
             onNavigate={(nextTab, section) => { openSection(nextTab); showSection(nextTab, section); }}
             onRefresh={() => { void refresh(); }} />
