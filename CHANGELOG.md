@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.17-beta.1 — Connect Research Benefits to Workshop and Supply Goals
+- Industrial technologies show a compact, expandable comparison for one new cycle in an actual active workshop: rounded output, material cost and duration. Locked recipes include their canonical prerequisite chain and bonuses; unavailable workshops make no invented output promise. The comparison distinguishes ordinary production without neighbour links from research costs and preserves already-paid cycle rules.
+- Development plans offer direct goals for thermal recovery and longer offline accumulation. Completed storage and archive technologies explain their practical role and lead freely to workshops and queues; reviewing production never launches a batch.
+- Science shortages for the next unpaid technology connect to a current supply stage with a scientific reward. Both views separate current stock from the conditional reward, preserve the final research goal and selected project, and return to the exact prerequisite. Ready rewards remain claimable during logistics upgrades, while an already-paid research does not request science again.
+- Explicit recipe and workshop navigation clears an older production-map intent so the requested comparison opens correctly. No migration, dependency, economy, reward, production-job, saved-city or payment-rule change is required.
+
 ## 1.14.16-beta.1 — Connect Workshop Queues to Supply Stages
 - Supply projects show the stage's outstanding parts separately from the draft shipment. Spendable stock and all prepaid workshop queues reduce the new production need, while queued output remains unavailable for delivery until issued. Partial affordable shipments retain their own explicit debit and can open the production plan without entering the full stage amount first.
 - After one resource is fully supplied, an explicit shortcut selects a still-needed resource, preferring available stock. It changes only the form; background refresh preserves manual selections, and a ready stage retains its separate reward claim, including during logistics downtime.

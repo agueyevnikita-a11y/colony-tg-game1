@@ -6,6 +6,9 @@ import type { ResearchConfig } from '@/lib/game/research';
 import type { FoundryRecipeKey } from '@/lib/game/foundry';
 import { durationText as duration } from '@/lib/game/format';
 import { researchRouteOutcome } from '@/lib/game/research-outcome';
+import type { FoundryBuilding } from '@/lib/game/foundry';
+import type { ScienceSupplyStage } from '@/lib/game/research-supply';
+import { ResearchProductionPreview } from '@/components/ResearchProductionPreview';
 import { ResourceShortage } from '@/components/ResourceShortage';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { ResearchPlanner } from '@/components/ResearchPlanner';
@@ -40,7 +43,11 @@ type Props = {
   onRefresh: () => void;
   focusResearchKey?: string | null;
   focusResearchVersion?: number;
-  onProduction?: (recipe: FoundryRecipeKey) => void;
+  onProduction?: (recipe: FoundryRecipeKey, buildingId?: string) => void;
+  productionBuildings?: readonly FoundryBuilding[];
+  selectedProductionBuildingId?: string | null;
+  scienceSupply?: ScienceSupplyStage | null;
+  onScienceSupply?: (projectKey: string) => void;
   plannedResearchKey?: string | null;
   onPlanChange: (key: string | null) => void;
   onInspectResearch: (key: string) => void;
@@ -192,6 +199,9 @@ export function ResearchPanel(props: Props) {
     return <article key={item.key} tabIndex={-1} data-research-key={item.key} ref={item.key === props.focusResearchKey ? focusedCardRef : undefined} className={`technologyCard ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''} ${item.key === props.focusResearchKey ? 'isFocused' : ''} ${props.plannedResearchKey === item.key ? 'isPlanned' : ''}`} aria-labelledby={`${panelId}-${item.key}`}>
       <div className="technologyTitle"><span aria-hidden="true"><GameIcon name={technologyIcon(item)} size={23} /></span><div><h4 id={`${panelId}-${item.key}`}>{item.name}</h4><span className={`technologyStatus ${done ? 'isCompleted' : researching ? 'isResearching' : available ? 'isAvailable' : ''}`}>{done && <GameIcon name="check" size={12} />}{status}</span></div></div>
       <p className="technologyEffect">{item.effectText}</p>
+      <ResearchProductionPreview researchKey={item.key} catalog={research.catalog} completed={[...completed]}
+        buildings={props.productionBuildings ?? []} selectedBuildingId={props.selectedProductionBuildingId}
+        busy={locked} showAction={item.key === 'thermal_recovery'} onProduction={props.onProduction} />
       {!done && <button type="button" className="miniButton technologyPlanButton" disabled={locked} aria-pressed={props.plannedResearchKey === item.key} onClick={() => props.onPlanChange(item.key)}><GameIcon name="missions" size={14} />{props.plannedResearchKey === item.key ? 'Текущая цель' : 'Выбрать целью'}</button>}
       {!done && <>
         <p className="technologyDescription">{item.description}</p>
@@ -224,6 +234,10 @@ export function ResearchPanel(props: Props) {
         <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={props.hqLevel < unlockedBuilding.unlockHq ? props.onUpgradeHq : () => props.onBuild(item.unlockBuilding!, unlockedBuilding.name)}>{props.hqLevel < unlockedBuilding.unlockHq ? 'Показать улучшение базы' : `К постройке: ${unlockedBuilding.name}`}</button>
       </>}
       {done && item.unlockRecipe && props.onProduction && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onProduction?.(item.unlockRecipe!)}>Открыть рецепт в производстве</button>}
+      {done && (item.key === 'compact_storage' || item.key === 'archive_network') && <div className="technologyNextStep">
+        <p>{item.key === 'compact_storage' ? 'Бонус вместимости уже учтён в складе. Проверь готовые циклы: для выдачи каждый цикл должен поместиться целиком.' : 'Лимит накопления руды, энергии и науки увеличен. Уже оплаченные циклы цехов выполняются по своим таймерам и при долгом отсутствии.'}</p>
+        <button type="button" className="miniButton" disabled={locked} onClick={props.onShowProduction}>Открыть цеха и очереди<GameIcon name="arrow" size={14} /></button>
+      </div>}
       {done && item.unlockFeature && props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.(item.unlockFeature!)}>{item.unlockFeature === 'market' ? 'Открыть рынок' : item.unlockFeature === 'expeditions' ? 'Открыть экспедиции' : 'Перейти к благоустройству'}</button>}
       {routeOutcome && <><p className="technologyBlocker">{routeOutcome.requirementsText}</p>{props.onOpenFeature && <button type="button" className="action secondary technologyBuild" disabled={locked} onClick={() => props.onOpenFeature?.('expeditions')}>К маршрутам<GameIcon name="arrow" size={15} /></button>}</>}
       {feedback?.key === item.key && <div ref={feedbackRef} className={`notice researchFeedback ${feedback.error ? 'error' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}</div>}
@@ -256,6 +270,7 @@ export function ResearchPanel(props: Props) {
       resources={props.resources} scienceRate={props.scienceRate} offlineCapHours={props.offlineCapHours} busy={locked}
       onResearch={props.onInspectResearch} onUpgradeHq={props.onUpgradeHq} onBuildLab={props.onBuildLab}
       onUpgradeLab={props.onUpgradeLab} onProduction={props.onShowProduction} onRefresh={props.onRefresh}
+      scienceSupply={props.scienceSupply} onScienceSupply={props.onScienceSupply}
       onExpeditions={props.onOpenFeature ? () => props.onOpenFeature?.('expeditions') : undefined} />
     {research.catalog.filter(item => item.branch === 'foundation').every(isCompleted)
       ? <details className="researchFoundation" open={research.catalog.some(item => item.branch === 'foundation' && item.key === props.focusResearchKey)}><summary><GameIcon name="check" size={14} /> Основа развития изучена</summary>{research.catalog.filter(item => item.branch === 'foundation').map(renderTechnology)}</details>

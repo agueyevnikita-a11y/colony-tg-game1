@@ -27,8 +27,15 @@
 .supplyProjects p.supplyFooter { display:flex; align-items:flex-start; gap:6px; margin:15px 0 0; color:var(--muted); font-size:11px; line-height:1.55; }.supplyFooter>.gameIcon { flex:none; margin-top:2px; }.supplyCompleted { display:flex; align-items:flex-start; gap:9px; border:1px solid rgba(135,203,183,.3); border-radius:12px; padding:12px; background:rgba(135,203,183,.055); }.supplyCompleted>.gameIcon { flex:none; }.supplyCompleted strong { display:block; font-size:13px; }.supplyCompleted p { margin:6px 0; font-size:12px; line-height:1.5; }.supplyCompleted small { color:var(--muted); font-size:11px; }
 .colonyApp .supplyProjects button,.supplyProjects button { min-height:44px; white-space:normal; }.supplyProjects .action { width:100%; justify-content:center; }.supplyProjects button:disabled { cursor:default; }
 .supplyCompleted>div { min-width:0; }.supplyCompleted .supplyCollectionLink { display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:9px; max-width:100%; }
-.supplyPartsPlan,.supplyNextResource { display:grid; gap:8px; min-width:0; margin:12px 0; padding:11px; border:1px solid var(--line); border-radius:11px; background:rgba(135,203,183,.035); }
+.supplyPartsPlan,.supplyNextResource,.supplyResearchBridge { display:grid; gap:8px; min-width:0; margin:12px 0; padding:11px; border:1px solid var(--line); border-radius:11px; background:rgba(135,203,183,.035); }
 .supplyPartsPlan>strong,.supplyPartsPlan>div>span { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12px; }.supplyPartsPlan>div { display:flex; flex-wrap:wrap; gap:7px 14px; color:var(--muted); }
 .supplyPartsPlan p,.supplyNextResource>span { margin:0; font-size:12px; line-height:1.55; }.supplyPartsPlan small,.supplyNextResource small { color:var(--muted); font-size:11px; line-height:1.5; }
 .supplyPartsPlan button,.supplyNextResource button { justify-self:start; display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; max-width:100%; }
+.supplyResearchBridge { border-color:rgba(109,185,221,.25); background:rgba(109,185,221,.035); overflow-wrap:anywhere; }
+.supplyResearchBridge>strong,.supplyResearchBridge>div>span { display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12px; }
+.supplyResearchBridge>div { display:flex; flex-wrap:wrap; gap:7px 14px; color:var(--muted); }
+.supplyProjects .supplyResearchBridge p { margin:0; font-size:12px; line-height:1.55; }
+.supplyResearchBridge small { color:var(--muted); font-size:11px; line-height:1.5; }
+.supplyResearchBridge button { justify-self:start; display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; max-width:100%; min-width:0; text-align:left; }
+.supplyFeedback button { display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; max-width:100%; min-width:0; }
 @media(max-width:360px) { .supplyProjects { padding:14px; }.supplyProjectHeading h3 { font-size:15px; }.supplyAmounts { gap:7px 10px; }.supplyResourceChoices>label { flex-direction:column; }.supplyResourceChoices>label>.gameIcon:last-child:not(:first-child) { position:absolute; top:5px; right:5px; width:11px; height:11px; } }

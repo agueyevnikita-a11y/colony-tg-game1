@@ -30,6 +30,7 @@ import { ColonyEventCard } from '@/components/ColonyEventCard';
 import { ContractsPanel } from '@/components/ContractsPanel';
 import { SupplyProjectsPanel } from '@/components/SupplyProjectsPanel';
 import type { SupplyProjectState } from '@/lib/game/supply-projects';
+import { currentScienceSupply, nextResearchScienceGoal } from '@/lib/game/research-supply';
 import { DailyLoginPanel } from '@/components/DailyLoginPanel';
 import { QuestPanel } from '@/components/QuestPanel';
 import { SeasonPanel } from '@/components/SeasonPanel';
@@ -210,6 +211,9 @@ export default function Home() {
     ?? supplyProjects.find(project => project.started && !project.completed)
     ?? supplyProjects.find(project => !project.completed) ?? supplyProjects[0];
   const plannedResearchKey = researchTarget.owner === planOwner ? researchTarget.key : null;
+  const scienceSupply = game?.supplyProjects?.available ? currentScienceSupply(supplyProjects, selectedSupply?.id) : null;
+  const researchScienceGoal = nextResearchScienceGoal(game?.research?.catalog ?? [], game?.research?.completed ?? [],
+    plannedResearchKey, game?.research?.active?.research_key);
   const [guideFocus, setGuideFocus] = useState<{ owner: string; kind: 'research' | 'supplies' | null }>({ owner: '', kind: null });
   const activeGuideFocus = guideFocus.owner === planOwner && guideFocus.kind ? guideFocus.kind
     : plannedResearchKey ? 'research' : selectedSupply?.started && !selectedSupply.completed ? 'supplies' : 'research';
@@ -416,6 +420,7 @@ export default function Home() {
     if (action === 'build_logistics') return beginPlacement('logistics', 'Логистический центр');
     if (action === 'build_expedition_center') return beginPlacement('expedition_center', 'Центр экспедиций');
     if (action === 'production') {
+      setRequestedProductionLink(null);
       const foundry = (game?.buildings ?? []).find((building: any) => building.type === 'foundry' && building.status === 'active');
       if (foundry) setSelectedBuildingId(foundry.id);
       if (game?.tutorial?.current?.key === 'first_smelt') setRequestedProductionRecipe('standard_alloy');
@@ -1110,6 +1115,7 @@ export default function Home() {
           onBuildLogistics={() => beginPlacement('logistics', 'Логистический центр')}
           onUpgradeHq={() => navigateGuide('upgrade_hq')}
           onProduction={() => navigateGuide('production')} onRefresh={() => { void refresh(); }}
+          researchGoal={researchScienceGoal} onResearch={key => navigateGuide(key ? `research:${key}` : 'research')}
           onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }}
         /></div>
         <div hidden={supplyView !== 'contracts'}><ContractsPanel key={planOwner}
@@ -1170,13 +1176,26 @@ export default function Home() {
           focusResearchKey={focusedResearch}
           focusResearchVersion={researchFocusVersion}
           plannedResearchKey={plannedResearchKey}
+          productionBuildings={game.buildings ?? []} selectedProductionBuildingId={selectedBuildingId}
+          scienceSupply={scienceSupply}
+          onScienceSupply={projectKey => {
+            if (!game.supplyProjects?.available || !currentScienceSupply(supplyProjects.filter(project => project.id === projectKey))) return;
+            chooseSupplyProject(projectKey);
+            navigateGuide('supplies');
+          }}
           onPlanChange={chooseResearchTarget}
           onInspectResearch={(key) => navigateGuide(`research:${key}`)}
           onUpgradeHq={() => navigateGuide('upgrade_hq')}
           onUpgradeLab={() => navigateGuide('upgrade_lab')}
           onShowProduction={() => navigateGuide('production')}
           onOpenFeature={(feature) => { if (feature === 'decor') { openSection('city'); showSection('city', 'decor'); } else if (feature === 'market') { openSection('market'); showSection('market', 'buy'); } else { openSection('build'); showSection('build', 'expeditions'); } }}
-          onProduction={(recipe) => { setConstructionFeedback(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); showSection('city', 'production'); }}
+          onProduction={(recipe, buildingId) => {
+            const requestedId = buildingId ?? selectedBuildingId;
+            const activeFoundries = (game.buildings ?? []).filter((building: any) => building.type === 'foundry' && building.status === 'active');
+            const foundry = activeFoundries.find((building: any) => building.id === requestedId) ?? activeFoundries[0];
+            if (foundry) setSelectedBuildingId(foundry.id);
+            setConstructionFeedback(null); setRequestedProductionLink(null); productionNavigationPending.current = true; setRequestedProductionRecipe(recipe); showSection('city', 'production');
+          }}
           onStart={async (researchKey) => {
             try { await api('/api/game/research/start', { researchKey }); }
             catch (error) { setMessage(''); throw error; }

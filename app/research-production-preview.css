@@ -1,0 +1,21 @@
+.researchProductionPreview { min-width:0; margin-top:10px; padding:10px; border:1px solid rgba(128,170,255,.2); border-radius:12px; background:rgba(95,125,255,.045); }
+.researchCycleHeading { display:flex; align-items:center; gap:6px; font-size:12px; line-height:1.4; }
+.researchCycleDetails > summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; list-style:none; }
+.researchCycleDetails > summary::-webkit-details-marker { display:none; }
+.researchCycleSummaryBody { display:grid; gap:4px; min-width:0; }
+.researchCycleSummaryBody > small { font-size:10px; line-height:1.4; color:var(--muted); overflow-wrap:anywhere; }
+.researchCycleDetails > summary > .gameIcon { flex:none; transform:rotate(90deg); }
+.researchCycleDetails[open] > summary > .gameIcon { transform:rotate(-90deg); }
+.researchCycleDetails > summary:focus-visible { outline:2px solid #a3bcff; outline-offset:3px; border-radius:7px; }
+.researchProductionPreview .researchCycleContext,.researchProductionPreview .researchCycleChain,.researchProductionPreview .researchCycleTradeoff,.researchProductionPreview .researchCycleRule { margin:7px 0 0; font-size:11px; line-height:1.5; color:var(--muted); overflow-wrap:anywhere; }
+.researchCycleComparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:9px; }
+.researchCycleQuote { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:10px; background:var(--panel2); }
+.researchCycleQuote.isAfter { border-color:rgba(114,228,173,.3); }
+.researchCycleQuote > strong { min-height:2.8em; font-size:10px; line-height:1.4; overflow-wrap:anywhere; }
+.researchCycleOutput { display:flex; flex-wrap:wrap; gap:4px; font-size:12px; color:var(--text); }
+.researchCycleCost { display:flex; flex-wrap:wrap; align-items:center; gap:4px; font-size:10px; }
+.researchCycleQuote > small { display:flex; align-items:center; gap:4px; margin-top:auto; font-size:10px; color:var(--muted); }
+.colonyApp .researchProductionPreview .researchCycleAction { display:flex; align-items:center; justify-content:center; gap:6px; max-width:100%; min-height:44px; margin-top:10px; white-space:normal; overflow-wrap:anywhere; line-height:1.4; font-size:11px; }
+.researchCycleAction > .gameIcon { flex:none; }
+.researchCycleSafe { display:block; margin-top:6px; font-size:10px; line-height:1.5; color:var(--muted); overflow-wrap:anywhere; }
+@media (max-width:360px) { .researchCycleComparison { grid-template-columns:minmax(0,1fr); } .researchCycleQuote > strong { min-height:0; } }

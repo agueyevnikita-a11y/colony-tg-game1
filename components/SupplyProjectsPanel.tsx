@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { GameAmount, GameIcon } from '@/components/GameIcon';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import type { SupplyProjectsState } from '@/lib/game/supply-projects';
+import { scienceSupplyComparison, type ResearchScienceGoal } from '@/lib/game/research-supply';
 import '@/app/supply-projects.css';
 
 type Resource = 'ore' | 'energy' | 'parts';
@@ -20,9 +21,11 @@ type Props = {
   onUpgradeHq?: () => void;
   onProduction: () => void;
   onOpenCollection?: () => void;
+  researchGoal?: ResearchScienceGoal | null;
+  onResearch?: (key?: string) => void;
   onRefresh: () => void;
 };
-type Feedback = { projectKey: string; text: string; error: boolean };
+type Feedback = { projectKey: string; text: string; error: boolean; scienceClaimed?: boolean };
 const RESOURCE_ORDER: Resource[] = ['parts', 'ore', 'energy'];
 const RESOURCE_LABELS: Record<Resource, string> = { ore: 'Руда', energy: 'Энергия', parts: 'Детали' };
 const RESOURCE_UNITS: Record<Resource, string> = { ore: 'руды', energy: 'энергии', parts: 'деталей' };
@@ -72,6 +75,10 @@ export function SupplyProjectsPanel(props: Props) {
   const stockParts = Math.max(0, Math.floor(Number(props.resources.parts ?? 0)));
   const queuedParts = Math.max(0, Math.floor(Number(props.queuedParts ?? 0)));
   const missingParts = Math.max(0, requiredParts - stockParts - queuedParts);
+  const stageScience = stage && Number.isSafeInteger(stage.reward.science) && stage.reward.science > 0 ? stage.reward.science : 0;
+  const researchScience = props.researchGoal && stageScience > 0 ? scienceSupplyComparison({
+    currentScience: props.resources.science, requiredScience: props.researchGoal.science, rewardScience: stageScience,
+  }) : null;
   const nextResource = RESOURCE_ORDER.find(key => Number(project?.remaining[key] ?? 0) > 0 && Number(props.resources[key] ?? 0) >= 1)
     ?? RESOURCE_ORDER.find(key => Number(project?.remaining[key] ?? 0) > 0);
   const supplyLockReason = props.state?.lockReason === 'hq' ? `Для поставок нужен центр колонии ур. ${props.state.requiredHq}.`
@@ -117,7 +124,7 @@ export function SupplyProjectsPanel(props: Props) {
       if (!acknowledged) throw new Error('Подтверждение поставки не получено. Обнови проект и проверь результат.');
       const text = action === 'claim' ? `Награда этапа ${capturedStage + 1} получена. ${capturedStage + 1 >= project.stages.length ? 'Проект завершён. Все его награды получены.' : 'Следующий этап открыт.'}`
         : `Доставлено ${n(result.accepted)} ${RESOURCE_UNITS[resource]}. Поставка сохранена.`;
-      setFeedback({ projectKey: capturedProject, text, error: false });
+      setFeedback({ projectKey: capturedProject, text, error: false, scienceClaimed: action === 'claim' && stageScience > 0 });
       receipts.current.delete(storageKey);
       try { sessionStorage.removeItem(storageKey); } catch { /* A stale receipt can only replay its original result. */ }
     } catch (cause) {
@@ -148,6 +155,19 @@ export function SupplyProjectsPanel(props: Props) {
             return total > 0 ? <div className="supplyResourceProgress" key={key}><div><GameAmount resource={key}>{n(supplied)} / {n(total)}</GameAmount><span>{supplied >= total ? 'Доставлено' : `Осталось ${n(project.remaining[key])}`}</span></div><div className="supplyProgressBar" role="progressbar" aria-label={`${RESOURCE_LABELS[key]}: доставлено`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={Math.min(total, supplied)}><i style={{ width: `${Math.min(100, supplied / total * 100)}%` }} /></div></div> : null;
           })}</div>
           <div className="supplyStageReward"><span>Награда этого этапа</span>{rewardAmounts(stage.reward)}</div>
+          {stageScience > 0 && <div className="supplyResearchBridge" data-supply-research-bridge>
+            <strong><GameIcon name="research" size={17} />Наука для развития колонии</strong>
+            {props.researchGoal && researchScience ? <>
+              <p>Следующая технология плана — «{props.researchGoal.name}».</p>
+              <div><span>Сейчас не хватает <GameAmount resource="science">{n(researchScience.currentGap)}</GameAmount></span><span>После получения награды останется <GameAmount resource="science">{n(researchScience.afterGap)}</GameAmount></span></div>
+              <p>{researchScience.currentGap === 0 ? 'Науки для этой технологии уже хватает. Остальные ресурсы и требования проверь в её карточке.'
+                : researchScience.afterGap === 0 ? 'После получения награды нехватка науки покроется. Остальные ресурсы и требования технологии проверяются отдельно.'
+                  : 'Наука за этот этап уменьшит нехватку для технологии. Оставшуюся часть можно накопить в исследовательском центре.'}</p>
+            </> : <p>Наука за этап пополнит общий запас колонии. Её можно потратить на технологии: новые рецепты, добычу и вместимость склада.</p>}
+            <small>{project.ready ? 'Награда готова: забери её отдельной кнопкой ниже.' : 'Сначала доставь все ресурсы этапа, затем забери награду.'} До получения награда не входит в текущий запас науки.</small>
+            {props.onResearch && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch?.(props.researchGoal?.key)}>{props.researchGoal ? `К технологии «${props.researchGoal.name}»` : 'Выбрать технологию'}<GameIcon name="arrow" size={14} /></button>}
+            <small>Просмотр исследований бесплатный. Запуск технологии оплачивается отдельно.</small>
+          </div>}
           {!project.ready && requiredParts > 0 && <div className="supplyPartsPlan" data-supply-parts-plan>
             <strong><GameIcon name="foundry" size={17} />Детали для этого этапа</strong>
             <div><span>Ещё доставить <GameAmount resource="parts">{n(requiredParts)}</GameAmount></span><span>На складе <GameAmount resource="parts">{n(stockParts)}</GameAmount></span>{queuedParts > 0 && <span>В оплаченных очередях <GameAmount resource="parts">{n(queuedParts)}</GameAmount></span>}</div>
@@ -171,7 +191,7 @@ export function SupplyProjectsPanel(props: Props) {
             <p className="supplyHint">Списывается только показанное количество. Неполная поставка тоже сохраняется.</p>
           </form>}
         </>}
-        {feedback?.projectKey === project.id && <div className={`supplyFeedback${feedback.error ? ' isError' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}{feedback.error && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить колонию</button>}</div>}
+        {feedback?.projectKey === project.id && <div className={`supplyFeedback${feedback.error ? ' isError' : ''}`} role={feedback.error ? 'alert' : 'status'}>{feedback.text}{feedback.error && <button type="button" className="miniButton" disabled={locked} onClick={props.onRefresh}>Обновить колонию</button>}{!feedback.error && feedback.scienceClaimed && props.onResearch && <button type="button" className="miniButton" disabled={locked} onClick={() => props.onResearch?.(props.researchGoal?.key)}>К исследованиям<GameIcon name="arrow" size={14} /></button>}</div>}
         <details className="supplyStagePlan"><summary>Все этапы и награды проекта</summary><ol>{project.stages.map((item, index) => <li className={index < project.stageIndex ? 'isCompleted' : index === project.stageIndex ? 'isCurrent' : ''} key={index}><div><strong>{index + 1}. {item.name}</strong><small>{index < project.stageIndex ? 'Награда получена' : index === project.stageIndex ? 'Текущий этап' : 'Следующий этап'}</small></div><span className="supplyAmounts">{RESOURCE_ORDER.filter(key => item.requirements[key] > 0).map(key => <GameAmount resource={key} key={key}>{n(item.requirements[key])}</GameAmount>)}</span><div className="supplyPlanReward"><span>Награда</span>{rewardAmounts(item.reward)}</div></li>)}</ol></details>
       </>}
       <p className="supplyFooter"><GameIcon name="clock" size={14} />Срока сгорания нет. Готовые запасы и покупки на рынке тоже подходят для поставок.</p>

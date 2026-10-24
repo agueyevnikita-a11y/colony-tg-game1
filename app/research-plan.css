@@ -75,3 +75,6 @@
 @media(max-width:390px) { .researchPlanner { padding:12px; } .researchPlanGoals { grid-template-columns:repeat(2,minmax(0,1fr)); } .researchPlanTarget > .buildingArt { width:56px; } }
 @media(max-width:340px) { .researchPlannerHeading { flex-wrap:wrap; } .researchPlannerControls { flex-direction:row; flex-wrap:wrap; } .researchPlanReset,.researchPlanToggle { max-width:none; } .researchPlanStep { gap:5px; padding:9px 6px; } .researchPlanStep > .researchPlanStepArt { width:35px; } .researchPlanStepIcon .gameIcon { width:16px; height:16px; } }
 @media(prefers-reduced-motion:reduce) { .researchPlanner { scroll-behavior:auto; } }
+.researchPlanScienceSupply { display:grid; gap:8px; min-width:0; margin:12px 0; padding:11px; border:1px solid var(--line); border-radius:11px; background:rgba(135,203,183,.045); }
+.researchPlanScienceSupply>strong { display:flex; align-items:center; gap:6px; font-size:12px; }.researchPlanScienceSupply>span,.researchPlanScienceSupply small { color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.colonyApp .researchPlanScienceSupply .miniButton { justify-self:start; display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px; max-width:100%; min-height:44px; white-space:normal; }

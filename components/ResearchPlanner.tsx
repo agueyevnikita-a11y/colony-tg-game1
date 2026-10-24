@@ -7,6 +7,7 @@ import { SectionTabs } from '@/components/SectionTabs';
 import type { ResearchConfig } from '@/lib/game/research';
 import { buildResearchPlan, researchBlocker } from '@/lib/game/research-plan';
 import { researchRouteOutcome } from '@/lib/game/research-outcome';
+import { scienceSupplyComparison, type ScienceSupplyStage } from '@/lib/game/research-supply';
 import { durationText as duration } from '@/lib/game/format';
 import '@/app/research-plan.css';
 
@@ -31,6 +32,8 @@ type Props = {
   onProduction: () => void;
   onRefresh: () => void;
   onExpeditions?: () => void;
+  scienceSupply?: ScienceSupplyStage | null;
+  onScienceSupply?: (projectKey: string) => void;
 };
 
 const GOAL_GROUPS = [
@@ -44,8 +47,10 @@ const GOALS = [
   { key: 'deep_drilling', name: 'Глубинная шахта', building: 'deep_mine', group: 'resources' },
   { key: 'photovoltaic_arrays', name: 'Солнечный массив', building: 'solar_array', group: 'resources' },
   { key: 'precision_casting', name: 'Точное литьё', icon: 'parts', group: 'production' },
+  { key: 'thermal_recovery', name: 'Больше деталей за цикл', icon: 'foundry', group: 'production' },
   { key: 'industrial_casting', name: 'Поточное литьё', icon: 'parts', group: 'production' },
   { key: 'compact_storage', name: 'Больше места на складе', icon: 'building', group: 'production' },
+  { key: 'archive_network', name: 'Дольше копить ресурсы', icon: 'clock', group: 'production' },
   { key: 'trade_network', name: 'Рынок игроков', icon: 'market', group: 'infrastructure' },
   { key: 'urban_ecology', name: 'Гидропонный модуль', icon: 'flowerbed', group: 'infrastructure' },
   { key: 'public_spaces', name: 'Комфорт лунной базы', icon: 'comfort', group: 'infrastructure' },
@@ -160,6 +165,8 @@ export function ResearchPlanner(props: Props) {
     }
     const shortages = blocker.kind === 'resources' ? blocker.shortages ?? {} : {};
     const scienceMissing = Number(shortages.science ?? 0);
+    const supplyComparison = props.scienceSupply ? scienceSupplyComparison({ currentScience: props.resources.science,
+      requiredScience: next.science, rewardScience: props.scienceSupply.science }) : null;
     const scienceWaitHours = props.scienceRate > 0 ? scienceMissing / props.scienceRate : 0;
     const offlineCapHours = props.offlineCapHours;
     const stepCost = { science: next.science, ...next.cost } as Record<string, number>;
@@ -171,6 +178,13 @@ export function ResearchPlanner(props: Props) {
       {scienceMissing > 0 && props.scienceRate > 0 && <p className="researchPlanWait">При текущей выработке +{number(props.scienceRate)} науки/ч нехватка науки покроется примерно за {duration(scienceMissing / props.scienceRate * 3600)} накопления. Расчёт без будущих улучшений и расходов.</p>}
       {Number.isFinite(scienceWaitHours) && typeof offlineCapHours === 'number' && Number.isFinite(offlineCapHours) && offlineCapHours > 0 && scienceWaitHours > offlineCapHours && <p className="researchPlanWait">За одно отсутствие учитывается до {number(offlineCapHours)} ч. накопления науки. Этого недостаточно, чтобы покрыть всю нехватку. После этого срока снова открой колонию, чтобы продолжить накопление.</p>}
       {scienceMissing > 0 && props.scienceRate <= 0 && <p className="researchPlanWait">Наука пока не производится. Проверь готовность исследовательского центра.</p>}
+      {scienceMissing > 0 && supplyComparison && props.scienceSupply && props.onScienceSupply && <div className="researchPlanScienceSupply" data-research-science-supply>
+        <strong><GameIcon name="contracts" size={17} />Наука за этап поставки</strong>
+        <span>{props.scienceSupply.projectName} · {props.scienceSupply.stageName}</span>
+        <p>Награда этапа: <GameAmount resource="science">{number(supplyComparison.rewardScience)}</GameAmount>. {supplyComparison.afterGap > 0 ? `После её получения останется накопить ${number(supplyComparison.afterGap)} науки для «${next.name}».` : `После её получения науки для «${next.name}» хватит. Остальные требования исследования нужно выполнить отдельно.`}</p>
+        <button type="button" className="miniButton" disabled={props.busy} onClick={() => props.onScienceSupply?.(props.scienceSupply!.projectKey)}>К этапу с научной наградой<GameIcon name="arrow" size={14} /></button>
+        <small>{props.scienceSupply.ready ? 'Ресурсы этапа уже доставлены. Забери его награду отдельной кнопкой.' : 'Сначала доставь ресурсы этапа, затем забери его награду.'} Просмотр проекта бесплатный; исследование запускается отдельно.</small>
+      </div>}
       <div className="researchPlanActions"><button type="button" className="action secondary" disabled={props.busy} onClick={action}>{actionLabel}<GameIcon name="arrow" size={15} /></button>
         {Number(shortages.parts ?? 0) > 0 && <button type="button" className="miniButton" disabled={props.busy} onClick={props.onProduction}><GameIcon name="parts" size={14} /> К производству деталей</button>}
       </div>
