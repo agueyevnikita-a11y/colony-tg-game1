@@ -55,6 +55,7 @@ import { createProductionNetwork, foundryLinksPreview, type ProductionResource }
 import { permanentProductOwned } from '@/lib/game/product-ownership';
 import { parsePremiumHold, premiumHoldConfirmed, type PremiumHold } from '@/lib/client/purchase-holds';
 import { usePremiumPurchaseHold } from '@/lib/client/use-premium-purchase-hold';
+import { recoverShopPurchases } from '@/lib/client/shop-recovery';
 import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { RequestCancelled } from '@/lib/client/requests';
@@ -160,6 +161,8 @@ export default function Home() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [awaitingPurchases, setAwaitingPurchases] = useState<{ key: string; products: string[] }>({ key: '', products: [] });
+  const [crystalPurchaseChecks, setCrystalPurchaseChecks] = useState<Set<string>>(() => new Set());
+  const crystalPurchaseChecksRef = useRef<Set<string>>(new Set());
   const invoiceOpening = useRef(false);
   const navigationToTop = useRef(false);
   const [guideNavigationVersion, setGuideNavigationVersion] = useState(0);
@@ -190,6 +193,13 @@ export default function Home() {
   const artifactCollectionFocus = artifactCollection?.owner === planOwner ? artifactCollection : null;
   const settingsOwner = useRef(planOwner);
   settingsOwner.current = planOwner;
+  function requireCrystalCheck(owner: string, required: boolean) {
+    if (!owner || crystalPurchaseChecksRef.current.has(owner) === required) return;
+    const next = new Set(crystalPurchaseChecksRef.current);
+    if (required) next.add(owner); else next.delete(owner);
+    crystalPurchaseChecksRef.current = next;
+    setCrystalPurchaseChecks(next);
+  }
   const supplyProjects = (game?.supplyProjects?.projects ?? []) as SupplyProjectState[];
   const selectedSupplyKey = supplyFocus.owner === planOwner ? supplyFocus.key : null;
   const selectedSupply = supplyProjects.find(project => project.id === selectedSupplyKey)
@@ -1251,6 +1261,7 @@ export default function Home() {
         busy={busy || invoiceOpen} starsEnabled={game.flags?.stars_shop !== false}
         awaitingProducts={awaitingProducts}
         premium={!!s.premium} premiumUntil={s.premium_until} crystals={Number(s.crystals ?? 0)}
+        crystalCheckRequired={crystalPurchaseChecks.has(planOwner)}
         onBuy={buyStars}
         onOpenCollection={() => showSectionFromGuide('shop', 'collection')}
         onOpenMap={() => { openSection('city'); showSection('city', 'map'); }}
@@ -1261,11 +1272,33 @@ export default function Home() {
           catch (error) { setMessage(''); throw error; }
         }}
         onPremiumCrystals={async () => {
+          const owner = planOwner;
+          if (settingsOwner.current !== owner) throw new Error('Профиль изменился. Открой магазин заново.');
+          if (crystalPurchaseChecksRef.current.has(owner)) throw new Error('Сначала обнови данные и проверь результат предыдущей покупки.');
           try { await api('/api/shop/premium-crystals'); }
-          catch (error) { setMessage(''); throw error; }
+          catch (error) { requireCrystalCheck(owner, true); setMessage(''); throw error; }
+        }}
+        onRefresh={async () => {
+          const owner = planOwner;
+          try {
+            if (settingsOwner.current !== owner) throw new Error('Профиль изменился. Открой магазин заново.');
+            await api('/api/session');
+            if (settingsOwner.current !== owner) throw new Error('Профиль изменился. Открой магазин заново.');
+            requireCrystalCheck(owner, false);
+          } catch (error) { setMessage(''); throw error; }
         }}
         onRecover={async () => {
-          try { await api('/api/payments/recover'); await api('/api/session'); }
+          const owner = planOwner;
+          try {
+            const receipt = await recoverShopPurchases({
+              recover: () => api('/api/payments/recover'),
+              refresh: () => api('/api/session'),
+              isCurrentOwner: () => settingsOwner.current === owner,
+            });
+            if (receipt.stateUpdated && settingsOwner.current === owner) requireCrystalCheck(owner, false);
+            setMessage('');
+            return receipt;
+          }
           catch (error) { setMessage(''); throw error; }
         }}
       /></div>}

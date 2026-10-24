@@ -56,6 +56,13 @@
 .premiumOffer .shopEyebrow { color:#abbfe7; }
 .premiumOwnership { display:block; font-size:12px; line-height:1.5; color:#bfcee4; padding:6px 9px; border:1px solid rgba(180,196,238,.21); border-radius:10px; }
 .premiumOwnership.isActive { color:#a8dfc5; border-color:rgba(128,216,176,.25); background:rgba(128,216,176,.04); }
+.premiumOwnership.isExpired { color:#e2c79f; border-color:rgba(226,199,159,.3); }
+.cosmeticsShop .premiumStatusCheck { display:grid; gap:8px; margin:12px 0; padding:12px; min-width:0; border:1px solid rgba(226,199,159,.25); border-radius:12px; background:rgba(226,199,159,.04); color:#ddccb4; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.cosmeticsShop .premiumStatusCheck > p { margin:0; color:var(--shop-muted); font-size:12px; line-height:1.6; }
+.cosmeticsShop .shopSessionRefresh { display:grid; gap:8px; margin-top:14px; }
+.cosmeticsShop .shopSessionRefresh > p { margin:0; font-size:12px; }
+.cosmeticsShop .shopStateCheck { min-height:44px; white-space:normal; }
+.cosmeticsShop .premiumPendingNote { color:#d9c8aa; font-size:12px; line-height:1.6; }
 .cosmeticsShop .premiumUntil { color:#a9d5c1; font-size:12px; margin:-3px 0 14px; }
 .premiumBenefits { display:grid; grid-template-columns:1fr 1fr; gap:14px 12px; margin:18px 0; padding:0; list-style:none; }
 .premiumBenefits li { display:flex; align-items:flex-start; gap:9px; min-width:0; }

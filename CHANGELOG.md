@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.13-beta.1 — Check Purchases without Paying Again
+- Premium no longer stays visually active past a known deadline while the shop remains open. A free session check confirms the current status; unknown deadlines retain the server's active flag, and a future date alone cannot grant Premium.
+- Purchase recovery shows verified aggregate results instead of a generic success message. A failed session refresh preserves an already completed recovery receipt and offers a separate data refresh without repeating recovery. Unknown receipts remain neutral, and paid receipt identities still govern pending Premium invoices.
+- An ambiguous crystal-purchase failure requires a successful session check before another purchase. The check persists across shop navigation and remains scoped to its original player; free refreshes never initiate another purchase. An outstanding Stars invoice explains that a crystal payment would be an additional purchase.
+- Added pure regressions for status boundaries, validated receipts, partial success, owner changes and callback counts. No migration, dependency, price, reward, saved-city or payment-fulfilment change is required.
+
 ## 1.14.12-beta.1 — Use Your Collection and Plan Comfort
 - Cosmetic ownership now separates the longest available access from the expiry of the copy actually applied. A temporary appearance can be explicitly applied permanently or for its full available duration; the server selects permanent access first, then the longest temporary access, preserving category locks and exact acquisition keys.
 - Owned offers and previews lead to the matching collection item. Collection actions lead back to the city, and empty collections offer a route to achievements. Paid appearance and placed comfort decor explain their different roles; purchase notices identify collection delivery separately from application.

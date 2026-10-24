@@ -8,6 +8,7 @@ import { DecorArt } from '@/components/DecorArt';
 import { MechanicGuide } from '@/components/MechanicGuide';
 import { APPEARANCE_OBJECTS, APPEARANCE_PAGE_SIZE, appearancePage, type AppearanceKind } from '@/lib/game/appearance';
 import { cosmeticInventory, type CosmeticInventoryItem } from '@/lib/game/cosmetic-inventory';
+import { premiumDisplayStatus, recoveryReceiptMessage } from '@/lib/game/shop-status';
 import { PRODUCTS, CRYSTAL_PREMIUM_PRICE, DEFAULT_OFFLINE_CAP_HOURS, PREMIUM_OFFLINE_CAP_HOURS, PREMIUM_PRODUCTION_MULTIPLIER, PREMIUM_BUILD_SPEED_MULTIPLIER } from '@/lib/game/config';
 import '@/app/shop.css';
 
@@ -20,11 +21,13 @@ type Props = {
   premium: boolean;
   premiumUntil?: string | null;
   crystals: number;
+  crystalCheckRequired?: boolean;
   awaitingProducts?: string[];
   onBuy: (productId: string) => Promise<void>;
   onEquip: (cosmeticId: string, equipped?: boolean) => Promise<void>;
   onPremiumCrystals: () => Promise<void>;
-  onRecover: () => Promise<void>;
+  onRecover: () => Promise<unknown>;
+  onRefresh?: () => Promise<unknown>;
   onOpenCollection?: () => void;
   onOpenMap?: () => void;
   onOpenDecor?: () => void;
@@ -33,7 +36,7 @@ type Props = {
 
 type Item = CosmeticInventoryItem;
 type PreviewItem = Pick<Item, 'id' | 'name' | 'category'>;
-type Feedback = { text: string; error: boolean };
+type Feedback = { text: string; error: boolean; receipt?: unknown };
 type ProductId = keyof typeof PRODUCTS;
 
 const CATEGORIES: Record<string, { name: string; where: string; icon: string }> = {
@@ -79,6 +82,7 @@ export function CosmeticsShop(props: Props) {
   const [previewObjectIndex, setPreviewObjectIndex] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [ownershipNow, setOwnershipNow] = useState(() => Date.now());
+  const [localCrystalCheckRequired, setCrystalCheckRequired] = useState(false);
   const [collectionFocus, setCollectionFocus] = useState<{ id: string; requestId: number } | null>(null);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const inFlight = useRef(false);
@@ -88,6 +92,8 @@ export function CosmeticsShop(props: Props) {
   const focusedCollectionRef = useRef<HTMLElement>(null);
   const collectionFocusPending = useRef(false);
   const locked = props.busy || pending !== null;
+  const crystalCheckRequired = props.crystalCheckRequired === true || localCrystalCheckRequired;
+  const premiumStatus = premiumDisplayStatus(props.premium, props.premiumUntil, Date.now());
   const catalog = useMemo(() => new Map((props.shopCosmetics ?? []).map((item: any) => [String(item.id), item])), [props.shopCosmetics]);
   const collection = useMemo(() => cosmeticInventory(props.cosmetics ?? [], props.shopCosmetics ?? []), [props.cosmetics, props.shopCosmetics, ownershipNow]);
   const owned = new Map(collection.map((item) => [item.id, item]));
@@ -108,14 +114,20 @@ export function CosmeticsShop(props: Props) {
   const buildingCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'building').length;
   const decorCount = APPEARANCE_OBJECTS.filter(item => item.kind === 'decor').length;
 
-  // Temporary rewards expire even while the player keeps this screen open.
+  useEffect(() => {
+    if (props.crystalCheckRequired === false) setCrystalCheckRequired(false);
+  }, [props.crystalCheckRequired]);
+
+  // Known deadlines expire even while the player keeps this screen open.
   useEffect(() => {
     const now = Date.now();
-    const nextExpiry = Math.min(...(props.cosmetics ?? []).map(row => row.expires_at ? new Date(row.expires_at).getTime() : Infinity).filter(time => time > now));
+    const deadlines = (props.cosmetics ?? []).map(row => row.expires_at ? new Date(row.expires_at).getTime() : Infinity);
+    if (props.premium && props.premiumUntil) deadlines.push(new Date(props.premiumUntil).getTime());
+    const nextExpiry = Math.min(...deadlines.filter(time => time > now));
     if (!Number.isFinite(nextExpiry)) return;
     const timer = window.setTimeout(() => setOwnershipNow(Date.now()), Math.min(2_147_483_647, Math.max(1, nextExpiry - now)));
     return () => window.clearTimeout(timer);
-  }, [props.cosmetics, ownershipNow]);
+  }, [props.cosmetics, props.premium, props.premiumUntil, ownershipNow]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -152,20 +164,61 @@ export function CosmeticsShop(props: Props) {
     return () => window.cancelAnimationFrame(frame);
   }, [props.view, collectionFocus, selectedCategory, selectedCollectionPage, collection]);
 
-  async function run(key: string, operation: () => Promise<void>, success: string) {
+  async function run<T,>(key: string, operation: () => Promise<T>, success: string | ((result: T) => string)) {
     if (locked || inFlight.current) return;
     inFlight.current = true;
     setPending(key);
     setFeedback((previous) => { const next = { ...previous }; delete next[key]; return next; });
     try {
-      await operation();
-      setFeedback((previous) => ({ ...previous, [key]: { text: success, error: false } }));
+      const result = await operation();
+      setFeedback((previous) => ({ ...previous, [key]: { text: typeof success === 'function' ? success(result) : success, error: false, ...(key.startsWith('recover') ? { receipt: result } : {}) } }));
     } catch (cause) {
       setFeedback((previous) => ({ ...previous, [key]: { text: cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуй ещё раз.', error: true } }));
     } finally {
       inFlight.current = false;
       setPending(null);
     }
+  }
+
+  function recover(key: string) {
+    if (!props.starsEnabled) return;
+    if (locked || inFlight.current) return;
+    setFeedback(previous => Object.fromEntries(Object.entries(previous).filter(([entry]) => !entry.startsWith('recover') && !entry.startsWith('check:recover'))));
+    void run(key, props.onRecover, recoveryReceiptMessage);
+  }
+
+  function refreshAction(key: string, recoveryKey?: string) {
+    if (!props.onRefresh) return null;
+    return <>
+      <button type="button" className="action secondary shopStateCheck" disabled={locked} onClick={() => void run(key, async () => {
+        await props.onRefresh!();
+        setCrystalCheckRequired(false);
+        setFeedback(previous => {
+          const next = { ...previous };
+          for (const [entry, value] of Object.entries(next)) {
+            if (entry.startsWith('check:')) delete next[entry];
+            if (entry.startsWith('recover')) {
+              const receipt = value.receipt && typeof value.receipt === 'object' && !Array.isArray(value.receipt)
+                ? { ...value.receipt, stateUpdated: true } : { stateUpdated: true };
+              next[entry] = { text: value.error ? 'Данные колонии обновлены. Проверь коллекцию и срок Premium.' : recoveryReceiptMessage(receipt), error: false, receipt };
+            }
+          }
+          if (next['premium:crystals']?.error) next['premium:crystals'] = { text: 'Данные обновлены. Проверь срок Premium перед новой покупкой.', error: false };
+          return next;
+        });
+      }, 'Данные колонии обновлены.')}>
+        {pending === key ? 'Обновляем данные…' : 'Обновить данные'}
+      </button>
+      {(!recoveryKey || feedback[key]?.error) && notice(key)}
+    </>;
+  }
+
+  function buyPremiumCrystals() {
+    if (crystalCheckRequired || props.crystals < CRYSTAL_PREMIUM_PRICE) return;
+    void run('premium:crystals', async () => {
+      try { await props.onPremiumCrystals(); }
+      catch (cause) { setCrystalCheckRequired(true); throw cause; }
+    }, `К сроку Premium добавлено ${PRODUCTS.premium_30d.days} дней.`);
   }
 
   function buy(productId: ProductId, permanent = false) {
@@ -183,7 +236,7 @@ export function CosmeticsShop(props: Props) {
   }
   function notice(key: string) {
     const value = feedback[key];
-    return value ? <div className={`notice shopFeedback${value.error ? ' error' : ''}`} role={value.error ? 'alert' : 'status'}><span>{value.text}</span>{!value.error && key.startsWith('equip:') && props.onOpenMap && <button type="button" className="action secondary shopMapLink" onClick={props.onOpenMap}>Посмотреть город<GameIcon name="arrow" size={14} /></button>}</div> : null;
+    return value ? <div className={`notice shopFeedback${value.error ? ' error' : ''}`} role={value.error ? 'alert' : 'status'}><span>{value.text}</span>{!value.error && key.startsWith('equip:') && props.onOpenMap && <button type="button" className="action secondary shopMapLink" onClick={props.onOpenMap}>Посмотреть город<GameIcon name="arrow" size={14} /></button>}{key.startsWith('recover') && refreshAction(`check:${key}`, key)}</div> : null;
   }
   function status(item?: Item) {
     return item && <div className="cosmeticOwnership">{item.equipped && <span className="cosmeticEquipped"><GameIcon name="check" size={14} />{item.appliedExpiresAt === null ? 'Применено навсегда' : `Применено до ${dateText(item.appliedExpiresAt)}`}</span>}<span>{item.expiresAt === null ? 'Есть навсегда' : `Временно · до ${dateText(item.expiresAt)}`}</span>{item.needsLongerApplication && <span className="cosmeticApplyHint">{item.expiresAt === null ? 'Постоянное право ещё нужно применить.' : 'Более долгий срок ещё нужно применить.'}</span>}</div>;
@@ -217,7 +270,7 @@ export function CosmeticsShop(props: Props) {
   function awaitingPurchase(productId: ProductId, permanent: boolean) {
     if (permanent || !awaiting.has(productId)) return null;
     return <><p className="shopPurchaseNote" role="status">Оплата ожидает подтверждения Telegram. Проверь покупку перед повтором.{!props.starsEnabled && ' Проверка станет доступна, когда возобновятся покупки за Telegram Stars.'}</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => {
-      if (props.starsEnabled) void run(`recover:${productId}`, props.onRecover, 'Проверка покупки завершена.');
+      recover(`recover:${productId}`);
     }}>{pending === `recover:${productId}` ? 'Проверяем покупку…' : 'Проверить покупку'}</button></>;
   }
   function starsAvailability(productId: ProductId, permanent = false) {
@@ -249,13 +302,16 @@ export function CosmeticsShop(props: Props) {
     })}</div>{founderOwned > 0 && founderPermanent < FOUNDER_ITEMS.length && <p className="founderPartial">Навсегда получено {founderPermanent} из {FOUNDER_ITEMS.length} предметов набора.{founderOwned > founderPermanent && ` Ещё ${founderOwned - founderPermanent} доступны временно.`} Цена полная, без скидки за уже полученные предметы. Все четыре станут постоянными.</p>}{ownedFounderItem && <>{collectionButton(ownedFounderItem.id, 'Открыть предметы в коллекции')}<p className="shopPurchaseNote">Каждый вид оформления применяется отдельно. Найти нужный предмет можно и через его предпросмотр.</p></>}<button className="action cosmeticBuy founderBuy" type="button" disabled={locked || !props.starsEnabled || founderPermanent === FOUNDER_ITEMS.length || awaiting.has('founder_pack')} onClick={() => buy('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}>{pending === 'buy:founder_pack' ? 'Ожидаем Telegram…' : founderPermanent === FOUNDER_ITEMS.length ? 'Набор уже в коллекции' : awaiting.has('founder_pack') ? 'Ожидаем подтверждения' : <>Купить набор<span><GameIcon name="stars" size={17} />{PRODUCTS.founder_pack.stars} Telegram Stars</span></>}</button>{starsAvailability('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('buy:founder_pack')}{awaitingPurchase('founder_pack', founderPermanent === FOUNDER_ITEMS.length)}{notice('recover:founder_pack')}</section>
 
     <section className="card premiumOffer" data-product-id="premium_30d" aria-labelledby={`${id}-premium`}>
-      <div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${props.premium ? ' isActive' : ''}`}>{props.premium ? 'Активен' : `${PRODUCTS.premium_30d.days} дней`}</span></div>
-      {props.premium && <p className="premiumUntil">{dateText(props.premiumUntil) ? `Действует до ${dateText(props.premiumUntil)}` : 'Premium активен в твоей колонии.'}</p>}
+      <div className="shopSectionHeading"><div><span className="shopEyebrow">Для развития колонии</span><h2 id={`${id}-premium`}>COLONY Premium</h2></div><span className={`premiumOwnership${premiumStatus.active ? ' isActive' : premiumStatus.expiredNeedsRefresh ? ' isExpired' : ''}`} data-premium-status>{premiumStatus.active ? 'Активен' : premiumStatus.expiredNeedsRefresh ? 'Нужна проверка срока' : `${PRODUCTS.premium_30d.days} дней`}</span></div>
+      {premiumStatus.active && <p className="premiumUntil">{dateText(premiumStatus.expiresAt) ? `Действует до ${dateText(premiumStatus.expiresAt)}` : 'Premium активен в твоей колонии.'}</p>}
+      {premiumStatus.expiredNeedsRefresh && <div className="premiumStatusCheck" data-premium-expired role="status"><strong>Указанный срок Premium истёк</strong><p>Срок закончился {dateText(premiumStatus.expiresAt)}. Обнови данные, чтобы проверить текущий статус и бонусы. Проверка бесплатна.</p>{refreshAction('check:premium')}</div>}
+      {!premiumStatus.expiredNeedsRefresh && notice('check:premium')}
       <ul className="premiumBenefits"><li><GameIcon name="ore" size={20} /><span><strong>+{Math.round((PREMIUM_PRODUCTION_MULTIPLIER - 1) * 100)}% к добыче</strong>Руда, энергия и кредиты</span></li><li><GameIcon name="clock" size={20} /><span><strong>−{Math.round((1 - PREMIUM_BUILD_SPEED_MULTIPLIER) * 100)}% времени</strong>Строительство и улучшения зданий</span></li><li><GameIcon name="build" size={20} /><span><strong>2 → 3 стройки</strong>Больше работ одновременно</span></li><li><GameIcon name="city" size={20} /><span><strong>{DEFAULT_OFFLINE_CAP_HOURS} → {PREMIUM_OFFLINE_CAP_HOURS} часов</strong>Базовый лимит добычи без открытой игры</span></li></ul>
       <p className="premiumExplanation">Выбери один способ оплаты. Каждая покупка добавляет {PRODUCTS.premium_30d.days} дней к действующему сроку Premium. Автоматического продления нет.</p>
+      {awaiting.has('premium_30d') && <p className="shopPurchaseNote premiumPendingNote">Одна оплата Premium ещё ожидает подтверждения. Покупка за кристаллы будет отдельной покупкой и добавит ещё {PRODUCTS.premium_30d.days} дней.</p>}
       <div className="premiumPurchaseOptions">
-        <div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || awaiting.has('premium_30d')} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : awaiting.has('premium_30d') ? 'Ожидаем подтверждения' : <>{props.premium ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="stars" size={17} />{PRODUCTS.premium_30d.stars} Telegram Stars</span></>}</button>{starsAvailability('premium_30d')}{notice('buy:premium_30d')}{awaitingPurchase('premium_30d', false)}{notice('recover:premium_30d')}</div>
-        <div><button className="action secondary" type="button" disabled={locked || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={() => { if (props.crystals >= CRYSTAL_PREMIUM_PRICE) void run('premium:crystals', props.onPremiumCrystals, `Premium продлён на ${PRODUCTS.premium_30d.days} дней.`); }}>{pending === 'premium:crystals' ? 'Применяем…' : <>{props.premium ? `Продлить на ${PRODUCTS.premium_30d.days} дней` : `На ${PRODUCTS.premium_30d.days} дней`}<span><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</span></>}</button><p className="shopPurchaseNote">В наличии: {number(props.crystals)} кристаллов.</p>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit" role="status">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}</div>
+        <div><button className="action cosmeticBuy" type="button" disabled={locked || !props.starsEnabled || awaiting.has('premium_30d')} onClick={() => buy('premium_30d')}>{pending === 'buy:premium_30d' ? 'Ожидаем Telegram…' : awaiting.has('premium_30d') ? 'Ожидаем подтверждения' : <>{premiumStatus.active ? 'Продлить' : ('На ' + PRODUCTS.premium_30d.days + ' дней')}<span><GameIcon name="stars" size={17} />{PRODUCTS.premium_30d.stars} Telegram Stars</span></>}</button>{starsAvailability('premium_30d')}{notice('buy:premium_30d')}{awaitingPurchase('premium_30d', false)}{notice('recover:premium_30d')}</div>
+        <div><button className="action secondary" type="button" data-premium-crystals disabled={locked || crystalCheckRequired || props.crystals < CRYSTAL_PREMIUM_PRICE} onClick={buyPremiumCrystals}>{pending === 'premium:crystals' ? 'Применяем…' : <>{premiumStatus.active ? `Продлить на ${PRODUCTS.premium_30d.days} дней` : `На ${PRODUCTS.premium_30d.days} дней`}<span><GameIcon name="crystals" size={17} />{number(CRYSTAL_PREMIUM_PRICE)} кристаллов</span></>}</button><p className="shopPurchaseNote">В наличии: {number(props.crystals)} кристаллов.</p>{props.crystals < CRYSTAL_PREMIUM_PRICE && <p className="shopCrystalDeficit" role="status">Не хватает {number(CRYSTAL_PREMIUM_PRICE - props.crystals)} кристаллов.</p>}{notice('premium:crystals')}{crystalCheckRequired && <div className="premiumStatusCheck" data-crystal-check-required><p>Обнови данные перед повторной покупкой: кристаллы могли уже списаться, а срок Premium — продлиться.</p>{props.onRefresh ? refreshAction('check:crystals') : <p>Закрой и снова открой игру, чтобы проверить результат.</p>}</div>}{!crystalCheckRequired && notice('check:crystals')}</div>
       </div>
     </section>
 
@@ -288,7 +344,7 @@ export function CosmeticsShop(props: Props) {
 
     </>}
 
-    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium. Проверка не списывает Telegram Stars или кристаллы.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => { if (props.starsEnabled) void run('recover', props.onRecover, 'Проверка завершена. Если оплата ещё ожидает подтверждения, повторная покупка остаётся заблокированной.'); }}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{!props.starsEnabled && <p className="shopPurchaseNote" role="status">Проверка временно недоступна: покупки за Telegram Stars приостановлены. Просмотр и применение коллекции работают.</p>}{notice('recover')}</section>
+    <section className="card shopRecovery" aria-labelledby={`${id}-recovery`}><h2 id={`${id}-recovery`}>Покупка пока не появилась?</h2><p>Проверь подтверждённые покупки Telegram, чтобы обновить коллекцию и Premium. Проверка не списывает Telegram Stars или кристаллы.</p><button className="action secondary" type="button" disabled={locked || !props.starsEnabled} onClick={() => recover('recover')}>{pending === 'recover' ? 'Проверяем покупки…' : 'Проверить покупки'}</button>{!props.starsEnabled && <p className="shopPurchaseNote" role="status">Проверка временно недоступна: покупки за Telegram Stars приостановлены. Просмотр и применение коллекции работают.</p>}{notice('recover')}{!feedback.recover && props.onRefresh && <div className="shopSessionRefresh"><p>Если покупка уже подтверждена, сначала обнови данные колонии. Это не запускает проверку транзакций и доступно даже при паузе покупок за Stars.</p>{refreshAction('check:recovery')}</div>}</section>
 
     <dialog ref={dialogRef} className="cosmeticsPreviewDialog" aria-modal="true" aria-labelledby={`${id}-preview-title`} aria-describedby={`${id}-preview-description`} onCancel={event => { event.preventDefault(); setPreview(null); }} onClick={event => { if (event.target === event.currentTarget) setPreview(null); }}>
       {preview && <div className="cosmeticsPreviewBody">
