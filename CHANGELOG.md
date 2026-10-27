@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.23-beta.1 — Connect Colony Events to Development
+- Events compare three compact choices before opening one detailed preview. Browsing never applies a decision; the separate action shows its exact cost and reward. Resource guidance connects findings to personal research, production and construction, while shortages lead freely to preparation, storage or the required technology.
+- Completed events show the actual submitted decision's resource exchange and useful next steps. Receipt validation requires the exact saved event and choice, amounts, text and timestamp; incomplete or different replies never become preview-based payouts. Pending decisions and retries stay isolated by player and event, including when the server updates the event before returning the result. An ownership-checked successful refresh recovers an unconfirmed pending choice; failed checks retain the original error and safe retry.
+- Locked, unavailable, quiet and unknown-cooldown states remain visible with appropriate free navigation or refresh. Guidance explains the persistent choice, normal production, the earliest next event and the absence of seasonal or ordinary workshop-task credit. No migration, dependency, economy, reward, probability, saved-city or payment-rule change is required.
+
 ## 1.14.22-beta.1 — Explain Alliance Progress and Weekly League Rewards
 - Alliance guidance separates personal mining cargo, shared science, daily teamwork and cumulative project AP. Free shortcuts connect mining to team technologies, personal research and the weekly league. Joining no longer repeats an empty mining introduction; previously earned shares remain accessible after leaving.
 - Daily team goals show the server day's deadline, stop advertising expired claims and isolate feedback by player, alliance and day. Project rewards explain their exact appearance, duration, automatic issue, cycle contribution threshold and current-membership requirement. Repeating a mining role is explicitly allowed, with distinct people and roles required only for the ore bonus.

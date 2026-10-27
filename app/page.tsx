@@ -1136,11 +1136,9 @@ export default function Home() {
         /></div></div>
         </div>}
         {subsections.city === 'events' && <div data-section-panel="city-events">
-{!game.colonyEvents?.enabled ? <section className="card"><h2>События колонии</h2><p>События пока недоступны. Остальные возможности колонии продолжают работать.</p><button className="action secondary" disabled={busy} onClick={() => { void refresh(); }}>Проверить снова</button></section>
-  : !game.colonyEvents.unlocked ? <section className="card"><h2>События колонии</h2><p>Заверши первые шаги и улучши базу до уровня 2. После этого здесь появятся ситуации с выбором решения.</p><button className="action secondary" onClick={() => openSubsection('map')}>К первым шагам</button></section>
-  : !game.colonyEvents.active && !game.colonyEvents.lastResolved && !game.colonyEvents.nextAt ? <section className="card"><h2>В колонии спокойно</h2><p>Новые ситуации появляются у действующих шахт, электростанций, литейных цехов и лабораторий.</p><button className="action secondary" disabled={busy} onClick={() => { void refresh(); }}>Проверить события</button></section> : null}
 <div ref={colonyEventsRef}><ColonyEventCard
           key={planOwner}
+          playerKey={planOwner}
           eventState={game.colonyEvents}
           resources={s}
           capacities={{
@@ -1150,13 +1148,19 @@ export default function Home() {
           }}
           completedResearch={game.research?.completed ?? []}
           busy={busy}
+          onNavigate={navigateGuide}
           onResolve={async (eventId, choiceId) => {
             try { return await api('/api/game/event/resolve', { eventId, choiceId }); }
             catch (error) { setMessage(''); throw error; }
           }}
           onShowBuilding={(type) => navigateGuide(`building:${type}`)}
           onResearch={(key) => navigateGuide(`research:${key}`)}
-          onRefresh={() => { void refresh(); }}
+          onRefresh={async () => {
+            const data = await refresh();
+            const refreshedOwner = data?.userId ?? data?.telegramUser?.id;
+            return planOwner && data && String(refreshedOwner ?? '') === planOwner
+              ? { playerKey: planOwner, eventState: data.colonyEvents } : null;
+          }}
         /></div>
         </div>}
         {subsections.city === 'decor' && <div data-section-panel="city-decor">
