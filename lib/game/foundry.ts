@@ -17,6 +17,17 @@ export type FoundryJob = {
   parts_reward: number; ore_spent: number; energy_spent: number;
   recipe_key?: string | null;
 };
+export type FoundryStorageGuidance = {
+  capacity: number;
+  storedParts: number;
+  freeParts: number;
+  afterCollectingParts: number;
+  freeAfterCollecting: number;
+  blockedCount: number;
+  oversizedCount: number;
+  minimumOversizedParts: number | null;
+  nextFit: { id: string; buildingId: string; parts: number; partsToSpend: number } | null;
+};
 
 export const FOUNDRY_RECIPES: FoundryRecipe[] = [
   { id: 'standard_alloy', name: 'Стандартный сплав', description: 'Сбалансированный расход руды и энергии', ore: 100, energy: 40, parts: 35, seconds: 300 },
@@ -110,11 +121,30 @@ export function foundryQueueOverview({ buildings, jobs, now, currentParts, parts
   const ready = cityJobs.filter(job => Number.isFinite(Date.parse(job.completes_at))
     && Date.parse(job.completes_at) <= now && Number.isFinite(Number(job.parts_reward)) && Number(job.parts_reward) > 0)
     .sort((a, b) => Date.parse(a.completes_at) - Date.parse(b.completes_at) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const storedParts = typeof currentParts === 'number' || typeof currentParts === 'string' ? Number(currentParts) : NaN;
+  const storedParts = typeof currentParts === 'number' || typeof currentParts === 'string' && currentParts.trim() ? Number(currentParts) : NaN;
   const knownStorage = partsCapacity !== undefined && Number.isFinite(partsCapacity) && partsCapacity >= 0
     && Number.isFinite(storedParts) && storedParts >= 0;
   const collectable = knownStorage ? collectableFoundryJobs(ready, partsCapacity - storedParts) : null;
   const collectableIds = collectable ? new Set(collectable.map(job => job.id)) : null;
+  const collectableParts = collectable?.reduce((sum, job) => sum + Number(job.parts_reward), 0) ?? null;
+  let storage: FoundryStorageGuidance | null = null;
+  if (knownStorage && partsCapacity !== undefined && collectableIds && collectableParts !== null) {
+    const blocked = ready.filter(job => !collectableIds.has(job.id));
+    const oversized = blocked.filter(job => Number(job.parts_reward) > partsCapacity);
+    const afterCollectingParts = storedParts + collectableParts;
+    // A later smaller cycle can be issued even when an earlier larger one is blocked.
+    // Equal outputs retain the same completes_at/id order used for issuance.
+    const smallestFitting = blocked.reduce<FoundryJob | null>((smallest, job) =>
+      Number(job.parts_reward) <= partsCapacity && (!smallest || Number(job.parts_reward) < Number(smallest.parts_reward)) ? job : smallest, null);
+    storage = {
+      capacity: partsCapacity, storedParts, freeParts: Math.max(0, partsCapacity - storedParts),
+      afterCollectingParts, freeAfterCollecting: Math.max(0, partsCapacity - afterCollectingParts),
+      blockedCount: blocked.length, oversizedCount: oversized.length,
+      minimumOversizedParts: oversized.length ? Math.min(...oversized.map(job => Number(job.parts_reward))) : null,
+      nextFit: smallestFitting ? { id: smallestFitting.id, buildingId: smallestFitting.building_id, parts: Number(smallestFitting.parts_reward),
+        partsToSpend: Math.max(0, afterCollectingParts + Number(smallestFitting.parts_reward) - partsCapacity) } : null,
+    };
+  }
   const workshops = foundries.map(building => {
     const ownJobs = cityJobs.filter(job => job.building_id === building.id);
     const ownReady = ready.filter(job => job.building_id === building.id);
@@ -123,6 +153,6 @@ export function foundryQueueOverview({ buildings, jobs, now, currentParts, parts
       readyCount: ownReady.length, collectableCount: collectableIds ? ownReady.filter(job => collectableIds.has(job.id)).length : null };
   });
   return { workshops, readyCount: ready.length, readyParts: ready.reduce((sum, job) => sum + Number(job.parts_reward), 0),
-    collectableCount: collectable?.length ?? null, collectableParts: collectable?.reduce((sum, job) => sum + Number(job.parts_reward), 0) ?? null,
+    collectableCount: collectable?.length ?? null, collectableParts, storage,
     readyBuildingIds: [...new Set(ready.map(job => job.building_id))] };
 }

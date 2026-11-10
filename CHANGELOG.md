@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.25-beta.1 — Recover Workshop Space and Find a Free Queue
+- Full or unavailable workshops offer a direct shortcut to another active workshop with free queue slots. The shortcut prefers the most free slots and only selects the workshop; starting and paying for a batch remain separate actions.
+- Ready-output guidance compares current parts stock with the effective storage limit and simulates whole-cycle issuance across all workshops in server order. Expandable advice shows how much stock must be spent after currently collectable cycles are issued to admit another waiting cycle, including stocks already above a reduced limit. Cycles larger than the entire available capacity explain why spending stock alone cannot help.
+- New batches warn separately when one cycle exceeds the effective limit; reducing the number of cycles cannot shrink that cycle. Warehouse inspection and supply navigation remain free. Market guidance distinguishes completed sales from listings and their storage reserves. Unknown storage data makes no numerical promise, and paid outputs retain their original values. No migration, dependency, economy, queue limit, reward, saved-city or payment-rule change is required.
+
 ## 1.14.24-beta.1 — Explain Storage and Resource Preparation
 - Development goals show storage constraints beside their cost, before expandable resource help. Exact comparisons separate raw warehouse capacity, market reserves and spendable-stock limits. Reserve-only constraints lead to the market without demanding expansion; structural constraints lead to an existing warehouse or the building catalog, with an optional comparison of compact storage research.
 - Resource preparation links open an owned mine, energy source or research centre, preferring active sources and supporting advanced generators. Missing sources open the catalog. These free inspections preserve the selected research and supply goals; paid workshop queues remain future output rather than spendable stock.

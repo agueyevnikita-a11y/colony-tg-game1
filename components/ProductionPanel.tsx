@@ -127,12 +127,23 @@ export function ProductionPanel(props: Props) {
   const selectedQueue = queueOverview.workshops.find(workshop => workshop.id === selected?.id);
   const otherReadyId = queueOverview.readyBuildingIds.find(id => id !== selected?.id);
   const otherReady = foundries.find(building => building.id === otherReadyId);
+  const availableWorkshop = (!isActive || freeSlots === 0) ? foundries
+    .filter(building => building.id !== selected?.id && building.status === 'active')
+    .map(building => ({ building, queue: queueOverview.workshops.find(workshop => workshop.id === building.id) }))
+    .filter(item => item.queue && item.queue.freeSlots > 0)
+    .sort((a, b) => b.queue!.freeSlots - a.queue!.freeSlots)[0] : undefined;
+  const storage = queueOverview.storage;
+  const warehouse = props.buildings.find(building => building.type === 'warehouse' && building.status === 'active')
+    ?? props.buildings.find(building => building.type === 'warehouse');
   const storageBlocked = readyJobs.length > 0 && selectedQueue?.collectableCount === 0;
+  const selectedCyclesOversized = storage && readyJobs.length > 0
+    && readyJobs.every(job => Number(job.parts_reward) > storage.capacity);
   const canOpenSupplyForStorage = queueOverview.collectableCount !== null && queueOverview.collectableCount < queueOverview.readyCount
     && props.onSupplyProjects && props.supplyGoal && !props.supplyGoal.ready && !props.supplyGoal.completed
     && props.supplyGoal.requiredParts > 0 && Number(props.resources.parts ?? 0) > 0;
-  const storageWillOverflow = props.partsCapacity !== undefined && Number(props.resources.parts ?? 0)
-    + props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0) + quote.parts > props.partsCapacity;
+  const singleCycleOversized = storage && quote.cycleParts > storage.capacity;
+  const storageWillOverflow = storage !== null && storage.storedParts
+    + props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0) + quote.parts > storage.capacity;
   const supplyPlan = props.supplyGoal ? supplyProductionPlan({ requiredParts: props.supplyGoal.requiredParts,
     currentParts: Math.max(0, Math.floor(Number(props.resources.parts ?? 0))),
     queuedParts: props.jobs.reduce((sum, job) => sum + Number(job.parts_reward), 0),
@@ -210,7 +221,8 @@ export function ProductionPanel(props: Props) {
         <div><GameIcon name="parts" size={21} /><strong>Готовые циклы всех цехов: {queueOverview.readyCount}</strong></div>
         <p>Ожидают выдачи <GameAmount resource="parts">{number(queueOverview.readyParts)}</GameAmount> деталей. Они уже оплачены.</p>
         <p>{queueOverview.collectableCount === null ? 'Обновление проверит выдачу во всех цехах. Каждый цикл должен целиком поместиться на склад.'
-          : queueOverview.collectableCount === 0 ? 'По текущему складу не помещается ни один готовый цикл. Потрать детали или освободи место — выпуск останется в цехах.'
+          : storage && storage.oversizedCount === queueOverview.readyCount ? 'Каждый готовый цикл больше доступной вместимости деталей. Одного расхода запаса недостаточно: проверь склад и резерв продаж.'
+          : queueOverview.collectableCount === 0 ? 'По текущему складу не помещается ни один готовый цикл. Потрать детали или увеличь доступную вместимость — выпуск останется в цехах.'
             : queueOverview.collectableCount < queueOverview.readyCount ? `По текущему складу помещается ${queueOverview.collectableCount} из ${queueOverview.readyCount} циклов: ${number(queueOverview.collectableParts ?? 0)} деталей. Остальные останутся в цехах до освобождения места.`
               : 'По текущему складу помещаются все готовые циклы. Обнови выдачу, чтобы получить детали и освободить очередь.'}</p>
         <div className="productionReadyActions">
@@ -219,11 +231,25 @@ export function ProductionPanel(props: Props) {
           {canOpenSupplyForStorage && <button type="button" className="miniButton" disabled={locked} onClick={props.onSupplyProjects}>Открыть поставку деталей</button>}
         </div>
         {canOpenSupplyForStorage && <p>Переход к поставке не тратит ресурсы. Отправка деталей — отдельной кнопкой в проекте.</p>}
+        {storage && storage.blockedCount > 0 && <details className="productionStorageRecovery" data-production-storage-recovery>
+          <summary>Как освободить выдачу<GameIcon name="arrow" size={14} /></summary>
+          <dl><div><dt>Детали на складе</dt><dd>{number(storage.storedParts)}</dd></div><div><dt>Доступный лимит запаса</dt><dd>{number(storage.capacity)}</dd></div><div><dt>Свободно сейчас</dt><dd>{number(storage.freeParts)}</dd></div></dl>
+          {storage.nextFit && <p>{queueOverview.collectableCount! > 0 ? 'После выдачи помещающихся циклов, чтобы получить ещё один готовый цикл, ' : 'Чтобы получить хотя бы один готовый цикл, '}нужно потратить минимум <GameAmount resource="parts">{number(storage.nextFit.partsToSpend)}</GameAmount> из запаса или увеличить доступную вместимость на столько же. Этот цикл выдаёт <GameAmount resource="parts">{number(storage.nextFit.parts)}</GameAmount>.</p>}
+          {storage.oversizedCount > 0 && <p>Циклов больше доступного лимита: {storage.oversizedCount}. Самый маленький из них выдаёт <GameAmount resource="parts">{number(storage.minimumOversizedParts!)}</GameAmount> целиком. Даже пустой склад с нынешним лимитом их не примет; потребуется увеличить доступную вместимость.</p>}
+          <p>Доступный лимит учитывает резерв продаж. Выставить детали на рынок — ещё не освободить место: помогает состоявшаяся продажа, расход деталей или расширение вместимости.</p>
+          {warehouse && props.onSelectBuilding && <button type="button" className="miniButton" onClick={() => props.onSelectBuilding?.(warehouse.id)}>Проверить склад<GameIcon name="arrow" size={14} /></button>}
+          <p>Это проверка нынешнего запаса и готовых циклов всех цехов. Будущие циклы и другие расходы ещё изменят расчёт. Открытие склада ничего не улучшает и не тратит ресурсы.</p>
+        </details>}
       </div>}
       <div className={`productionQueueStatus ${freeSlots === 0 ? 'isFull' : ''}`}>
         <div><strong>Очередь этого цеха: {selectedJobs.length} / {capacity}</strong><span>{readyJobs.length ? `Готовых циклов: ${readyJobs.length}. Проверь выдачу перед новой партией.` : freeSlots === 0 ? 'Все места заняты оплаченными циклами.' : selectedJobs.length ? `Для новых циклов свободно мест: ${freeSlots}.` : 'Пока пусто. Выбери рецепт и проверь стоимость партии ниже.'}</span></div>
         {selectedJobs.length > 0 && <button type="button" className="miniButton" disabled={locked} onClick={openQueue}>К очереди</button>}
       </div>
+      {availableWorkshop && <div className="productionAvailableWorkshop" data-production-workshop-shortcut>
+        <p>{isActive ? 'Эта очередь заполнена. В другом работающем цехе есть свободные места.' : 'Пока в этом цехе идут работы, новую партию можно подготовить в другом.'}</p>
+        <button type="button" className="miniButton" disabled={locked} onClick={() => selectWorkshop(availableWorkshop.building.id)}>К свободному цеху ({availableWorkshop.building.x + 1}, {availableWorkshop.building.y + 1}) · {availableWorkshop.queue!.freeSlots} {availableWorkshop.queue!.freeSlots === 1 ? 'место' : availableWorkshop.queue!.freeSlots < 5 ? 'места' : 'мест'}<GameIcon name="arrow" size={14} /></button>
+        <p>Переход только выбирает цех. Запуск партии оплачивается отдельной кнопкой.</p>
+      </div>}
 
       {!isActive && <div className="notice productionStatus" role="status"><p>{selected.status === 'upgrading'
         ? 'Цех улучшается. Новые плавки станут доступны после улучшения; уже запущенные продолжаются.'
@@ -330,7 +356,8 @@ export function ProductionPanel(props: Props) {
           </div>
           <p className="productionTiming"><GameIcon name="clock" size={16} /><span><strong>{duration(quote.seconds)} работы</strong><small>Плавка закончится примерно в {finishTime(batchEnd, now)}{queueEnd > now ? ' с учётом очереди' : ''}.</small></span></p>
           </div>
-          {storageWillOverflow && <p className="productionStorage isBlocked">С учётом очередей всех цехов места на складе не хватит. Лишние готовые циклы останутся в цехе — детали не пропадут.</p>}
+          {singleCycleOversized ? <div className="productionStorage productionCycleLimit isBlocked" data-production-single-cycle-warning><p>Один цикл выдаёт <GameAmount resource="parts">{number(quote.cycleParts)}</GameAmount>, а доступный лимит запаса — <GameAmount resource="parts">{number(storage.capacity)}</GameAmount>. Даже пустого склада недостаточно. Уменьшение числа циклов не уменьшит выпуск одного цикла.</p><p>Перед запуском проверь склад и резерв продаж. Если оплатить такую партию, готовые циклы будут ждать большей доступной вместимости.</p>{warehouse && props.onSelectBuilding && <button type="button" className="miniButton" onClick={() => props.onSelectBuilding?.(warehouse.id)}>Проверить склад<GameIcon name="arrow" size={14} /></button>}</div>
+            : storageWillOverflow && <p className="productionStorage isBlocked">Без расхода деталей и изменения вместимости весь выпуск из очередей всех цехов и этой партии одновременно не поместится. Готовые циклы выдаются целиком по мере освобождения места — детали не пропадут.</p>}
           <button type="button" className="action productionStart" disabled={locked || insufficient} onClick={() => void start()}>
             {submitting ? 'Запускаем…' : selectedJobs.length > 0 ? `Добавить в очередь · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}` : `Запустить · ${effectiveCycles} ${effectiveCycles === 1 ? 'цикл' : effectiveCycles < 5 ? 'цикла' : 'циклов'}`}
           </button>
@@ -347,8 +374,9 @@ export function ProductionPanel(props: Props) {
       <div className="productionQueue">
         <div className="productionQueueHeading"><h3 ref={queueHeadingRef} tabIndex={-1}>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
         {selectedJobs.length === 0 ? <p>Пока пусто. Цех ждёт задания.</p> : <>
-          {readyJobs.length > 0 && <p className={`productionStorage ${storageBlocked ? 'isBlocked' : ''}`} role="status">{storageBlocked
-            ? 'Для готового цикла не хватает места на складе. Потрать или продай детали — цикл останется в цехе до освобождения места.'
+          {readyJobs.length > 0 && <p className={`productionStorage ${storageBlocked ? 'isBlocked' : ''}`} role="status">{selectedCyclesOversized
+            ? 'Готовые циклы этого цеха больше доступной вместимости. Проверь склад и резерв продаж: одного расхода запаса недостаточно.' : storageBlocked
+            ? 'Для готового цикла не хватает места на складе. Потрать детали или дождись их продажи — цикл останется в цехе до освобождения места.'
             : 'Готовые детали поступят на склад при обновлении. Если места не хватит, они останутся в цехе.'}</p>}
           {readyJobs.length > 0 && props.onRefresh && <button type="button" className="miniButton productionRefresh" disabled={locked} onClick={props.onRefresh}>Обновить выдачу деталей</button>}
           <ol className="productionJobs">

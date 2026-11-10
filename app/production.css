@@ -23,6 +23,22 @@
 .productionQueueStatus span { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
 .productionQueueStatus.isFull { border-color:rgba(255,193,87,.25); }
 .productionQueueStatus > button { min-height:44px; font-size:11px; }
+.productionStorageRecovery { min-width:0; margin-top:8px; border-top:1px solid var(--line); }
+.productionStorageRecovery>summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; color:var(--muted); font-size:11px; line-height:1.5; list-style:none; cursor:pointer; }
+.productionStorageRecovery>summary::-webkit-details-marker { display:none; }
+.productionStorageRecovery[open]>summary>.gameIcon { transform:rotate(90deg); }
+.productionStorageRecovery>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:7px; }
+.productionStorageRecovery dl { display:grid; gap:5px; margin:4px 0 8px; font-size:11px; line-height:1.5; }
+.productionStorageRecovery dl>div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:3px 12px; min-width:0; }
+.productionStorageRecovery dt { color:var(--muted); overflow-wrap:anywhere; }
+.productionStorageRecovery dd { margin:0; font-variant-numeric:tabular-nums; }
+.productionStorageRecovery>.miniButton,.productionCycleLimit>.miniButton { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; max-width:100%; margin-top:9px; white-space:normal; font-size:11px; }
+.productionAvailableWorkshop { min-width:0; margin:0 0 15px; padding:10px; border:1px solid rgba(135,203,183,.28); border-radius:11px; background:rgba(135,203,183,.045); }
+.productionPanel .productionAvailableWorkshop p { margin:0; color:var(--muted); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+.productionAvailableWorkshop>.miniButton { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-width:0; min-height:44px; max-width:100%; margin:8px 0; white-space:normal; overflow-wrap:anywhere; font-size:11px; }
+.productionAvailableWorkshop>.miniButton>.gameIcon { flex-shrink:0; }
+.productionPanel .productionCycleLimit p { margin:0; color:inherit; font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+.productionPanel .productionCycleLimit p+p { margin-top:7px; }
 .productionField { min-width:0; padding:0; margin:0 0 15px; border:0; }
 .productionField legend { margin:0 0 8px; padding:0; font-size:12px; font-weight:700; }
 .productionSettings { margin:0 0 15px; min-width:0; border:1px solid var(--line); border-radius:12px; background:rgba(10,24,33,.2); }
