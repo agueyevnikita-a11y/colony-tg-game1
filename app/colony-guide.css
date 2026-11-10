@@ -16,6 +16,27 @@
 .colonyGoalResources[open]>summary>.gameIcon { transform:rotate(90deg); }
 .colonyGoalResources .miniButton { margin:7px 0; }
 .colonyGoalResources>p+p { padding-top:8px; }
+.colonyGoalCapacity { min-width:0; padding:10px; border:1px solid rgba(228,195,140,.3); border-radius:9px; background:rgba(228,195,140,.055); }
+.colonyGoalCapacity>strong { color:#e4c38c; }
+.colonyGoalCapacity>strong>.gameIcon { flex-shrink:0; }
+.colonyNextStep .colonyGoalCapacity>p { margin-top:6px; }
+.colonyGoalCapacityGap { margin-top:6px; }
+.colonyGoalCapacityGap>span { color:var(--muted); }
+.colonyGoalPreparation { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+.colonyNextStep .colonyGoalBudget .miniButton { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; max-width:100%; margin:0; padding:8px 10px; overflow-wrap:anywhere; }
+.colonyGoalPreparation>.miniButton>.gameIcon { flex-shrink:0; }
+.colonyGoalCapacityDetails { min-width:0; margin-top:6px; }
+.colonyGoalCapacityDetails>summary { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; color:var(--muted); cursor:pointer; list-style:none; }
+.colonyGoalCapacityDetails>summary::-webkit-details-marker { display:none; }
+.colonyGoalCapacityDetails[open]>summary>.gameIcon { transform:rotate(90deg); }
+.colonyGoalCapacityDetails>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+.colonyGoalCapacityRow { display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-top:1px solid rgba(228,195,140,.15); }
+.colonyGoalCapacityRow>.gameIcon { flex-shrink:0; margin-top:3px; }
+.colonyGoalCapacityRow dl { min-width:0; flex:1; margin:0; }
+.colonyGoalCapacityRow dl>div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 10px; }
+.colonyGoalCapacityRow dt { min-width:0; color:var(--muted); overflow-wrap:anywhere; }
+.colonyGoalCapacityRow dd { margin:0; font-variant-numeric:tabular-nums; }
+.colonyNextStep .colonyGoalCapacityDetails>p { margin:7px 0; }
 .colonyGoalFocus>button:focus-visible,.colonyGoalResources>summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:8px; }
 .colonyNextStep .colonyGoalHint { margin:9px 0 0; font-size:11px; line-height:1.6; color:var(--muted); }
 .colonyNextStepMain { display:grid; grid-template-columns:minmax(0,1fr) minmax(100px,140px); align-items:center; gap:10px; }

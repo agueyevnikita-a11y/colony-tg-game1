@@ -40,21 +40,57 @@ type Props = {
 function Amounts({ value }: { value: GoalCost }) {
   return <>{Object.entries(value).map(([resource, value]) => <GameAmount key={resource} resource={resource}>{Number(value).toLocaleString('ru-RU')}</GameAmount>)}</>;
 }
-function GoalNeeds({ budget, partial, onAction }: { budget: ReturnType<typeof goalBudget>; partial?: boolean; onAction: (action: string) => void }) {
+function preparationAction(buildings: readonly { type: string; status?: string }[], types: readonly string[]) {
+  const sources = buildings.filter(building => types.includes(building.type));
+  const source = sources.find(building => building.status === 'active') ?? sources[0];
+  return source ? `building:${source.type}` : 'build';
+}
+function GoalNeeds({ budget, partial, onAction, buildings, storageResearch }: {
+  budget: ReturnType<typeof goalBudget>; partial?: boolean; onAction: (action: string) => void;
+  buildings: readonly { type: string; status?: string }[]; storageResearch?: ResearchConfig;
+}) {
   const missing = Object.keys(budget.missing).length > 0;
+  const limits = budget.storageLimits;
+  const expandStorage = limits.some(limit => limit.required > limit.capacity);
+  const reservedStorage = limits.some(limit => limit.reserved > 0);
+  const warehouseAction = preparationAction(buildings, ['warehouse']);
   return <div className="colonyGoalBudget">
     <div><span>{partial ? 'Осталось доставить' : 'Стоимость ближайшего шага'}</span><strong><Amounts value={budget.cost} /></strong></div>
     {missing ? <div className="colonyGoalMissing"><span>{partial ? 'Ещё накопить или произвести' : 'Не хватает'}</span><strong><Amounts value={budget.missing} /></strong></div> : <p>Ресурсов хватает. Остальные требования проверь в карточке действия.</p>}
+    {limits.length > 0 && <div className="colonyGoalCapacity" data-goal-storage>
+      <strong><GameIcon name="warehouse" size={18} />{expandStorage ? 'Цель пока не помещается на складе' : 'Резерв продаж ограничивает запас'}</strong>
+      <p>Для оплаты шага нужно собрать его стоимость одновременно.</p>
+      <div className="colonyGoalCapacityGap"><span>Не хватает вместимости</span><strong><Amounts value={budget.capacityMissing} /></strong></div>
+      <div className="colonyGoalPreparation">
+        {expandStorage && <button type="button" className="miniButton" onClick={() => onAction(warehouseAction)}>{warehouseAction === 'build' ? 'Найти склад в постройках' : 'Проверить склад'}<GameIcon name="arrow" size={14} /></button>}
+        {reservedStorage && <button type="button" className="miniButton" onClick={() => onAction('market')}>К рынку<GameIcon name="arrow" size={14} /></button>}
+      </div>
+      <details className="colonyGoalCapacityDetails"><summary>Почему не накопить больше<GameIcon name="arrow" size={14} /></summary>
+        {limits.map(limit => <div className="colonyGoalCapacityRow" key={limit.resource}>
+          <GameIcon name={limit.resource} size={18} />
+          <dl><div><dt>Нужно для шага</dt><dd><GameAmount resource={limit.resource}>{limit.required.toLocaleString('ru-RU')}</GameAmount></dd></div>
+            <div><dt>Вместимость</dt><dd>{limit.capacity.toLocaleString('ru-RU')}</dd></div>
+            {limit.reserved > 0 && <div><dt>Занято продажами</dt><dd>{limit.reserved.toLocaleString('ru-RU')}</dd></div>}
+            <div><dt>Доступный лимит запаса</dt><dd>{limit.usableCapacity.toLocaleString('ru-RU')}</dd></div>
+          </dl>
+        </div>)}
+        <p>{expandStorage ? 'Расширь склад или сравни другие способы увеличить вместимость. Ожидание добычи само по себе лимит не изменит.' : 'Полной вместимости хватает, но часть занята выставленными на продажу ресурсами.'}</p>
+        {reservedStorage && <p>На рынке открой «Мои» и проверь действующие продажи. Их резерв занимает место на складе; покупка ресурсов этот лимит не увеличивает.</p>}
+        {expandStorage && storageResearch && <><p>«{storageResearch.name}»: {storageResearch.effectText}. Проверь, достаточно ли этого для цели.</p><button type="button" className="miniButton" onClick={() => onAction(`research:${storageResearch.key}`)}>Сравнить технологию хранения<GameIcon name="arrow" size={14} /></button></>}
+      </details>
+    </div>}
     {missing && <details className="colonyGoalResources"><summary>Где взять ресурсы<GameIcon name="arrow" size={14} /></summary>
     {(budget.missing.parts ?? 0) > 0 && <div className="colonyGoalProduction">
       {budget.queuedParts > 0 && <p>В оплаченных очередях: <GameAmount resource="parts">{budget.queuedParts.toLocaleString('ru-RU')}</GameAmount>. Это будущие детали; выдача требует свободного места.</p>}
       <p>{budget.partsToProduce > 0 ? <>Дополнительно произвести: <GameAmount resource="parts">{budget.partsToProduce.toLocaleString('ru-RU')}</GameAmount>.</> : 'Оплаченные циклы покрывают нехватку деталей. Новую партию для этой цели запускать не нужно.'}</p>
       <button type="button" className="miniButton" onClick={() => onAction('production')}>{budget.partsToProduce > 0 ? 'Рассчитать производство' : 'Проверить оплаченные циклы'}<GameIcon name="arrow" size={14} /></button>
     </div>}
-    {Object.keys(budget.capacityMissing).length > 0 && <p className="colonyGoalStorage">С учётом резерва продаж на складе не помещается ещё <Amounts value={budget.capacityMissing} />. Проверь склад или свои ордера перед накоплением.</p>}
     {(budget.missing.credits ?? 0) > 0 && <button type="button" className="miniButton" onClick={() => onAction('contracts')}>Кредиты за контракты<GameIcon name="arrow" size={14} /></button>}
-    {(budget.missing.ore ?? 0) > 0 || (budget.missing.energy ?? 0) > 0 ? <p>Руда и энергия поступают от работающих добывающих зданий. Если сырья не хватает, развивай добычу; ускорение цеха само по себе сырья не добавит.</p> : null}
-    {(budget.missing.science ?? 0) > 0 && <p>Наука производится исследовательскими центрами. Проекты снабжения и экспедиции дают дополнительную науку по своим условиям.</p>}
+    {(budget.missing.ore ?? 0) > 0 || (budget.missing.energy ?? 0) > 0 ? <><p>Руда и энергия поступают от работающих добывающих зданий. Если сырья не хватает, развивай добычу; ускорение цеха само по себе сырья не добавит. Во время строительства или улучшения это здание не производит ресурсы.</p><div className="colonyGoalPreparation">
+      {(budget.missing.ore ?? 0) > 0 && <button type="button" className="miniButton" onClick={() => onAction(preparationAction(buildings, ['mine', 'deep_mine']))}>Проверить добычу руды<GameIcon name="arrow" size={14} /></button>}
+      {(budget.missing.energy ?? 0) > 0 && <button type="button" className="miniButton" onClick={() => onAction(preparationAction(buildings, ['solar', 'solar_array']))}>Проверить выработку энергии<GameIcon name="arrow" size={14} /></button>}
+    </div></> : null}
+    {(budget.missing.science ?? 0) > 0 && <><p>Наука производится работающими исследовательскими центрами. Проекты снабжения и экспедиции дают дополнительную науку по своим условиям. Склад не ограничивает науку.</p><button type="button" className="miniButton" onClick={() => onAction(preparationAction(buildings, ['research_lab']))}>Проверить источник науки<GameIcon name="arrow" size={14} /></button></>}
     </details>}
   </div>;
 }
@@ -269,7 +305,7 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
         </div>
         <p className="colonyNextStepWhy">{supplyGoal.completed ? 'Все этапы этого проекта закрыты. Можно выбрать другой проект или вернуться к технологиям.' : supplyGoal.description}</p>
         {stage && <div className="colonyGoalReward"><span>Награда этапа</span><strong>{(['credits', 'science', 'crystals'] as const).filter(resource => stage.reward[resource] > 0).map(resource => <GameAmount key={resource} resource={resource}>{stage.reward[resource].toLocaleString('ru-RU')}</GameAmount>)}{stage.reward.cosmeticIds.length > 0 && <span><GameIcon name="trophy" size={14} />Памятный титул</span>}</strong></div>}
-        {!supplyGoal.completed && !supplyGoal.ready && <><GoalNeeds budget={budget} partial onAction={onAction} /><p className="colonyGoalHint">Поставки принимаются частями; доставленное сохранится без срока.</p>{development.supplyUnlocked === false && <p className="colonyGoalStorage">Новые поставки ждут работающий логистический центр и центр колонии ур. 3. Уже готовая награда доступна в проекте.</p>}</>}
+        {!supplyGoal.completed && !supplyGoal.ready && <><GoalNeeds budget={budget} partial onAction={onAction} buildings={buildings} /><p className="colonyGoalHint">Поставки принимаются частями; доставленное сохранится без срока.</p>{development.supplyUnlocked === false && <p className="colonyGoalStorage">Новые поставки ждут работающий логистический центр и центр колонии ур. 3. Уже готовая награда доступна в проекте.</p>}</>}
       </section>;
     }
     const waiting = nextWaiting[0];
@@ -297,7 +333,8 @@ export function ColonyGuide({ tutorial, buildings, busy, onAction, onClaim, onRe
         <button className="action secondary colonyNextStepAction" type="button" disabled={locked} onClick={refreshAction ? onRefresh : () => onAction(nextAction)}>{actionLabel}<GameIcon name={refreshAction ? 'refresh' : 'arrow'} size={16} /></button>
       </div>
       <p className="colonyNextStepWhy">{nextWhy}</p>
-      {nextCost && development && <GoalNeeds budget={goalBudget({ cost: nextCost, ...development, buildings })} onAction={onAction} />}
+      {nextCost && development && <GoalNeeds budget={goalBudget({ cost: nextCost, ...development, buildings })} onAction={onAction} buildings={buildings}
+        storageResearch={catalog.find(item => item.key === 'compact_storage' && !completedSet.has(item.key))} />}
       <details className="colonyNextStepDetails"><summary>План действий</summary><p className="colonyGuideHint">{nextHint}</p>
         {nextWaiting.slice(1).map((item, index) => <p className="colonyNextStepExtraTimer" key={`${item.kind}-${index}`}><GameIcon name="clock" size={14} />{item.title}: {remainingTime(item.endsAt, now)}</p>)}
       </details>

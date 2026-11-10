@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.24-beta.1 — Explain Storage and Resource Preparation
+- Development goals show storage constraints beside their cost, before expandable resource help. Exact comparisons separate raw warehouse capacity, market reserves and spendable-stock limits. Reserve-only constraints lead to the market without demanding expansion; structural constraints lead to an existing warehouse or the building catalog, with an optional comparison of compact storage research.
+- Resource preparation links open an owned mine, energy source or research centre, preferring active sources and supporting advanced generators. Missing sources open the catalog. These free inspections preserve the selected research and supply goals; paid workshop queues remain future output rather than spendable stock.
+- Partial supply stages never demand storage for their whole remaining amount, sufficient existing stock does not create a false blocker, and unknown or invalid capacity data makes no storage claim. Science and credits remain uncapped. No migration, dependency, economy, reward, saved-city or payment-rule change is required.
+
 ## 1.14.23-beta.1 — Connect Colony Events to Development
 - Events compare three compact choices before opening one detailed preview. Browsing never applies a decision; the separate action shows its exact cost and reward. Resource guidance connects findings to personal research, production and construction, while shortages lead freely to preparation, storage or the required technology.
 - Completed events show the actual submitted decision's resource exchange and useful next steps. Receipt validation requires the exact saved event and choice, amounts, text and timestamp; incomplete or different replies never become preview-based payouts. Pending decisions and retries stay isolated by player and event, including when the server updates the event before returning the result. An ownership-checked successful refresh recovers an unconfirmed pending choice; failed checks retain the original error and safe retry.
