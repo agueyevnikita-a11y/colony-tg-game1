@@ -8,7 +8,7 @@ async function loadTypeScript(path) {
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
   return import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 }
-const { telegramHeaders, botAppLink, playerStartParam, supportsTelegram, waitForTelegram, shareTelegramLink } = await loadTypeScript('../lib/client/telegram.ts');
+const { telegramHeaders, botAppLink, cityStartTarget, playerStartParam, supportsTelegram, waitForTelegram, shareTelegramLink } = await loadTypeScript('../lib/client/telegram.ts');
 const { createRequestCoordinator, RequestCancelled, RequestInProgress } = await loadTypeScript('../lib/client/requests.ts');
 const ok = (data = {}) => Response.json({ ok: true, ...data });
 const client = (extra) => createRequestCoordinator({ headers: () => ({}), onBusy: () => {}, ...extra });
@@ -24,8 +24,17 @@ test('invite links accept valid bot identities and reject placeholders and URL i
   assert.equal(botAppLink('@colony_test_bot', 'city_42'), 'https://t.me/colony_test_bot?startapp=city_42');
   for (const bot of [undefined, '', 'YOUR_BOT', 'example_bot', 'replace_me_bot', 'change_me_bot', 'placeholder_bot', 'your_colony_bot', 'bad/bot', 'colony_bot?start=evil', 'https://t.me/colony_bot']) assert.equal(botAppLink(bot), null);
   assert.equal(botAppLink('colony_test_bot', 'city_42&startapp=evil'), null);
-  assert.equal(playerStartParam('ref', 42), 'ref_42');
-  for (const id of [undefined, -1, 0, 1.5, 'bad', 2 ** 53]) assert.equal(playerStartParam('city', id), undefined);
+  const userId = 'a0123456-789b-cdef-0123-456789abcdef';
+  assert.equal(playerStartParam('ref', userId.toUpperCase()), `ref_${userId}`);
+  assert.equal(playerStartParam('city', userId), `city_${userId}`);
+  for (const id of [undefined, 42, '42', -1, 0, 1.5, 'bad', 2 ** 53, `${userId}\n`, ` ${userId}`, `${userId}&x=1`]) assert.equal(playerStartParam('city', id), undefined);
+});
+
+test('city links resolve game UUIDs while accepting canonical legacy links only on input', () => {
+  const userId = 'a0123456-789b-cdef-0123-456789abcdef';
+  assert.deepEqual(cityStartTarget(`city_${userId.toUpperCase()}`), { userId });
+  assert.deepEqual(cityStartTarget('city_42'), { telegramId: 42 });
+  for (const param of [undefined, 42, '', 'ref_42', 'city_01', 'city_0', 'city_-1', 'city_1e3', 'city_9007199254740992', 'city_42\n', `city_${userId}\n`, `city_${userId}?x=1`]) assert.equal(cityStartTarget(param), undefined);
 });
 
 test('SDK method presence alone does not enable capabilities in old Telegram clients', () => {

@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+backups/
+*.dump
+*.dump.sha256
+*.partial

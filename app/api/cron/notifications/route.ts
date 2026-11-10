@@ -9,6 +9,8 @@ export async function POST(request:Request){
   try{
     const secret=process.env.CRON_SECRET;
     if(!secret||request.headers.get('authorization')!==`Bearer ${secret}`) return new NextResponse('unauthorized',{status:401});
+    const notifications=(await sql<{enabled:boolean}[]>`SELECT enabled FROM feature_flags WHERE flag_key='notifications'`)[0];
+    if(notifications?.enabled!==true) return NextResponse.json({ok:true,disabled:true,processed:0,sent:0,skipped:0,failed:0});
     const token=process.env.BOT_TOKEN;if(!token)return new NextResponse('BOT_TOKEN missing',{status:500});
     await cleanupRateLimits();
     const botUsername=process.env.NEXT_PUBLIC_BOT_USERNAME||'';

@@ -14,8 +14,8 @@ export async function buyMarketOrder(userId:string,orderId:string,amount:number)
 export async function getMarketState(tx:any,userId:string){
   await reconcileExpiredMarketOrders(tx,userId);
   const enabled=(await tx<any[]>`SELECT 1 FROM buildings WHERE user_id=${userId} AND type='trade_hub' AND status='active' LIMIT 1`).length>0;
-  const orders=await tx<any[]>`SELECT mo.*,u.first_name,u.username,u.colony_name FROM market_orders mo JOIN users u ON u.id=mo.user_id WHERE mo.status='open' AND mo.expires_at>now() ORDER BY mo.resource,mo.unit_price ASC,mo.created_at ASC LIMIT 100`;
+  const orders=await tx<any[]>`SELECT mo.id,mo.user_id,mo.resource,mo.amount_total,mo.amount_remaining,mo.unit_price,mo.status,mo.created_at,mo.expires_at,u.colony_name FROM market_orders mo JOIN users u ON u.id=mo.user_id WHERE mo.status='open' AND mo.expires_at>now() ORDER BY mo.resource,mo.unit_price ASC,mo.created_at ASC LIMIT 100`;
   const ownOrders=await tx<any[]>`SELECT * FROM market_orders WHERE user_id=${userId} AND status='open' ORDER BY created_at DESC LIMIT 30`;
   const stats=await tx<any[]>`SELECT resource,round(avg(unit_price)::numeric,2) AS avg_price,percentile_cont(0.5) WITHIN GROUP(ORDER BY unit_price) AS median_price,sum(amount)::bigint AS volume,count(*)::int AS trades FROM market_trades WHERE created_at>now()-interval '24 hours' GROUP BY resource`;
-  return{enabled,orders,ownOrders,stats,rules:MARKET_RULES};
+  return{enabled,orders:orders.map((order:any)=>({id:order.id,user_id:order.user_id,resource:order.resource,amount_total:order.amount_total,amount_remaining:order.amount_remaining,unit_price:order.unit_price,status:order.status,created_at:order.created_at,expires_at:order.expires_at,colony_name:order.colony_name||'Колонист'})),ownOrders,stats,rules:MARKET_RULES};
 }

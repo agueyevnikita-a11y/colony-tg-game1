@@ -84,6 +84,15 @@ export function setupPlan(env, { webhookOnly = false } = {}) {
   };
 }
 
+function sameMenuUrl(actual, expected) {
+  if (typeof actual !== 'string' || actual !== actual.trim()) return false;
+  try {
+    // URL serialization adds the root slash while retaining path, query, fragment and credentials.
+    const url = new URL(actual);
+    return !url.username && !url.password && url.href === new URL(expected).href;
+  } catch { return false; }
+}
+
 export async function runTelegramSetup({ env = process.env, apply = false, webhookOnly = false, fetchImpl = fetch, timeoutMs } = {}) {
   requireLaunchConfig(env);
   const plan = setupPlan(env, { webhookOnly });
@@ -102,7 +111,7 @@ export async function runTelegramSetup({ env = process.env, apply = false, webho
   if (!webhook.ok) throw new LaunchToolError(webhook.issues.join('\n'));
   if (!webhookOnly) {
     const menu = await call('getChatMenuButton');
-    if (menu?.type !== 'web_app' || menu.web_app?.url !== plan.menuButton.web_app.url) throw new LaunchToolError('Telegram menu button verification failed. Rerun telegram:setup -- --apply.');
+    if (menu?.type !== 'web_app' || !sameMenuUrl(menu.web_app?.url, plan.menuButton.web_app.url)) throw new LaunchToolError('Telegram menu button verification failed. Rerun telegram:setup -- --apply.');
     const commands = await call('getMyCommands', { scope: { type: 'all_private_chats' }, language_code: '' });
     if (!Array.isArray(commands) || BOT_COMMANDS.some(({ command }) => !commands.some((item) => item.command === command))) {
       throw new LaunchToolError('Telegram bot command verification failed. Rerun telegram:setup -- --apply.');

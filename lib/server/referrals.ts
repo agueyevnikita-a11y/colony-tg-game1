@@ -29,21 +29,21 @@ export async function getReferralProgram(tx: any, userId: string): Promise<Refer
     FROM users WHERE referred_by=${userId} AND id<>${userId}
   `;
   const friendRows = enabled ? await tx<any[]>`
-    SELECT u.telegram_id,u.colony_name,u.first_name,u.username,u.referral_qualified_at,
+    SELECT u.id,u.colony_name,u.referral_qualified_at,
            COALESCE(gs.hq_level,1) AS hq_level,(c.invited_user_id IS NOT NULL) AS bonus_claimed
     FROM users u LEFT JOIN game_states gs ON gs.user_id=u.id
     LEFT JOIN referral_bonus_claims c ON c.user_id=${userId} AND c.invited_user_id=u.id
     WHERE u.referred_by=${userId} AND u.id<>${userId}
     ORDER BY u.created_at DESC,u.id LIMIT 100
   ` : await tx<any[]>`
-    SELECT u.telegram_id,u.colony_name,u.first_name,u.username,u.referral_qualified_at,
+    SELECT u.id,u.colony_name,u.referral_qualified_at,
            COALESCE(gs.hq_level,1) AS hq_level,false AS bonus_claimed
     FROM users u LEFT JOIN game_states gs ON gs.user_id=u.id
     WHERE u.referred_by=${userId} AND u.id<>${userId}
     ORDER BY u.created_at DESC,u.id LIMIT 100
   `;
   const [invitation] = await tx<any[]>`
-    SELECT inviter.colony_name,inviter.first_name,inviter.username,COALESCE(gs.hq_level,1) AS hq_level,
+    SELECT inviter.colony_name,COALESCE(gs.hq_level,1) AS hq_level,
            me.referral_qualified_at
     FROM users me JOIN users inviter ON inviter.id=me.referred_by AND inviter.id<>me.id
     LEFT JOIN game_states gs ON gs.user_id=me.id WHERE me.id=${userId}
@@ -89,11 +89,11 @@ export async function getReferralProgram(tx: any, userId: string): Promise<Refer
     receivedCount,
     receivedReward,
     invitedBy: invitation ? {
-      name: invitation.colony_name || invitation.first_name || invitation.username || 'Колония друга',
+      name: invitation.colony_name || 'Колония друга',
       hqLevel: Number(invitation.hq_level), qualified: !!invitation.referral_qualified_at, bonusClaimed: ownBonusClaimed,
     } : null,
     friends: friendRows.map((row: any) => ({
-      telegramId: Number(row.telegram_id), name: row.colony_name || row.first_name || row.username || 'Колония друга',
+      userId: row.id, name: row.colony_name || 'Колония друга',
       hqLevel: Number(row.hq_level), qualifiedAt: row.referral_qualified_at ? new Date(row.referral_qualified_at).toISOString() : null,
       bonusClaimed: row.bonus_claimed === true,
     })),

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import postgres from 'postgres';
+import { ACTIVE_SEASON_ID } from '../lib/game/season.ts';
 
 /** Runs only inside the launch suite's isolated PostgreSQL server and signed auth. */
 export async function runAllianceSocialIntegration({ t, sql, request, initData, playerId }) {
@@ -150,6 +151,55 @@ export async function runAllianceSocialIntegration({ t, sql, request, initData, 
   }
 
   try {
+    await t.test('alliance identities and management use game UUIDs without publishing Telegram profiles', async () => {
+      const team = await group(2), member = team.members[0], otherMember = team.members[1], outsideTeam = await group(0);
+      const operationId = await start(team.owner);
+      await unit(member, operationId, 'analysis');
+      const before = await session(team.owner), periodId = before.alliance.competition.period.id;
+      await sql`INSERT INTO alliance_competition_entries(source_id,period_id,user_id,alliance_id,alliance_name,points,created_at)
+        VALUES(${crypto.randomUUID()},${periodId},${member.userId},${team.id},'Privacy CI',10,now())`;
+      await sql`INSERT INTO season_progress(user_id,season_id,points) VALUES(${member.userId},${ACTIVE_SEASON_ID},500000)
+        ON CONFLICT(user_id,season_id) DO UPDATE SET points=EXCLUDED.points`;
+      await sql`UPDATE users SET colony_name='',first_name='PRIVATE_FIRST_CANARY',username='PRIVATE_USERNAME_CANARY' WHERE id=${member.userId}`;
+      const state = (await session(team.owner)).alliance;
+      const peer = state.alliance.members.find(row => row.user_id === member.userId);
+      assert.ok(peer, 'Members retain a stable game identifier for cities and management');
+      assert.equal(peer.colony_name, '');
+      assert.ok(state.playerLeaderboard.some(row => row.user_id === member.userId));
+      const competitionPeer = state.competition.players.find(row => row.userId === member.userId);
+      assert.ok(competitionPeer);
+      assert.equal(competitionPeer.name, 'Колония');
+      const miningPeer = state.cooperation.current.team.find(row => !row.isMe);
+      assert.equal(miningPeer.name, 'Колонист');
+      function assertPublicIdentity(value) {
+        if (!value || typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) {
+          assert.equal(['telegram_id', 'telegramId', 'first_name', 'username'].includes(key), false, `Private field ${key}`);
+          assertPublicIdentity(child);
+        }
+      }
+      assertPublicIdentity(state);
+      assert.equal(JSON.stringify(state).includes('PRIVATE_FIRST_CANARY'), false);
+      assert.equal(JSON.stringify(state).includes('PRIVATE_USERNAME_CANARY'), false);
+      const manage = (actor, kind, body) => request(`/api/alliance/manage/${kind}`, {
+        method: 'POST', auth: initData(actor.telegramId), body,
+      });
+      assert.equal((await manage(team.owner, 'role', { telegramId: member.telegramId, role: 'officer' })).status, 400);
+      assert.equal((await manage(team.owner, 'role', { userId: outsideTeam.owner.userId, role: 'officer' })).status, 400);
+      assert.equal((await manage(otherMember, 'role', { userId: member.userId, role: 'officer' })).status, 400);
+      assert.equal((await manage(team.owner, 'role', { userId: member.userId, role: 'officer' })).status, 200);
+      assert.equal((await sql`SELECT role FROM alliance_members WHERE user_id=${member.userId}`)[0].role, 'officer');
+      assert.equal((await manage(member, 'kick', { userId: team.owner.userId })).status, 400);
+      assert.equal((await manage(team.owner, 'transfer', { userId: outsideTeam.owner.userId })).status, 400);
+      assert.equal((await manage(team.owner, 'transfer', { userId: member.userId })).status, 200);
+      assert.equal((await sql`SELECT owner_user_id FROM alliances WHERE id=${team.id}`)[0].owner_user_id, member.userId);
+      assert.equal((await sql`SELECT role FROM alliance_members WHERE user_id=${team.owner.userId}`)[0].role, 'member');
+      assert.equal((await manage(member, 'kick', { userId: team.owner.userId })).status, 200);
+      assert.equal((await sql`SELECT user_id FROM alliance_members WHERE user_id=${team.owner.userId}`).length, 0);
+      assert.ok((await sql`SELECT alliance_left_at FROM users WHERE id=${team.owner.userId}`)[0].alliance_left_at);
+      assert.equal((await sql`SELECT role FROM alliance_members WHERE user_id=${outsideTeam.owner.userId}`)[0].role, 'owner');
+    });
+
     await t.test('cooperative operations require membership and concurrent free starts create one six-hour operation', async () => {
       const outsider = await player(), team = await group(1);
       const outsideBefore = await balances(outsider);

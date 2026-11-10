@@ -4,7 +4,7 @@ import { ensurePlayer, reconcilePlayer } from '@/lib/server/game';
 import { sql } from '@/lib/server/db';
 import { recordDailySession } from '@/lib/server/progression';
 import { logErrorEvent } from '@/lib/server/errors';
-import { getAccessState } from '@/lib/server/access';
+import { getAccessState, MaintenanceAccessError } from '@/lib/server/access';
 import { APP_VERSION } from '@/lib/version';
 import { RateLimitError } from '@/lib/server/rate-limit';
 
@@ -23,6 +23,12 @@ export async function POST(request: Request) {
     const game = await reconcilePlayer(userId);
     return NextResponse.json({ ok: true, userId, telegramUser: auth.user, admin: access.isAdmin, access, version:APP_VERSION, ...game },{headers:{'Cache-Control':'no-store'}});
   } catch (error) {
+    if (error instanceof MaintenanceAccessError) {
+      return NextResponse.json({
+        ok: true, userId: null, telegramUser: { id: error.telegramId }, admin: false,
+        access: error.access, limited: true, version: APP_VERSION,
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     if (error instanceof TelegramAuthError) {
       const message = error.code === 'TELEGRAM_AUTH_EXPIRED'
         ? 'Сессия Telegram истекла. Закройте игру и откройте её заново через бота.'

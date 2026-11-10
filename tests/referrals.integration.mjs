@@ -49,6 +49,35 @@ export async function runReferralsIntegration({ t, sql, request, initData, playe
     assert.equal((await sql`SELECT referred_by FROM users WHERE id=${target.userId}`)[0].referred_by, null);
   });
 
+  await t.test('UUID referrals preserve binding rules and expose only game identities to the other side', async () => {
+    const inviter = await player({ ageSeconds: 600 });
+    const alternative = await player({ ageSeconds: 500 });
+    const friend = await player({ ageSeconds: 0 });
+    await sql`UPDATE users SET colony_name=NULL,first_name='Private Telegram name',username='private_telegram_handle'
+      WHERE id IN (${inviter.userId},${friend.userId})`;
+    const linked = await session(friend.telegramId, `ref_${inviter.userId}`);
+    assert.equal((await sql`SELECT referred_by FROM users WHERE id=${friend.userId}`)[0].referred_by, inviter.userId);
+    assert.equal(linked.referralProgram.invitedBy.name, 'Колония друга');
+    await session(friend.telegramId, `ref_${alternative.userId}`);
+    assert.equal((await sql`SELECT referred_by FROM users WHERE id=${friend.userId}`)[0].referred_by, inviter.userId);
+    const publicState = await session(inviter.telegramId);
+    const entry = publicState.referralProgram.friends.find(row => row.userId === friend.userId);
+    assert.ok(entry, 'A game UUID still opens the referred colony');
+    assert.equal(entry.name, 'Колония друга');
+    assert.deepEqual(Object.keys(entry).sort(), ['bonusClaimed', 'hqLevel', 'name', 'qualifiedAt', 'userId']);
+    assert.deepEqual(publicState.referrals.map(row => row.user_id), [friend.userId]);
+    const shared = JSON.stringify({ invitedBy: linked.referralProgram.invitedBy, friends: publicState.referralProgram.friends, referrals: publicState.referrals });
+    for (const privateValue of ['telegramId', 'telegram_id', 'first_name', 'username', 'Private Telegram name', 'private_telegram_handle']) {
+      assert.equal(shared.includes(privateValue), false, privateValue);
+    }
+    const self = await player({ ageSeconds: 0 });
+    await session(self.telegramId, `ref_${self.userId}`);
+    assert.equal((await sql`SELECT referred_by FROM users WHERE id=${self.userId}`)[0].referred_by, null);
+    const old = await player({ ageSeconds: 3600 });
+    await session(old.telegramId, `ref_${inviter.userId}`);
+    assert.equal((await sql`SELECT referred_by FROM users WHERE id=${old.userId}`)[0].referred_by, null);
+  });
+
   await t.test('HQ2 gives no bonus; actual HQ3 qualifies once and lets each side claim only its own reward', async () => {
     const inviter = await player({ ageSeconds: 600 });
     const friend = await player({ hq: 2, inviter: inviter.userId });

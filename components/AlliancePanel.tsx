@@ -12,10 +12,8 @@ import type { AllianceDirectoryState } from '@/lib/game/alliance-directory';
 import '@/app/alliance-panel.css';
 
 type AllianceMember = {
-  telegram_id: string | number;
+  user_id: string;
   colony_name?: string;
-  first_name?: string;
-  username?: string;
   role: 'owner' | 'officer' | 'member';
   hq_level: string | number;
   city_score: string | number;
@@ -72,12 +70,12 @@ type Props = {
   cooperation?: AllianceCooperationState;
   resources: Partial<Record<AllianceResource | 'credits' | 'science' | 'crystals', number | string>>;
   hqLevel: number;
-  telegramId?: number | string;
+  userId?: string;
   busy: boolean;
   enabled: boolean;
   initialCode?: string;
   onShare: () => void;
-  onViewCity: (telegramId: number) => void;
+  onViewCity: (userId: string) => void;
   onAction: (path: string, body?: Record<string, unknown>) => Promise<any>;
   onDirectorySearch?: (query: string, page: number) => Promise<AllianceDirectoryState>;
   onRefresh?: () => void;
@@ -88,7 +86,7 @@ type Props = {
 };
 
 type Feedback = { text: string; error: boolean; scope?: string };
-type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; telegramId: string | number; name: string };
+type Confirmation = { kind: 'leave' } | { kind: 'kick' | 'transfer'; userId: string; name: string };
 type AllianceSection = 'mining' | 'technology' | 'project' | 'goals' | 'members';
 type EntrySection = 'find' | 'code' | 'create';
 const MEMBERS_PER_PAGE = 5;
@@ -98,7 +96,7 @@ const RESOURCE_COLUMNS = { ore: 'ore_contributed', energy: 'energy_contributed',
 const PROJECT_REWARD_NAMES: Record<string, string> = { effect_alliance_signal: 'Эффект «Общий сигнал»', frame_alliance_relay: 'Рамка «Ретранслятор»', monument_alliance_relay: 'Монумент орбитального ретранслятора' };
 const n = (value: unknown) => Number(value ?? 0).toLocaleString('ru-RU');
 const pct = (value: unknown, target: unknown) => Math.min(100, Math.max(0, Number(value ?? 0) / Math.max(1, Number(target ?? 1)) * 100));
-const memberName = (member: AllianceMember) => member.colony_name || member.first_name || member.username || String(member.telegram_id);
+const memberName = (member: AllianceMember) => member.colony_name || 'Колонист';
 const DAILY_GOAL_ACTIONS: Record<string, { action: 'build' | 'production' | 'contracts'; label: string }> = {
   team_build: { action: 'build', label: 'К постройкам' },
   team_foundry: { action: 'production', label: 'К цехам' },
@@ -110,7 +108,7 @@ function timeRemaining(timestamp: string | null | undefined, now: number) {
   return durationText((Date.parse(timestamp) - now) / 1000);
 }
 
-export function AlliancePanel({ alliance, cooperation, resources, hqLevel, telegramId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh, onNavigate, onPersonalResearch, onOpenRating, dailyResetsAt }: Props) {
+export function AlliancePanel({ alliance, cooperation, resources, hqLevel, userId, busy, enabled, initialCode = '', onShare, onViewCity, onAction, onDirectorySearch, onRefresh, onNavigate, onPersonalResearch, onOpenRating, dailyResetsAt }: Props) {
   const [code, setCode] = useState(initialCode);
   const [name, setName] = useState('');
   const [resource, setResource] = useState<AllianceResource>('ore');
@@ -128,7 +126,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const submittingRef = useRef(false);
   const miningNavigationPending = useRef(false);
   const cooperationPanelRef = useRef<HTMLDivElement>(null);
-  const contextRef = useRef({ owner: String(telegramId ?? ''), allianceKey: '' });
+  const contextRef = useRef({ owner: String(userId ?? ''), allianceKey: '' });
   useEffect(() => {
     if (section !== 'mining' || !miningNavigationPending.current) return;
     miningNavigationPending.current = false;
@@ -137,7 +135,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
     element?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [section]);
   useEffect(() => { setCode(initialCode); if (initialCode) setEntrySection('code'); }, [initialCode]);
-  useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); setFeedback({}); }, [alliance?.alliance?.id, alliance?.alliance?.code, telegramId]);
+  useEffect(() => { setSection('mining'); setConfirmation(null); setCreateConfirmation(null); setMemberSearch(''); setMemberPage(0); setFeedback({}); }, [alliance?.alliance?.id, alliance?.alliance?.code, userId]);
   useEffect(() => {
     setNow(Date.now());
     if (!(alliance?.project?.status === 'completed' && alliance.project.restartAvailableAt) && !alliance?.entry?.availableAt && !Number.isFinite(Date.parse(dailyResetsAt ?? ''))) return;
@@ -160,11 +158,11 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   const entryWaitMessage = entryWaiting ? `После выхода действует перерыв. Осталось ${timeRemaining(entryAvailableAt, now)}.` : '';
   const directoryJoinIssue = entryWaitMessage || (hqLevel < joinLevel ? `Для вступления нужен центр колонии ур. ${joinLevel}. Сейчас ур. ${hqLevel}.` : '');
   const group = alliance?.alliance;
-  contextRef.current = { owner: String(telegramId ?? ''), allianceKey: group?.id ?? group?.code ?? '' };
+  contextRef.current = { owner: String(userId ?? ''), allianceKey: group?.id ?? group?.code ?? '' };
   const project = alliance?.project;
   const members = group?.members ?? [];
   const normalizedSearch = memberSearch.trim().toLocaleLowerCase('ru-RU').replace(/^@/, '');
-  const matchingMembers = members.filter((member) => !normalizedSearch || [member.colony_name, member.first_name, member.username, member.telegram_id].some((value) => String(value ?? '').toLocaleLowerCase('ru-RU').includes(normalizedSearch)));
+  const matchingMembers = members.filter((member) => !normalizedSearch || [member.colony_name].some((value) => String(value ?? '').toLocaleLowerCase('ru-RU').includes(normalizedSearch)));
   const memberPages = Math.max(1, Math.ceil(matchingMembers.length / MEMBERS_PER_PAGE));
   const currentMemberPage = Math.min(memberPage, memberPages - 1);
   const visibleMembers = matchingMembers.slice(currentMemberPage * MEMBERS_PER_PAGE, (currentMemberPage + 1) * MEMBERS_PER_PAGE);
@@ -199,7 +197,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
     : createDeficit > 0 ? `Нужно ${n(createCost)} ${createCurrencyLabel}, в наличии ${n(createBalance)}. Не хватает ${n(createDeficit)}.` : nameIssue);
   const createConfirmationMatches = !!createConfirmation && createConfirmation.name === cleanName && createConfirmation.cost === createCost && createConfirmation.currency === createCurrency;
   const restartWaiting = !!project?.restartAvailableAt && new Date(project.restartAvailableAt).getTime() > now;
-  const hiddenMemberFeedback = Object.keys(feedback).filter((key) => key.startsWith('member-') && !visibleMembers.some((member) => key === `member-${member.telegram_id}`));
+  const hiddenMemberFeedback = Object.keys(feedback).filter((key) => key.startsWith('member-') && !visibleMembers.some((member) => key === `member-${member.user_id}`));
   const hiddenSectionFeedback = Object.keys(feedback).filter((key) =>
     ((key === 'contribute' || key === 'restart') && (section !== 'project' || !project)) ||
     (key.startsWith('daily-') && section !== 'goals') ||
@@ -222,7 +220,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
   }
 
   async function act(key: string, path: string, body: Record<string, unknown> | undefined, success: (data: any) => string, membershipChange = false) {
-    if (!enabled || busy || submittingRef.current || contextRef.current.owner !== String(telegramId ?? '') || contextRef.current.allianceKey !== (group?.id ?? group?.code ?? '')) return;
+    if (!enabled || busy || submittingRef.current || contextRef.current.owner !== String(userId ?? '') || contextRef.current.allianceKey !== (group?.id ?? group?.code ?? '')) return;
     submittingRef.current = true;
     setPendingKey(key);
     setFeedback((previous) => { const next = { ...previous }; delete next[key]; return next; });
@@ -267,12 +265,12 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
       return;
     }
     const target = confirmation;
-    const current = members.find((member) => String(member.telegram_id) === String(target.telegramId));
-    const isMe = String(target.telegramId) === String(telegramId);
+    const current = members.find((member) => String(member.user_id) === String(target.userId));
+    const isMe = String(target.userId) === String(userId);
     if (!current || isMe) { setConfirmation(null); return; }
     const canKick = (myRole === 'owner' && current.role !== 'owner') || (myRole === 'officer' && current.role === 'member');
     if (target.kind === 'kick' ? !canKick : myRole !== 'owner') { setConfirmation(null); return; }
-    void act(`member-${target.telegramId}`, `/api/alliance/manage/${target.kind}`, { telegramId: target.telegramId }, () => target.kind === 'kick' ? `«${target.name}» исключён из альянса.` : `Руководство передано игроку «${target.name}». Ты теперь обычный участник.`);
+    void act(`member-${target.userId}`, `/api/alliance/manage/${target.kind}`, { userId: target.userId }, () => target.kind === 'kick' ? `«${target.name}» исключён из альянса.` : `Руководство передано игроку «${target.name}». Ты теперь обычный участник.`);
   }
 
   function confirmationBox(target: Confirmation) {
@@ -312,7 +310,7 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
         { key: 'members', label: 'Участники', icon: 'social', badge: members.length },
       ]} value={section} onChange={key => changeSection(key as AllianceSection)} />
 
-      <div ref={cooperationPanelRef} tabIndex={-1} hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(telegramId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} onMining={() => { miningNavigationPending.current = true; changeSection('mining'); }} onTechnology={() => changeSection('technology')} onPersonalResearch={onPersonalResearch} onOpenRating={onOpenRating} /></div>
+      <div ref={cooperationPanelRef} tabIndex={-1} hidden={section !== 'mining' && section !== 'technology'}><AllianceCooperationPanel cooperation={cooperationState} view={section === 'technology' ? 'technology' : 'mining'} resources={resources} hasMembership={hasMembership} ownerKey={String(userId ?? '')} allianceKey={group.id ?? group.code} busy={locked} onAction={onAction} onRefresh={onRefresh} onMining={() => { miningNavigationPending.current = true; changeSection('mining'); }} onTechnology={() => changeSection('technology')} onPersonalResearch={onPersonalResearch} onOpenRating={onOpenRating} /></div>
 
       {section === 'goals' && <section className="card allianceDaily" id="alliance-goals-section" data-alliance-daily-state={dailyExpired ? 'expired' : 'current'}><h2><GameIcon name="target" />Командные цели дня</h2><p>Выполняются общими усилиями. Личную награду получает участник, который внёс вклад до завершения цели.</p><p className="finePrint">{Number.isFinite(dailyResetAt) ? <>Обновление: <time dateTime={dailyResetsAt ?? undefined}>{new Date(dailyResetAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</time>.</> : 'Набор обновляется со сменой игрового дня по времени сервера.'} Готовую награду нужно забрать до обновления.</p>{dailyExpired && <div className="allianceFeedback" role="status" data-alliance-daily-expired>Показан прошлый набор целей. Обнови альянс для проверки нового дня.{onRefresh && <button type="button" className="miniButton" disabled={locked} onClick={onRefresh}>Обновить цели</button>}</div>}{onNavigate && !dailyExpired && <p className="finePrint">Кнопки открывают нужный раздел. Ресурсы расходуются при подтверждении выбранного действия.</p>}<details className="alliancePurpose"><summary>Какие действия засчитываются</summary><div>{ALLIANCE_DAILY_GOALS.map(goal => <p key={goal.key}><strong>{goal.title}.</strong> {progressGoalForEvent(goal.event)?.countHint}</p>)}<p>Общий прогресс перестаёт расти после завершения цели. Поздние действия не добавят личный вклад в уже выполненную цель.</p></div></details><div className="stack">{dailyGoals.map((goal) => {
         const done = !!goal.completed_at;
@@ -370,27 +368,27 @@ export function AlliancePanel({ alliance, cooperation, resources, hqLevel, teleg
       </section> : <section className="card allianceProject" id="alliance-project-section"><h2><GameIcon name="signal" />Проект альянса</h2><p>Данные проекта появятся после обновления альянса.</p></section>)}
 
       {section === 'members' && <section className="card allianceMembers" id="alliance-members-section"><h2><GameIcon name="social" />Участники альянса</h2><p className="finePrint">Владелец назначает до {rules?.officerLimit ?? 5} офицеров. Офицеры могут исключать обычных участников и запускать следующий цикл.</p>
-        <label className="allianceMemberSearch" htmlFor="alliance-member-search">Поиск участников<input id="alliance-member-search" type="search" autoComplete="off" placeholder="Имя, @username или ID" value={memberSearch} onChange={(event) => { cancelMemberConfirmation(); setMemberSearch(event.target.value); setMemberPage(0); }} /></label>
+        <label className="allianceMemberSearch" htmlFor="alliance-member-search">Поиск участников<input id="alliance-member-search" type="search" autoComplete="off" placeholder="Название колонии" value={memberSearch} onChange={(event) => { cancelMemberConfirmation(); setMemberSearch(event.target.value); setMemberPage(0); }} /></label>
         <p className="allianceMemberCount">{normalizedSearch ? `Найдено: ${matchingMembers.length} из ${members.length}` : `Всего: ${members.length} из ${group.memberLimit}`} · по {MEMBERS_PER_PAGE} на странице</p>
         {hiddenMemberFeedback.map((key) => <div key={key}>{status(key)}</div>)}
         <div className="stack">{visibleMembers.map((member, index) => {
-          const isMe = String(member.telegram_id) === String(telegramId);
+          const isMe = String(member.user_id) === String(userId);
           const canKick = (myRole === 'owner' && !isMe && member.role !== 'owner') || (myRole === 'officer' && !isMe && member.role === 'member');
-          const key = `member-${member.telegram_id}`;
+          const key = `member-${member.user_id}`;
           const officerLimitReached = member.role !== 'officer' && Number(group.officerCount ?? members.filter((entry) => entry.role === 'officer').length) >= Number(rules?.officerLimit ?? 5);
-          return <div className="memberCard" data-alliance-member={String(member.telegram_id)} key={member.telegram_id}><div><strong>{currentMemberPage * MEMBERS_PER_PAGE + index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · проект {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(Number(member.telegram_id))}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
-            void act(key, '/api/alliance/manage/role', { telegramId: member.telegram_id, role: member.role === 'officer' ? 'member' : 'officer' }, () => member.role === 'officer' ? `«${memberName(member)}» теперь обычный участник.` : `«${memberName(member)}» назначен офицером.`);
-          }}>{member.role === 'officer' ? 'Снять офицера' : 'Офицер'}</button>}{myRole === 'owner' && !isMe && <button type="button" className="miniButton" disabled={locked} onClick={() => setConfirmation({ kind: 'transfer', telegramId: member.telegram_id, name: memberName(member) })}>Передать</button>}{canKick && <button type="button" className="miniButton dangerMini" disabled={locked} onClick={() => setConfirmation({ kind: 'kick', telegramId: member.telegram_id, name: memberName(member) })}>Исключить</button>}</div>
+          return <div className="memberCard" data-alliance-member={String(member.user_id)} key={member.user_id}><div><strong>{currentMemberPage * MEMBERS_PER_PAGE + index + 1}. {memberName(member)} {isMe && <span className="allianceMe">· ты</span>} {member.role === 'owner' ? <GameIcon name="crown" size={15} title="Владелец альянса" /> : member.role === 'officer' ? <GameIcon name="shield" size={15} title="Офицер альянса" /> : null}</strong><small>Центр ур. {member.hq_level} · рейтинг города {n(member.city_score)} · проект {n(member.contribution_points)} AP</small></div><div className="memberActions"><button type="button" className="miniButton" disabled={locked} onClick={() => onViewCity(member.user_id)}>Город</button>{myRole === 'owner' && !isMe && member.role !== 'owner' && <button type="button" className="miniButton" disabled={locked || officerLimitReached} onClick={() => {
+            void act(key, '/api/alliance/manage/role', { userId: member.user_id, role: member.role === 'officer' ? 'member' : 'officer' }, () => member.role === 'officer' ? `«${memberName(member)}» теперь обычный участник.` : `«${memberName(member)}» назначен офицером.`);
+          }}>{member.role === 'officer' ? 'Снять офицера' : 'Офицер'}</button>}{myRole === 'owner' && !isMe && <button type="button" className="miniButton" disabled={locked} onClick={() => setConfirmation({ kind: 'transfer', userId: member.user_id, name: memberName(member) })}>Передать</button>}{canKick && <button type="button" className="miniButton dangerMini" disabled={locked} onClick={() => setConfirmation({ kind: 'kick', userId: member.user_id, name: memberName(member) })}>Исключить</button>}</div>
             {myRole === 'owner' && !isMe && officerLimitReached && <p className="finePrint allianceMemberNote">Все места офицеров заняты. Сначала сними роль с одного из действующих офицеров.</p>}
-            {confirmation && confirmation.kind !== 'leave' && String(confirmation.telegramId) === String(member.telegram_id) && confirmationBox(confirmation)}
+            {confirmation && confirmation.kind !== 'leave' && String(confirmation.userId) === String(member.user_id) && confirmationBox(confirmation)}
             <div className="allianceMemberFeedback">{status(key)}</div>
           </div>;
         })}</div>
-        {!matchingMembers.length && <p className="allianceMemberEmpty">Никого не нашли. Попробуй другое имя, username или ID.</p>}
+        {!matchingMembers.length && <p className="allianceMemberEmpty">Никого не нашли. Попробуй другое название колонии.</p>}
         <div className="allianceMemberPagination" aria-label="Страницы участников"><button type="button" className="miniButton" disabled={currentMemberPage === 0} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage - 1); }}>Назад</button><span aria-live="polite">{currentMemberPage + 1}/{memberPages}</span><button type="button" className="miniButton" disabled={currentMemberPage + 1 >= memberPages} onClick={() => { cancelMemberConfirmation(); setMemberPage(currentMemberPage + 1); }}>Далее</button></div>
       </section>}
     </> : <>
-      {Array.isArray(cooperationState?.pending) && cooperationState.pending.length > 0 && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(telegramId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
+      {Array.isArray(cooperationState?.pending) && cooperationState.pending.length > 0 && <AllianceCooperationPanel cooperation={cooperationState} view="mining" resources={resources} hasMembership={false} ownerKey={String(userId ?? '')} busy={locked} onAction={onAction} onRefresh={onRefresh} />}
       <section className="card allianceEntry"><h2><GameIcon name="shield" />Найди свою команду</h2><p>Добывайте ресурсы вместе, развивайте общие технологии и боритесь за призы недельной лиги.</p>
         <div className="allianceEntryBenefits"><span><GameIcon name="ore" size={19} /><b>Личная добыча</b><small>Оплати смену и забери долю</small></span><span><GameIcon name="research" size={19} /><b>Общая наука</b><small>Запас команды для её технологий</small></span><span><GameIcon name="trophy" size={19} /><b>Призы лиги</b><small>За личный и общий вклад</small></span></div>
         <details className="alliancePurpose" data-alliance-entry-purpose><summary>Как команда помогает колонии</summary><div><p>Вступление бесплатно. Начни с общей добычи: запуск не требует ресурсов, затем можно выбрать роль и отдельно оплатить смену из своих запасов. Твоя доля после завершения идёт на развитие колонии.</p><p>Общая наука остаётся альянсу и улучшает будущие операции. Командные цели дня дают личные награды за обычные действия, если ты участвовал до завершения цели и забрал награду до смены дня.</p><p>Мегапроект даёт оформление за отдельные взносы. Само вступление не приносит пассивный бонус и не выдаёт все награды команды.</p>{onOpenRating && <button type="button" className="miniButton" disabled={locked} onClick={onOpenRating}>Недельная лига<GameIcon name="arrow" size={13} /></button>}</div></details>

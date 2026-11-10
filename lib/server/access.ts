@@ -18,10 +18,10 @@ export async function getSystemState(tx: any) {
   };
 }
 
-export async function getAccessState(tx:any,userId:string,telegramId:number) {
+export async function getAccessState(tx:any,userId:string|null,telegramId:number) {
   const system = await getSystemState(tx);
   const isAdmin = adminIds().has(Number(telegramId));
-  const access = (await tx<any[]>`SELECT granted_at,source FROM beta_access WHERE user_id=${userId}`)[0] ?? null;
+  const access = userId ? (await tx<any[]>`SELECT granted_at,source FROM beta_access WHERE user_id=${userId}`)[0] ?? null : null;
   const maintenanceBlocked = system.maintenance.enabled && !isAdmin;
   const betaBlocked = system.betaRequired && !isAdmin && !access;
   return {
@@ -32,6 +32,13 @@ export async function getAccessState(tx:any,userId:string,telegramId:number) {
     betaAccess: Boolean(access),
     blockReason: maintenanceBlocked ? 'maintenance' : betaBlocked ? 'beta_required' : null,
   };
+}
+
+export class MaintenanceAccessError extends Error {
+  constructor(readonly access: Awaited<ReturnType<typeof getAccessState>>, readonly telegramId: number) {
+    super(access.maintenance.message);
+    this.name = 'MaintenanceAccessError';
+  }
 }
 
 export async function redeemBetaCode(userId:string,code:string) {

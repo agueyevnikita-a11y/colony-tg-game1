@@ -61,7 +61,7 @@ import { APP_VERSION } from '@/lib/version';
 import { useGameConnection } from '@/lib/client/use-game-connection';
 import { useMissionReadiness } from '@/lib/client/use-mission-readiness';
 import { RequestCancelled } from '@/lib/client/requests';
-import { botAppLink, playerStartParam, shareTelegramLink, supportsTelegram, telegramHeaders } from '@/lib/client/telegram';
+import { botAppLink, cityStartTarget, playerStartParam, shareTelegramLink, supportsTelegram, telegramHeaders } from '@/lib/client/telegram';
 
 type Tab = 'city' | 'build' | 'market' | 'missions' | 'shop' | 'social';
 const botLink = botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME);
@@ -242,12 +242,12 @@ export default function Home() {
   useEffect(() => {
     if (!game || phase !== 'ready' || !planOwner) return;
     const previous = profileDraftSource.current;
-    const next = { owner: planOwner, colonyName: game.profile?.colony_name || `Колония ${game.telegramUser?.first_name ?? ''}`.trim(), bio: game.profile?.profile_bio || '' };
+    const next = { owner: planOwner, colonyName: game.profile?.colony_name || 'Моя колония', bio: game.profile?.profile_bio || '' };
     profileDraftSource.current = next;
     setProfileName(value => previous?.owner === planOwner && value !== previous.colonyName ? value : next.colonyName);
     setProfileBio(value => previous?.owner === planOwner && value !== previous.bio ? value : next.bio);
     if (previous?.owner !== planOwner) { setFeedbackCategory('general'); setFeedbackMessage(''); }
-  }, [planOwner, phase, game?.profile?.colony_name, game?.profile?.profile_bio, game?.telegramUser?.first_name]);
+  }, [planOwner, phase, game?.profile?.colony_name, game?.profile?.profile_bio]);
 
   useEffect(() => {
     if (!planOwner || !game?.supplyProjects?.projects) return;
@@ -521,9 +521,13 @@ export default function Home() {
     }
   }
 
-  async function viewCity(telegramId: number) {
+  function viewCity(userId: string) {
+    return loadCity({ userId });
+  }
+
+  async function loadCity(target: { userId: string } | { telegramId: number }) {
     try {
-      const data = await api('/api/social/city', { telegramId });
+      const data = await api('/api/social/city', target);
       setViewedCity(data.city);
       showSection('social', 'friends');
       guideNavigationPending.current = 'publicCity';
@@ -552,10 +556,8 @@ export default function Home() {
     handledStart.current = true;
     void (async () => {
       const start = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-      if (start && /^city_[1-9]\d*$/.test(start)) {
-        const id = Number(start.slice(5));
-        if (Number.isSafeInteger(id)) await viewCity(id);
-      }
+      const cityTarget = cityStartTarget(start);
+      if (cityTarget) await loadCity(cityTarget);
       if (start && /^ally_[a-zA-Z0-9_-]{1,64}$/.test(start)) {
         setAllianceCode(start.slice(5).toUpperCase());
         showSection('social', 'alliance');
@@ -720,11 +722,11 @@ export default function Home() {
   }
 
   function shareCity() {
-    void shareLink(playerStartParam('city', game?.telegramUser?.id), 'Посмотри мою колонию в COLONY');
+    void shareLink(playerStartParam('city', game?.userId), 'Посмотри мою колонию в COLONY');
   }
 
   function shareReferral() {
-    void shareLink(playerStartParam('ref', game?.telegramUser?.id), 'Я строю колонию в COLONY. Забирай свою');
+    void shareLink(playerStartParam('ref', game?.userId), 'Я строю колонию в COLONY. Забирай свою');
   }
 
   function shareAlliance() {
@@ -1401,7 +1403,7 @@ export default function Home() {
             onOpenCollection={() => { openSection('shop'); showSection('shop', 'collection'); }} />
         </div>}
         {subsections.social === 'alliance' && <div data-section-panel="social-alliance">
-          <AlliancePanel key={planOwner} alliance={game.alliance} cooperation={game.alliance?.cooperation} resources={s} hqLevel={Number(s.hq_level)} telegramId={game.telegramUser?.id} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
+          <AlliancePanel key={planOwner} alliance={game.alliance} cooperation={game.alliance?.cooperation} resources={s} hqLevel={Number(s.hq_level)} userId={game.userId} busy={busy} enabled={game.flags?.alliances !== false} initialCode={allianceCode}
             dailyResetsAt={game.questPeriods?.daily?.resetsAt}
             onPersonalResearch={() => navigateGuide('research')} onOpenRating={() => navigateGuide('rating')}
             onShare={shareAlliance} onViewCity={viewCity} onRefresh={() => { void refresh(); }} onNavigate={navigateGuide}
@@ -1414,13 +1416,13 @@ export default function Home() {
             <h2><GameIcon name="trophy" />Рейтинг I сезона</h2>
             <p className="finePrint">Это история развития, без призов за место. SP — очки личного сезона за действия в колонии. AP — исторический зачёт альянса: взносы в мегапроект и четверть суммы SP его нынешних участников, с округлением вниз.</p>
             <p className="finePrint">Рейтинг города показывает развитие базы, престиж — успехи альянса. Эти показатели не заменяют очки недельной лиги: в ней учитываются только оплаченные смены совместной добычи.</p>
-            <div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard ?? []).slice(0, 10).map((p: any, i: number) => <div className="leaderRow" key={p.telegram_id}><span>{i + 1}</span><b>{p.colony_name || p.first_name || p.username || p.telegram_id}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard ?? []).slice(0, 10).map((a: any, i: number) => <div className="leaderRow" key={a.id}><span>{i + 1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div>
+            <div className="leaderboardColumns"><div><h3>Игроки</h3>{(game.alliance?.playerLeaderboard ?? []).slice(0, 10).map((p: any, i: number) => <div className="leaderRow" key={p.user_id}><span>{i + 1}</span><b>{p.colony_name || 'Колонист'}</b><em>{n(p.points)} SP · <span className="interfaceIconLabel"><GameIcon name="city" size={12} title="Рейтинг города" />{n(p.city_score)}</span></em></div>)}</div><div><h3>Альянсы</h3>{(game.alliance?.allianceLeaderboard ?? []).slice(0, 10).map((a: any, i: number) => <div className="leaderRow" key={a.id}><span>{i + 1}</span><b>{a.name}</b><em>{n(a.points)} AP · <span className="interfaceIconLabel"><GameIcon name="star" size={12} title="Престиж альянса" />{n(a.prestige)}</span></em></div>)}</div></div>
             <button type="button" className="miniButton" onClick={() => navigateGuide('season')}>Награды за SP сезона<GameIcon name="arrow" size={13} /></button>
           </details>
         </div>}
         {subsections.social === 'friends' && <div data-section-panel="social-friends">
-          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.telegramUser?.id))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onUpgradeHq={() => navigateGuide('upgrade_hq')} onRefresh={() => { void refresh(); }} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
-        {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || viewedCity.first_name || viewedCity.username || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)} · Комфорт {n(viewedCity.comfort?.score ?? calculateComfort(viewedCity.decor ?? []).score)}/100{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
+          <ReferralsPanel key={planOwner} program={game.referralProgram} busy={busy} inviteLink={botAppLink(process.env.NEXT_PUBLIC_BOT_USERNAME, playerStartParam('ref', game.userId))} betaRequired={game.access?.betaRequired} onShare={shareReferral} onViewCity={viewCity} onAchievements={() => openAchievements('friends')} onUpgradeHq={() => navigateGuide('upgrade_hq')} onRefresh={() => { void refresh(); }} onClaim={async () => { try { const data = await api('/api/referrals/claim'); return data.result; } catch (error) { setMessage(''); throw error; } }} />
+        {viewedCity && <section className="card publicCity" ref={publicCityRef}><div className="cardTitleRow"><div><ColonyIdentity name={viewedCity.colony_name || 'Колония'} cosmetics={(viewedCity.cosmetics ?? []).map((item: any) => ({ ...item, equipped: true }))} /><p>Центр ур. {viewedCity.hq_level} · Рейтинг города {n(viewedCity.city_score)} · Комфорт {n(viewedCity.comfort?.score ?? calculateComfort(viewedCity.decor ?? []).score)}/100{viewedCity.premium ? ' · Premium' : ''}</p></div><button className="miniButton" onClick={()=>setViewedCity(null)}>Закрыть</button></div>
           {(viewedCity.cosmetics?.length ?? 0) > 0 && <div className="chips">{viewedCity.cosmetics.map((c:any)=><span key={c.cosmetic_id}>{c.name}</span>)}</div>}
           <CityGrid
             buildings={viewedCity.buildings ?? []}

@@ -7,21 +7,32 @@ import { calculateComfort } from '@/lib/game/comfort';
 
 export const runtime = 'nodejs';
 
+const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(request: Request) {
   try {
     const auth = getInitDataFromRequest(request);
     await ensurePlayer(auth.user, auth.startParam);
-    const { telegramId } = (await request.json()) as { telegramId: number };
-    if (!Number.isFinite(Number(telegramId))) throw new Error('Некорректный Telegram ID');
+    const body = await request.json();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Некорректный запрос колонии');
+    const hasUserId = Object.prototype.hasOwnProperty.call(body, 'userId');
+    if (hasUserId && (typeof body.userId !== 'string' || body.userId.length !== 36 || !USER_ID.test(body.userId))) {
+      throw new Error('Некорректный ID колонии');
+    }
+    // Old shared city links remain readable; newly generated links use the game UUID.
+    if (!hasUserId && (typeof body.telegramId !== 'number' || !Number.isSafeInteger(body.telegramId) || body.telegramId <= 0)) {
+      throw new Error('Некорректный ID колонии');
+    }
+    const targetCondition = hasUserId ? sql`u.id=${body.userId.toLowerCase()}` : sql`u.telegram_id=${body.telegramId}`;
 
     const users = await sql<any[]>`
-      SELECT u.id, u.telegram_id, u.first_name, u.username, u.colony_name, u.profile_bio, u.created_at,
+      SELECT u.id, u.colony_name, u.profile_bio, u.created_at,
              gs.hq_level, gs.player_level, gs.city_score, gs.premium_until,
              ps.buildings_started, ps.contracts_completed, ps.qualified_referrals
       FROM users u
       JOIN game_states gs ON gs.user_id=u.id
       LEFT JOIN player_stats ps ON ps.user_id=u.id
-      WHERE u.telegram_id=${telegramId}
+      WHERE ${targetCondition}
       LIMIT 1
     `;
     const target = users[0];
@@ -42,7 +53,16 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       city: {
-        ...target,
+        id: target.id,
+        colony_name: target.colony_name || 'Колония',
+        profile_bio: target.profile_bio,
+        created_at: target.created_at,
+        hq_level: target.hq_level,
+        player_level: target.player_level,
+        city_score: target.city_score,
+        buildings_started: target.buildings_started,
+        contracts_completed: target.contracts_completed,
+        qualified_referrals: target.qualified_referrals,
         premium: !!target.premium_until && new Date(target.premium_until) > new Date(),
         gridSize: cityGridSize(Number(target.hq_level)),
         buildings,

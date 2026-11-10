@@ -167,7 +167,7 @@ export function MarketPanel(props: Props) {
           const spaceMissing = valid ? Math.max(0, requested - free) : 0;
           const expired = !!order.expires_at && new Date(order.expires_at).getTime() <= now;
           const target = `${props.view === 'mine' ? 'cancel' : 'buy'}:${order.id}`;
-          const sellerName = order.colony_name || order.first_name || order.username || 'Колонист';
+          const sellerName = order.colony_name || 'Колонист';
           return <article className="marketPanelOrder" key={order.id} data-market-order={order.id}>
             <div className="marketOrderHeading"><h3><GameIcon name={key} size={17} />{resourceName(key)}</h3><strong><GameAmount resource="credits">{number(price)}</GameAmount><small>/ ед.</small></strong></div>
             <div className="marketOrderSummary"><span>{props.view === 'mine' ? 'В резерве' : 'Осталось'}: {number(remaining)} ед.</span>{order.expires_at && <span>До {expiresAt(order.expires_at)}</span>}</div>

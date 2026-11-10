@@ -58,7 +58,7 @@ export type AllianceCompetitionState = {
   minimumTeamContributors: number;
   pointsPerModule: number;
   binding: { allianceId: string; allianceName: string } | null;
-  players: { userId: string; telegramId: string; name: string; points: number; rank: number; crystals: number }[];
+  players: { userId: string; name: string; points: number; rank: number; crystals: number }[];
   alliances: { allianceId: string; name: string; points: number; rank: number | null; pool: number; contributors: number; qualifiedContributors: number }[];
   me: { points: number; rank: number | null; estimatedPersonalCrystals: number; estimatedTeamCrystals: number };
   rewards: { periodId: string; endsAt: string; kind: 'personal' | 'alliance'; rank: number; crystals: number; cosmeticIds: string[]; allianceName: string | null; claimedAt: string | null }[];

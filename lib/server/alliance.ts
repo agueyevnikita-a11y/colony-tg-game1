@@ -68,7 +68,7 @@ async function ensureProject(tx: any, allianceId: string) {
 
 async function playerLeaderboard(tx: any) {
   return tx<any[]>`
-    SELECT u.telegram_id, u.first_name, u.username, u.colony_name, COALESCE(gs.hq_level,1) AS hq_level,
+    SELECT u.id AS user_id, u.colony_name, COALESCE(gs.hq_level,1) AS hq_level,
            COALESCE(gs.city_score,0)::bigint AS city_score, sp.points::bigint AS points
     FROM season_progress sp
     JOIN users u ON u.id=sp.user_id
@@ -144,7 +144,7 @@ export async function getAllianceState(tx: any, userId: string) {
 
   const project = await ensureProject(tx, m.alliance_id);
   const members = await tx<any[]>`
-    SELECT u.telegram_id, u.first_name, u.username, u.colony_name, am.role, am.joined_at,
+    SELECT u.id AS user_id, u.colony_name, am.role, am.joined_at,
            COALESCE(gs.hq_level,1) AS hq_level, COALESCE(gs.city_score,0)::bigint AS city_score,
            COALESCE(sum(ac.points),0)::bigint AS contribution_points
     FROM alliance_members am
@@ -152,7 +152,7 @@ export async function getAllianceState(tx: any, userId: string) {
     LEFT JOIN game_states gs ON gs.user_id=u.id
     LEFT JOIN alliance_contributions ac ON ac.user_id=am.user_id AND ac.project_id=${project.id}
     WHERE am.alliance_id=${m.alliance_id}
-    GROUP BY u.id, u.telegram_id, u.first_name, u.username, u.colony_name, am.role, am.joined_at, gs.hq_level, gs.city_score
+    GROUP BY u.id, u.colony_name, am.role, am.joined_at, gs.hq_level, gs.city_score
     ORDER BY CASE WHEN am.role='owner' THEN 0 WHEN am.role='officer' THEN 1 ELSE 2 END, COALESCE(sum(ac.points),0) DESC, am.joined_at ASC
   `;
   const myContrib = await tx<any[]>`
@@ -403,20 +403,27 @@ export async function startNextAllianceProject(userId: string) {
   });
 }
 
-async function memberByTelegram(tx: any, allianceId: string, telegramId: number) {
+function validateTargetUserId(targetUserId: string) {
+  if (typeof targetUserId !== 'string' || targetUserId.length !== 36 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+    throw new Error('Некорректный участник');
+  }
+  return targetUserId.toLowerCase();
+}
+
+async function memberByUserId(tx: any, allianceId: string, targetUserId: string) {
   return (await tx<any[]>`
-    SELECT am.*, u.telegram_id, u.first_name, u.username, u.colony_name
-    FROM alliance_members am JOIN users u ON u.id=am.user_id
-    WHERE am.alliance_id=${allianceId} AND u.telegram_id=${telegramId}
+    SELECT am.* FROM alliance_members am
+    WHERE am.alliance_id=${allianceId} AND am.user_id=${targetUserId}
     LIMIT 1
   `)[0] ?? null;
 }
 
-export async function setAllianceRole(userId: string, telegramId: number, role: 'officer' | 'member') {
+export async function setAllianceRole(userId: string, targetUserId: string, role: 'officer' | 'member') {
+  targetUserId = validateTargetUserId(targetUserId);
   return sql.begin(async (tx) => {
     const actor = await membership(tx, userId);
     if (!actor || actor.role !== 'owner') throw new Error('Только владелец может назначать офицеров');
-    const target = await memberByTelegram(tx, actor.alliance_id, telegramId);
+    const target = await memberByUserId(tx, actor.alliance_id, targetUserId);
     if (!target) throw new Error('Участник не найден');
     if (target.user_id === userId || target.role === 'owner') throw new Error('Нельзя изменить роль владельца');
     if (role === 'officer') {
@@ -424,36 +431,38 @@ export async function setAllianceRole(userId: string, telegramId: number, role: 
       if (count >= ALLIANCE_OFFICER_LIMIT && target.role !== 'officer') throw new Error(`Максимум ${ALLIANCE_OFFICER_LIMIT} офицеров`);
     }
     await tx`UPDATE alliance_members SET role=${role} WHERE alliance_id=${actor.alliance_id} AND user_id=${target.user_id}`;
-    await analyticsEvent(tx, userId, 'alliance_role_changed', { target_telegram_id: telegramId, role });
+    await analyticsEvent(tx, userId, 'alliance_role_changed', { target_user_id: targetUserId, role });
     return true;
   });
 }
 
-export async function kickAllianceMember(userId: string, telegramId: number) {
+export async function kickAllianceMember(userId: string, targetUserId: string) {
+  targetUserId = validateTargetUserId(targetUserId);
   return sql.begin(async (tx) => {
     const actor = await membership(tx, userId);
     if (!actor || (actor.role !== 'owner' && actor.role !== 'officer')) throw new Error('Недостаточно прав');
-    const target = await memberByTelegram(tx, actor.alliance_id, telegramId);
+    const target = await memberByUserId(tx, actor.alliance_id, targetUserId);
     if (!target) throw new Error('Участник не найден');
     if (target.role === 'owner' || target.user_id === userId) throw new Error('Этого участника нельзя исключить');
     if (actor.role === 'officer' && target.role !== 'member') throw new Error('Офицер может исключать только обычных участников');
     await tx`DELETE FROM alliance_members WHERE alliance_id=${actor.alliance_id} AND user_id=${target.user_id}`;
     await tx`UPDATE users SET alliance_left_at=now() WHERE id=${target.user_id}`;
-    await analyticsEvent(tx, userId, 'alliance_member_kicked', { target_telegram_id: telegramId });
+    await analyticsEvent(tx, userId, 'alliance_member_kicked', { target_user_id: targetUserId });
     return true;
   });
 }
 
-export async function transferAllianceOwnership(userId: string, telegramId: number) {
+export async function transferAllianceOwnership(userId: string, targetUserId: string) {
+  targetUserId = validateTargetUserId(targetUserId);
   return sql.begin(async (tx) => {
     const actor = await membership(tx, userId);
     if (!actor || actor.role !== 'owner') throw new Error('Только владелец может передать руководство');
-    const target = await memberByTelegram(tx, actor.alliance_id, telegramId);
+    const target = await memberByUserId(tx, actor.alliance_id, targetUserId);
     if (!target || target.user_id === userId) throw new Error('Выберите другого участника');
     await tx`UPDATE alliance_members SET role='member' WHERE alliance_id=${actor.alliance_id} AND user_id=${userId}`;
     await tx`UPDATE alliance_members SET role='owner' WHERE alliance_id=${actor.alliance_id} AND user_id=${target.user_id}`;
     await tx`UPDATE alliances SET owner_user_id=${target.user_id} WHERE id=${actor.alliance_id}`;
-    await analyticsEvent(tx, userId, 'alliance_ownership_transferred', { target_telegram_id: telegramId });
+    await analyticsEvent(tx, userId, 'alliance_ownership_transferred', { target_user_id: targetUserId });
     return true;
   });
 }

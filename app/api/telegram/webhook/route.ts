@@ -49,7 +49,9 @@ export async function POST(request: Request) {
     }
 
     if (update.kind === 'command') {
-      await callTelegramApi(token, 'sendMessage', buildBotReply(update));
+      // Telegram executes this method from the webhook response without an outbound API request.
+      // Delivery results are unavailable in this mode; payments keep their verified API flow.
+      return NextResponse.json({ method: 'sendMessage', ...buildBotReply(update) });
     } else if (update.kind === 'write_access_allowed') {
       await sql`UPDATE users SET bot_write_allowed=true WHERE telegram_id=${update.userId}`;
     } else if (update.kind === 'payment') {

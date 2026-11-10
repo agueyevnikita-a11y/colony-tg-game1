@@ -19,6 +19,7 @@ import { runAllianceSocialIntegration } from './alliance-social.integration.mjs'
 import { runSupplyProjectsIntegration } from './supply-projects.integration.mjs';
 import { runAllianceCreationIntegration } from './alliance-creation.integration.mjs';
 import { runPremiumPurchasesIntegration } from './premium-purchases.integration.mjs';
+import { runPublicPlayerIntegration } from './public-player.integration.mjs';
 
 test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
@@ -1520,6 +1521,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runContractsIntegration({ t, sql, request, initData, playerId, adminId });
   await runDecorIntegration({ t, sql, request, initData, playerId, adminId });
   await runReferralsIntegration({ t, sql, request, initData, playerId, adminId });
+  await runPublicPlayerIntegration({ t, sql, request, initData, playerId });
   await runUnlocksIntegration({ t, sql, request, initData, playerId, adminId });
   await runInboxIntegration({ t, sql, request, initData, playerId, adminId });
   await runQuestRewardsIntegration({ t, sql, request, initData, playerId, adminId });

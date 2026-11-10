@@ -13,7 +13,7 @@ type Props = {
   betaRequired?: boolean;
   onShare: () => void;
   onClaim: () => Promise<{ count: number; credits: number; crystals: number }>;
-  onViewCity: (telegramId: number) => void;
+  onViewCity: (userId: string) => void;
   onAchievements?: () => void;
   onUpgradeHq?: () => void;
   onRefresh?: () => void;
@@ -99,7 +99,7 @@ export function ReferralsPanel({ program, busy, inviteLink, betaRequired, onShar
     </section>
 
     <section className="card referralFriendsCard"><h2><GameIcon name="social" />Приглашённые колонии</h2>{program.friends.length ? <>
-      <div className="referralFriends">{visibleFriends.map((friend) => <div className="referralFriend" key={friend.telegramId}><span className={`referralFriendIcon ${friend.qualifiedAt ? 'isQualified' : ''}`}><GameIcon name={friend.qualifiedAt ? 'check' : 'city'} size={19} /></span><div><strong>{friend.name}</strong><small>{friend.qualifiedAt ? friend.bonusClaimed ? 'Твоя награда получена' : 'Твоя награда готова' : `Центр ур. ${friend.hqLevel} → ${program.qualificationHq}`}</small></div><button className="miniButton" onClick={() => onViewCity(friend.telegramId)}>Город</button></div>)}</div>
+      <div className="referralFriends">{visibleFriends.map((friend) => <div className="referralFriend" key={friend.userId}><span className={`referralFriendIcon ${friend.qualifiedAt ? 'isQualified' : ''}`}><GameIcon name={friend.qualifiedAt ? 'check' : 'city'} size={19} /></span><div><strong>{friend.name}</strong><small>{friend.qualifiedAt ? friend.bonusClaimed ? 'Твоя награда получена' : 'Твоя награда готова' : `Центр ур. ${friend.hqLevel} → ${program.qualificationHq}`}</small></div><button className="miniButton" onClick={() => onViewCity(friend.userId)}>Город</button></div>)}</div>
       {totalPages > 1 && <nav className="referralPagination" aria-label="Страницы приглашённых"><button className="miniButton" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Назад</button><span>{currentPage + 1}/{totalPages}</span><button className="miniButton" disabled={currentPage + 1 >= totalPages} onClick={() => setPage(currentPage + 1)}>Далее</button></nav>}
       {program.totalInvited > program.friends.length && <p className="finePrint">Показаны последние {program.friends.length} приглашений. В счётчиках и наградах учтены все.</p>}
     </> : <p className="referralEmpty">Здесь появятся друзья, которые впервые откроют COLONY по твоей ссылке. Начните строить собственную сеть колоний.</p>}</section>

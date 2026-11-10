@@ -40,7 +40,7 @@ async function rankedPlayers(tx: any, periodId: string) {
   return tx`WITH scores AS (
     SELECT e.user_id, sum(e.points)::bigint AS points, max(e.created_at) AS last_at
     FROM alliance_competition_entries e WHERE e.period_id=${periodId} GROUP BY e.user_id
-  ) SELECT s.*, u.telegram_id, COALESCE(NULLIF(u.colony_name,''),u.first_name,u.username,'Колония') AS name,
+  ) SELECT s.*, COALESCE(NULLIF(u.colony_name,''),'Колония') AS name,
       row_number() OVER(ORDER BY s.points DESC,s.last_at ASC,s.user_id ASC)::int AS rank
     FROM scores s JOIN users u ON u.id=s.user_id ORDER BY rank`;
 }
@@ -110,7 +110,7 @@ export async function getAllianceCompetitionState(tx: any, userId: string): Prom
       WHERE a.user_id=${userId} ORDER BY a.claimed_at NULLS FIRST,p.ends_at DESC,a.kind LIMIT 30`,
   ]);
   result.available = true;
-  result.players = players.slice(0, 50).map((row: any) => ({ userId: row.user_id, telegramId: String(row.telegram_id), name: row.name,
+  result.players = players.slice(0, 50).map((row: any) => ({ userId: row.user_id, name: row.name,
     points: Number(row.points), rank: Number(row.rank), crystals: Number(row.points) >= COMPETITION_MIN_REWARD_POINTS ? competitionPrize(Number(row.rank))?.personal ?? 0 : 0 }));
   result.alliances = alliances.slice(0, 50).map((row: any) => ({ allianceId: row.alliance_id, name: row.name, points: Number(row.points),
     rank: row.rank === null ? null : Number(row.rank), pool: competitionPrize(Number(row.rank))?.alliancePool ?? 0,

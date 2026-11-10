@@ -5,13 +5,27 @@ import ts from 'typescript';
 
 const source = await fs.readFile(new URL('../lib/game/referrals.ts', import.meta.url), 'utf8');
 const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } });
-const { REFERRAL_BONUS, REFERRAL_QUALIFICATION_HQ, referralTelegramId, referralBonusForCount, referralRoadmapStatus } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const { REFERRAL_BONUS, REFERRAL_QUALIFICATION_HQ, referralTelegramId, referralUserId, referralBonusForCount, referralRoadmapStatus } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 
 test('referral IDs are canonical positive Telegram IDs and exclude self-invites', () => {
   assert.equal(referralTelegramId('ref_1234567890123', 42), 1234567890123);
   for (const param of [undefined, '', 'ref_42', 'ref_0', 'ref_-1', 'ref_1.5', 'ref_01', 'ref_1e3', 'ref_0x20', 'ref_ 12', 'ref_12\n', 'ref_9007199254740992', 'ref_12?x=1', 'ally_12']) {
     assert.equal(referralTelegramId(param, 42), null, String(param));
   }
+});
+
+test('public referrals use game UUIDs, exclude self and keep Telegram IDs in the legacy parser only', () => {
+  const own = '00000000-0000-4000-8000-000000000001';
+  const invitedBy = 'aabbccdd-eeee-4000-8000-000000000002';
+  assert.equal(referralUserId(`ref_${invitedBy}`, own), invitedBy);
+  assert.equal(referralUserId(`ref_${invitedBy.toUpperCase()}`, own), invitedBy);
+  assert.equal(referralUserId(`ref_${own}`, own), null);
+  assert.equal(referralUserId(`ref_${invitedBy.toUpperCase()}`, invitedBy), null);
+  for (const param of [undefined, '', 'ref_42', `REF_${invitedBy}`, `city_${invitedBy}`, `ref_${invitedBy}\n`, `ref_${invitedBy} `, `ref_${invitedBy}?x=1`, 'ref_aabbccdd-eeee-4000-8000-00000000000g', 'ref_aabbccddeeee40008000000000000002']) {
+    assert.equal(referralUserId(param, own), null, String(param));
+  }
+  assert.equal(referralTelegramId(`ref_${invitedBy}`, 42), null);
+  assert.equal(referralTelegramId('ref_123', 42), 123);
 });
 
 test('referral reward scales only with actual new receipts and rejects invalid counts', () => {

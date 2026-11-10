@@ -151,21 +151,26 @@ function setup(t) {
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   Object.assign(process.env, env, { BOT_TOKEN: 'test-only-token', TELEGRAM_WEBHOOK_SECRET: 'test-only-secret' });
   t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
-  Object.assign(state, { queries: [], api: [], errors: [], premiumGrants: 0, inbox: [], analytics: [], grants: [], dbFailure: false,
+  Object.assign(state, { queries: [], api: [], errors: [], premiumGrants: 0, inbox: [], analytics: [], grants: [], dbFailure: false, apiFailure: false,
     purchases: [{ id: 'purchase-123', invoice_payload: 'purchase-123', product_id: 'premium_30d', stars_paid: 199, telegram_id: 42, user_id: 'user-42', status: 'created' }],
   });
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     state.api.push({ method: url.split('/').at(-1), body: JSON.parse(options.body) });
+    if (state.apiFailure) throw new Error('Telegram API unavailable');
     return Response.json({ ok: true, result: true });
   });
 }
 function request(update, secret = 'test-only-secret') {
-  return new Request('https://colony.app/api/telegram/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': secret }, body: JSON.stringify(update) });
+  return new Request('https://colony.app/api/telegram/webhook', { method: 'POST', headers: { 'content-type': 'application/json', ...(secret === null ? {} : { 'x-telegram-bot-api-secret-token': secret }) }, body: JSON.stringify(update) });
 }
 
 test('actual webhook rejects unauthenticated and malformed updates without DB or API activity', async t => {
   setup(t);
-  assert.equal((await POST(request(message({ text: '/start' }), 'wrong'))).status, 401);
+  for (const secret of [null, 'wrong']) {
+    const response = await POST(request(message({ text: '/start' }), secret));
+    assert.equal(response.status, 401);
+    assert.doesNotMatch(await response.text(), /sendMessage|reply_markup|web_app/);
+  }
   assert.equal((await POST(request({ update_id: 1, message: null }))).status, 400);
   assert.equal((await POST(request(preCheckout({ total_amount: '199' })))).status, 400);
   assert.equal(state.queries.length, 0);
@@ -173,14 +178,30 @@ test('actual webhook rejects unauthenticated and malformed updates without DB or
   assert.equal(state.api.length, 0);
 });
 
-test('actual webhook sends bot reply and persists only verified service-message consent', async t => {
+test('actual webhook returns executable command replies even when outbound Telegram API is unavailable', async t => {
   setup(t);
-  assert.equal((await POST(request(message({ text: '/start' })))).status, 200);
-  assert.equal(state.api[0].method, 'sendMessage');
-  assert.equal(state.api[0].body.reply_markup.inline_keyboard[0][0].web_app.url, 'https://colony.app/');
+  state.apiFailure = true;
+  for (const [command, text] of [['start', /Добро пожаловать/], ['help', /Как играть|COLONY — игра/], ['paysupport', /Помощь с покупками Telegram Stars/]]) {
+    const response = await POST(request(message({ text: `/${command}` })));
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /^application\/json\b/);
+    const body = await response.json();
+    assert.equal(body.method, 'sendMessage');
+    assert.equal(body.chat_id, 42);
+    assert.match(body.text, text);
+    assert.equal(body.reply_markup.inline_keyboard[0][0].web_app.url, 'https://colony.app/');
+    assert.doesNotMatch(JSON.stringify(body), /test-only-token|test-only-secret/);
+  }
   assert.equal(state.queries.length, 0);
+  assert.equal(state.api.length, 0);
+  assert.equal(state.errors.length, 0);
+});
+
+test('actual webhook persists only verified service-message consent', async t => {
+  setup(t);
   assert.equal((await POST(request(message({ write_access_allowed: { from_request: true } })))).status, 200);
   assert.deepEqual(state.grants, [42]);
+  assert.equal(state.api.length, 0);
 });
 
 test('actual pre-checkout validates payer, Stars amount, status, and safely declines DB failure', async t => {

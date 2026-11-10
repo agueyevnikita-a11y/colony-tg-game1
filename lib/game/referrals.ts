@@ -9,6 +9,14 @@ export function referralTelegramId(startParam: string | undefined, ownTelegramId
   return Number.isSafeInteger(id) && id > 0 && id !== ownTelegramId ? id : null;
 }
 
+/** Public invitations identify the game account, not the linked Telegram account. */
+export function referralUserId(startParam: string | undefined, ownUserId: string): string | null {
+  const match = /^ref_([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.exec(startParam ?? '');
+  if (!match || match[0] !== startParam) return null;
+  const userId = match[1].toLowerCase();
+  return userId !== ownUserId.toLowerCase() ? userId : null;
+}
+
 export function referralBonusForCount(count: number) {
   if (!Number.isSafeInteger(count) || count < 0) throw new Error('Некорректное число приглашений');
   const credits = count * REFERRAL_BONUS.credits;
@@ -29,7 +37,7 @@ export function referralRoadmapStatus(input: {
 }
 
 export type ReferralFriend = {
-  telegramId: number;
+  userId: string;
   name: string;
   hqLevel: number;
   qualifiedAt: string | null;

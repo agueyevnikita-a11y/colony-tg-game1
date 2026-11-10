@@ -18,14 +18,14 @@ import { ensureDailyLogin, getDailyLoginState } from '@/lib/server/daily-login';
 import { ensureWelcomeInbox, getInbox } from '@/lib/server/inbox';
 import { getFeatureFlags } from '@/lib/server/feature-flags';
 import { assertRateLimitTx } from '@/lib/server/rate-limit';
-import { getAccessState } from '@/lib/server/access';
+import { getAccessState, MaintenanceAccessError } from '@/lib/server/access';
 import { accrueIncome } from '@/lib/server/passive-income';
 import { availableFoundryRecipes, collectableFoundryJobs } from '@/lib/game/foundry';
 import { recipeSchemaReady } from '@/lib/server/production-schema';
 import { getColonyEventState } from '@/lib/server/colony-events';
 import { calculateComfort } from '@/lib/game/comfort';
 import { getColonyUnlocks } from '@/lib/server/feature-access';
-import { referralTelegramId, REFERRAL_QUALIFICATION_HQ } from '@/lib/game/referrals';
+import { referralTelegramId, referralUserId, REFERRAL_QUALIFICATION_HQ } from '@/lib/game/referrals';
 import { getReferralProgram } from '@/lib/server/referrals';
 import { getSupplyProjectsState } from '@/lib/server/supply-projects';
 
@@ -37,6 +37,9 @@ export async function ensurePlayer(tg: {
   allows_write_to_pm?: boolean;
 }, startParam?: string, options: { skipAccessGate?: boolean } = {}) {
   return sql.begin(async (tx) => {
+    const entryAccess = await getAccessState(tx, null, Number(tg.id));
+    if (entryAccess.blockReason === 'maintenance') throw new MaintenanceAccessError(entryAccess, Number(tg.id));
+
     const rows = await tx<{ id: string; created_at: Date }[]>`
       INSERT INTO users (telegram_id, username, first_name, language_code)
       VALUES (${tg.id}, ${tg.username ?? null}, ${tg.first_name ?? ''}, ${tg.language_code ?? null})
@@ -87,8 +90,20 @@ export async function ensurePlayer(tg: {
       `;
     }
 
+    const refUserId = referralUserId(startParam, user.id);
     const refTelegramId = referralTelegramId(startParam, tg.id);
-    if (refTelegramId !== null) {
+    if (refUserId !== null) {
+      await tx`
+        UPDATE users target
+        SET referred_by = ref.id
+        FROM users ref
+        WHERE target.id = ${user.id}
+          AND target.referred_by IS NULL
+          AND ref.id = ${refUserId}
+          AND target.created_at > now() - interval '15 minutes'
+          AND ref.created_at < target.created_at
+      `;
+    } else if (refTelegramId !== null) {
       await tx`
         UPDATE users target
         SET referred_by = ref.id
@@ -339,7 +354,7 @@ export async function reconcilePlayer(userId: string) {
     `;
     const referralProgram = await getReferralProgram(tx, userId);
     const referrals = referralProgram.friends.map((friend) => ({
-      telegram_id: friend.telegramId, colony_name: friend.name, hq_level: friend.hqLevel,
+      user_id: friend.userId, colony_name: friend.name, hq_level: friend.hqLevel,
       referral_qualified_at: friend.qualifiedAt,
     }));
     const market = await getMarketState(tx, userId);

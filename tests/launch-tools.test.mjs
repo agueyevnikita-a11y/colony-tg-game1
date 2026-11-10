@@ -104,6 +104,26 @@ test('setup preserves pending updates and verifies webhook, private-chat command
   assert.ok(fake.calls.every((call) => call.signal instanceof AbortSignal && call.redirect === 'error'));
 });
 
+test('setup accepts Telegram canonicalizing an origin menu URL with a root slash', async () => {
+  const fake = fakeTelegram({ getChatMenuButton: { type: 'web_app', text: 'Играть в COLONY', web_app: { url: `${config().APP_URL}/` } } });
+  const result = await runTelegramSetup({ env: config(), apply: true, fetchImpl: fake.fetchImpl });
+  assert.equal(result.applied, true);
+  assert.equal(fake.calls.find(call => call.method === 'setChatMenuButton').payload.menu_button.web_app.url, config().APP_URL);
+  assert.equal(fake.calls.at(-1).method, 'getMyCommands');
+});
+
+test('menu URL verification still rejects a different destination, path, query, fragment or credentials', async () => {
+  for (const url of [
+    'https://other.telegram.org/', `${config().APP_URL}/game`, `${config().APP_URL}//`,
+    `${config().APP_URL}/?x=1`, `${config().APP_URL}/?`, `${config().APP_URL}/#app`, `${config().APP_URL}/#`,
+    'https://user:password@colony-ci.telegram.org/', 'http://colony-ci.telegram.org/',
+    `${config().APP_URL}:8443/`, ` ${config().APP_URL}/`, '/game', 'not-a-url', undefined,
+  ]) {
+    const fake = fakeTelegram({ getChatMenuButton: { type: 'web_app', web_app: { url } } });
+    await assert.rejects(runTelegramSetup({ env: config(), apply: true, fetchImpl: fake.fetchImpl }), /menu button verification failed/);
+  }
+});
+
 test('webhook-only setup changes no menu or bot commands', async () => {
   const fake = fakeTelegram();
   const result = await runTelegramSetup({ env: config(), apply: true, webhookOnly: true, fetchImpl: fake.fetchImpl });

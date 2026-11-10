@@ -1,0 +1,28 @@
+# Always combine this override with compose.yml after provisioning colony_app.
+services:
+  app:
+    environment:
+      DATABASE_URL: postgres://colony_app:${APP_DB_PASSWORD:?Set a separate random hex APP_DB_PASSWORD in deploy/.env}@db:5432/${COLONY_DB_NAME:-colony}
+
+  db-tools:
+    profiles: [tools]
+    image: colony-russia:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://colony:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@db:5432/${COLONY_DB_NAME:-colony}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set a separate random hex APP_DB_PASSWORD in deploy/.env}
+    volumes:
+      - ./provision-app-role.mjs:/app/provision-app-role.mjs:ro
+    command: [node, /app/provision-app-role.mjs]
+    healthcheck:
+      disable: true
+    init: true
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

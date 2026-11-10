@@ -113,7 +113,7 @@ export async function getAllianceCooperationState(tx: any, userId: string) {
   // Detailed teamwork is visible only for the viewer's current alliance, never pending cargo.
   const participantIds = [...new Set<string>(currentRows.map((row: any) => row.user_id))];
   const participantProfiles = participantIds.length ? await tx`SELECT u.id,
-    COALESCE(NULLIF(u.colony_name,''),NULLIF(u.first_name,''),NULLIF(u.username,''),'Колонист') AS name,
+    COALESCE(NULLIF(u.colony_name,''),'Колонист') AS name,
     EXISTS(SELECT 1 FROM alliance_members am WHERE am.user_id=u.id AND am.alliance_id=${member.alliance_id}) AS is_current_member
     FROM users u WHERE u.id IN ${tx(participantIds)}` : [];
   const team = participantIds.map(participantId => {

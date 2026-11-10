@@ -33,8 +33,19 @@ export function botAppLink(username: string | undefined, startParam?: string): s
 }
 
 export function playerStartParam(kind: 'ref' | 'city', id: unknown): string | undefined {
-  const value = Number(id);
-  return Number.isSafeInteger(value) && value > 0 ? `${kind}_${value}` : undefined;
+  return typeof id === 'string' && id.length === 36 && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id)
+    ? `${kind}_${id.toLowerCase()}` : undefined;
+}
+
+/** Old shared links remain readable; new links contain only the game's UUID. */
+export function cityStartTarget(startParam: unknown): { userId: string } | { telegramId: number } | undefined {
+  if (typeof startParam !== 'string' || !startParam.startsWith('city_')) return;
+  const value = startParam.slice(5);
+  const canonical = playerStartParam('city', value);
+  if (canonical) return { userId: canonical.slice(5) };
+  if (!/^[1-9]\d*$/.test(value) || /\s/.test(value)) return;
+  const telegramId = Number(value);
+  return Number.isSafeInteger(telegramId) ? { telegramId } : undefined;
 }
 
 export function supportsTelegram(app: TelegramWebApp | undefined, minimumVersion: string): boolean {

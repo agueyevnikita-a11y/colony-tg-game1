@@ -1,0 +1,84 @@
+name: colony-russia
+
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${COLONY_DB_NAME:-colony}
+      POSTGRES_USER: colony
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env using random hex}
+    volumes:
+      - colony_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=\"$$POSTGRES_USER\" --dbname=\"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *bounded-logging
+
+  app:
+    image: colony-russia:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:?Set NEXT_PUBLIC_BOT_USERNAME in deploy/.env}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgres://colony_app:${APP_DB_PASSWORD:?Set a separate random hex APP_DB_PASSWORD in deploy/.env}@db:5432/${COLONY_DB_NAME:-colony}
+      BOT_TOKEN: ${BOT_TOKEN:?Set the real BOT_TOKEN in deploy/.env}
+      BOT_USERNAME: ${BOT_USERNAME:?Set BOT_USERNAME in deploy/.env}
+      NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:?Set NEXT_PUBLIC_BOT_USERNAME in deploy/.env}
+      APP_URL: ${APP_URL:?Set the intended HTTPS APP_URL in deploy/.env}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?Set a separate random TELEGRAM_WEBHOOK_SECRET in deploy/.env}
+      CRON_SECRET: ${CRON_SECRET:?Set a separate random CRON_SECRET in deploy/.env}
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?Set ADMIN_TELEGRAM_IDS in deploy/.env}
+      SUPPORT_URL: ${SUPPORT_URL:-}
+      ALLOW_DEV_AUTH: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/live',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    logging: *bounded-logging
+
+  db-tools:
+    profiles: [tools]
+    image: colony-russia:local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://colony:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@db:5432/${COLONY_DB_NAME:-colony}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in deploy/.env}
+    volumes:
+      - ./provision-app-role.mjs:/app/provision-app-role.mjs:ro
+    command: [node, /app/provision-app-role.mjs]
+    healthcheck:
+      disable: true
+    init: true
+    restart: "no"
+    logging: *bounded-logging
+
+volumes:
+  colony_pg:
