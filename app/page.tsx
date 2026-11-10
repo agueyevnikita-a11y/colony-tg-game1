@@ -161,6 +161,8 @@ export default function Home() {
   const [supplyView, setSupplyView] = useState<'projects' | 'contracts'>('projects');
   const [supplyFocus, setSupplyFocus] = useState<{ owner: string; key: string | null }>({ owner: '', key: null });
   const [requestedProductionLink, setRequestedProductionLink] = useState<{ buildingId: string; link: FoundryLink; request: number } | null>(null);
+  const [requestedProductionQueue, setRequestedProductionQueue] = useState<{ owner: string; buildingId: string; requestId: number } | null>(null);
+  const productionQueueVersion = useRef(0);
   const productionPanelRef = useRef<HTMLDivElement>(null);
   const productionNavigationPending = useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -198,6 +200,7 @@ export default function Home() {
   const artifactCollectionFocus = artifactCollection?.owner === planOwner ? artifactCollection : null;
   const settingsOwner = useRef(planOwner);
   settingsOwner.current = planOwner;
+  function clearProductionQueueFocus() { productionQueueVersion.current++; setRequestedProductionQueue(null); }
   function requireCrystalCheck(owner: string, required: boolean) {
     if (!owner || crystalPurchaseChecksRef.current.has(owner) === required) return;
     const next = new Set(crystalPurchaseChecksRef.current);
@@ -218,7 +221,7 @@ export default function Home() {
   const activeGuideFocus = guideFocus.owner === planOwner && guideFocus.kind ? guideFocus.kind
     : plannedResearchKey ? 'research' : selectedSupply?.started && !selectedSupply.completed ? 'supplies' : 'research';
 
-  useEffect(() => { setArtifactExpedition(null); setArtifactCollection(null); setDecorMapFocus(null); }, [planOwner]);
+  useEffect(() => { setArtifactExpedition(null); setArtifactCollection(null); setDecorMapFocus(null); clearProductionQueueFocus(); }, [planOwner]);
 
   useEffect(() => {
     if (!planOwner) return;
@@ -334,6 +337,7 @@ export default function Home() {
 
   function openSubsection(section: string) {
     if (!SUBSECTIONS[tab].some(item => item.key === section)) return;
+    clearProductionQueueFocus();
     setArtifactExpedition(null);
     setArtifactCollection(null);
     setDecorMapFocus(null);
@@ -350,6 +354,7 @@ export default function Home() {
   }
 
   function openSection(nextTab: Tab) {
+    clearProductionQueueFocus();
     setArtifactExpedition(null);
     setArtifactCollection(null);
     setDecorMapFocus(null);
@@ -401,6 +406,7 @@ export default function Home() {
   }, [tab, subsections, guideNavigationVersion, inspectorOpen]);
 
   function navigateGuide(action: string) {
+    clearProductionQueueFocus();
     setArtifactExpedition(null);
     setArtifactCollection(null);
     setDecorMapFocus(null);
@@ -975,7 +981,7 @@ export default function Home() {
       {tab === 'city' && <>
         {subsections.city === 'map' && <div data-section-panel="city-map">
 <section className="card cityCard" ref={cityMapRef}>
-          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на здание или декор — откроются его действия.</p></div></div>
+          <div className="cardTitleRow"><div><h2>Твой город</h2><p>Центр ур. {s.hq_level} · {game.gridSize}×{game.gridSize} · занято {usedCells} из {totalCells} клеток. Нажми на цех, чтобы открыть очередь; на другое здание или декор — его действия.</p></div></div>
           <button type="button" className="cityComfortSummary" onClick={() => openSubsection('decor')}><span><GameIcon name="comfort" size={18} />Комфорт <strong>{comfort.score}/100</strong></span><span>Благоустроить<GameIcon name="arrow" size={15} /></span></button>
           {(placementType || decorPlacementType || moveBuildingId || moveDecorId) && <div className="mapModeBar">
             <span><GameIcon name={placementType ? 'build' : decorPlacementType ? 'decor' : 'move'} size={17} /> {placementType ? 'Размещение здания' : decorPlacementType ? 'Размещение декора' : moveDecorId ? 'Перемещение декора' : 'Перемещение здания'}</span>
@@ -1004,6 +1010,14 @@ export default function Home() {
             planningType={placementType ?? (game.buildings ?? []).find((building: any) => building.id === moveBuildingId)?.type}
             movingBuildingId={moveBuildingId ?? undefined}
             productionNetwork={productionNetworkVisible}
+            production={{ jobs: game.activeJobs, currentParts: s.parts, partsCapacity: game.caps?.parts == null ? undefined : Math.max(0, Number(game.caps.parts) - Number(game.escrow?.parts ?? 0)) }}
+            onFoundryQueue={id => {
+              if (!(game.buildings ?? []).some((building: any) => building.id === id && building.type === 'foundry')) return;
+              navigateGuide('production');
+              guideNavigationPending.current = null;
+              setSelectedBuildingId(id);
+              setRequestedProductionQueue({ owner: planOwner, buildingId: id, requestId: ++productionQueueVersion.current });
+            }}
             planningCell={planningFoundry && foundrySite?.available ? planningCell : null}
             theme={equippedTheme}
             weather={equippedWeather}
@@ -1095,15 +1109,21 @@ export default function Home() {
           onSupplyProjects={() => navigateGuide('supplies')}
           selectedRecipe={requestedProductionRecipe}
           requestedLink={requestedProductionLink}
+          queueFocus={tab === 'city' && subsections.city === 'production' && requestedProductionQueue?.owner === planOwner ? requestedProductionQueue : null}
+          onQueueFocused={(requestId, found) => {
+            if (productionQueueVersion.current !== requestId || settingsOwner.current !== planOwner) return;
+            setRequestedProductionQueue(current => current?.requestId === requestId && current.owner === planOwner ? null : current);
+            if (!found && settingsOwner.current === planOwner) setConstructionFeedback({ target: 'production:queue', text: 'Цех больше не доступен. Обнови данные колонии.', error: true });
+          }}
           busy={busy}
           selectedBuildingId={selectedBuildingId}
-          onFoundryChange={setSelectedBuildingId}
-          onChangeSelection={() => setConstructionFeedback(null)}
+          onFoundryChange={id => { clearProductionQueueFocus(); setSelectedBuildingId(id); }}
+          onChangeSelection={() => { clearProductionQueueFocus(); setConstructionFeedback(null); }}
           onStart={startProduction}
           onResearch={(key) => navigateGuide(`research:${key}`)}
           onRefresh={() => { void refresh(); }}
           onBuild={() => beginPlacement('foundry', 'Литейный цех')}
-          onSelectBuilding={(id) => { setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); showSection('city', 'map'); setInspectorOpen(true); guideNavigationPending.current = 'map'; setGuideNavigationVersion(version => version + 1); }}
+          onSelectBuilding={(id) => { clearProductionQueueFocus(); setSelectedBuildingId(id); setSelectedDecorId(null); setConstructionFeedback(null); showSection('city', 'map'); setInspectorOpen(true); guideNavigationPending.current = 'map'; setGuideNavigationVersion(version => version + 1); }}
           feedback={constructionFeedback?.target.startsWith('production:') ? constructionNotice(constructionFeedback.target) : undefined}
         /></div>
         </div>

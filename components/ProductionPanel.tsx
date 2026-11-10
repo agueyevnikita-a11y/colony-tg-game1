@@ -24,6 +24,8 @@ type Props = {
   selectedBuildingId?: string | null;
   selectedRecipe?: FoundryRecipeKey;
   requestedLink?: { buildingId: string; link: FoundryLink; request: number } | null;
+  queueFocus?: { buildingId: string; requestId: number } | null;
+  onQueueFocused?: (requestId: number, found: boolean) => void;
   unlockedRecipes?: string[];
   recipesEnabled?: boolean;
   onStart: (body: { buildingId: string; recipe: FoundryRecipeKey; mode: FoundryMode; link: FoundryLink; cycles: number }) => Promise<boolean>;
@@ -73,6 +75,7 @@ export function ProductionPanel(props: Props) {
   const selected = foundries.find((building) => building.id === selectedId)
     ?? foundries.find((building) => building.status === 'active') ?? foundries[0];
   const requestedFoundryId = foundries.find((building) => building.id === props.selectedBuildingId)?.id;
+  const queueFocusId = foundries.find(building => building.id === props.queueFocus?.buildingId)?.id;
   const requestedRecipeUnlocked = props.selectedRecipe === 'standard_alloy' || (props.recipesEnabled !== false && Boolean(props.unlockedRecipes?.includes(props.selectedRecipe ?? '')));
 
   useEffect(() => {
@@ -84,6 +87,24 @@ export function ProductionPanel(props: Props) {
   useEffect(() => {
     if (props.selectedRecipe && requestedRecipeUnlocked) setRecipe(props.selectedRecipe);
   }, [props.selectedRecipe, requestedRecipeUnlocked]);
+  useEffect(() => {
+    const request = props.queueFocus;
+    if (!request) return;
+    if (!queueFocusId) { props.onQueueFocused?.(request.requestId, false); return; }
+    setSelectedId(queueFocusId);
+    setLocalError('');
+    if (selected?.id !== queueFocusId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const heading = queueHeadingRef.current;
+      const found = Boolean(heading?.isConnected && heading.dataset.productionQueueBuilding === queueFocusId);
+      if (found) {
+        heading!.focus({ preventScroll: true });
+        heading!.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+      props.onQueueFocused?.(request.requestId, found);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.queueFocus?.requestId, queueFocusId, selected?.id]);
   useEffect(() => {
     const intent = props.requestedLink;
     if (!intent) return;
@@ -372,7 +393,7 @@ export function ProductionPanel(props: Props) {
       {localError && <div className="notice error actionFeedback" role="alert">{localError}</div>}
 
       <div className="productionQueue">
-        <div className="productionQueueHeading"><h3 ref={queueHeadingRef} tabIndex={-1}>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
+        <div className="productionQueueHeading"><h3 ref={queueHeadingRef} tabIndex={-1} data-production-queue-building={selected?.id}>Очередь этого цеха</h3><span>{selectedJobs.length} / {capacity}</span></div>
         {selectedJobs.length === 0 ? <p>Пока пусто. Цех ждёт задания.</p> : <>
           {readyJobs.length > 0 && <p className={`productionStorage ${storageBlocked ? 'isBlocked' : ''}`} role="status">{selectedCyclesOversized
             ? 'Готовые циклы этого цеха больше доступной вместимости. Проверь склад и резерв продаж: одного расхода запаса недостаточно.' : storageBlocked

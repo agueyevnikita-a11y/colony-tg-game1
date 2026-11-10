@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.26-beta.1 — Show Real Workshop Queues on the City Map
+- Foundry cells show idle, running, queued, ready, storage-blocked, construction and uncertain states from saved paid jobs. Shared storage is checked across all workshops in server order; unknown job snapshots never pretend to be empty queues. Running progress and furnace activity follow actual saved cycles, including paid work during upgrades, and timer completion never grants output or frees a queue slot locally.
+- Tapping an owned foundry opens and focuses that exact workshop's queue, including paid queues during upgrades. The full cell is the target, with no nested or tiny independent controls. Existing building inspection remains available through production's map action; placement, movement, public and compact maps retain their existing controls.
+- Queue focus is consumed once, scoped to the current player and explicit navigation request, and cancelled by manual navigation or selection. Background refresh does not steal focus. Status badges remain inside dense 8×8 cells; expandable guidance explains the current icons and issuance check. No migration, dependency, economy, queue limit, reward, saved-city or payment-rule change is required.
+
 ## 1.14.25-beta.1 — Recover Workshop Space and Find a Free Queue
 - Full or unavailable workshops offer a direct shortcut to another active workshop with free queue slots. The shortcut prefers the most free slots and only selects the workshop; starting and paying for a batch remain separate actions.
 - Ready-output guidance compares current parts stock with the effective storage limit and simulates whole-cycle issuance across all workshops in server order. Expandable advice shows how much stock must be spent after currently collectable cycles are issued to admit another waiting cycle, including stocks already above a reduced limit. Cycles larger than the entire available capacity explain why spending stock alone cannot help.
