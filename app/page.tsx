@@ -24,6 +24,7 @@ import { BuildingArt } from '@/components/BuildingArt';
 import { ResourceBar } from '@/components/ResourceBar';
 import { ConstructionStatus } from '@/components/ConstructionStatus';
 import { ColonyWelcome } from '@/components/ColonyWelcome';
+import { SupportContact } from '@/components/SupportContact';
 import { ColonyGuide } from '@/components/ColonyGuide';
 import { ColonyGuideEntry } from '@/components/ColonyGuideEntry';
 import { ColonyEventCard } from '@/components/ColonyEventCard';
@@ -912,12 +913,13 @@ export default function Home() {
       <h1>{phase === 'loading' ? 'Подключаем Telegram…' : phase === 'outside' ? 'Ваша колония в Telegram' : 'Не удалось подключить Telegram'}</h1>
       <p>{phase === 'loading' ? 'Проверяем запуск приложения. Это займёт несколько секунд.' : phase === 'outside' ? 'Построй производственный город: добывай ресурсы, выпускай детали, торгуй и открывай технологии. Войди через приложение в Telegram, чтобы сохранить свою колонию.' : 'Проверьте подключение к интернету и попробуйте снова. Если эта страница открыта в браузере, перейдите в бота.'}</p>
       {phase !== 'loading' && <>{botLink ? <a className="action launchLink" href={botLink}>Открыть COLONY в Telegram</a> : <p>Откройте приложение через бота, который прислал вам приглашение.</p>}<button className="action secondary" onClick={retry}>Попробовать снова</button></>}
+      <SupportContact />
     </section></main>;
   }
 
   if (!game) {
     const error = message || connectionError;
-    return <main className="app accessGate"><section className="card accessCard launchCard"><div className="betaMark">COLONY · v{APP_VERSION}</div><h1>{error ? 'Колония пока недоступна' : 'Загружаем вашу колонию…'}</h1>{error && <><div className="notice error" role="alert">{error}</div><button className="action" disabled={busy} onClick={() => refresh()}>Попробовать снова</button>{botLink && <a className="action secondary launchLink" href={botLink}>Открыть из бота</a>}</>}</section></main>;
+    return <main className="app accessGate"><section className="card accessCard launchCard"><div className="betaMark">COLONY · v{APP_VERSION}</div><h1>{error ? 'Колония пока недоступна' : 'Загружаем вашу колонию…'}</h1>{error && <><div className="notice error" role="alert">{error}</div><button className="action" disabled={busy} onClick={() => refresh()}>Попробовать снова</button>{botLink && <a className="action secondary launchLink" href={botLink}>Открыть из бота</a>}</>}<SupportContact authenticated={phase === 'ready'} isAdmin={Boolean(game?.admin)} /></section></main>;
   }
 
   if (game.limited) {
@@ -931,6 +933,7 @@ export default function Home() {
       {message&&<div className="notice error">{message}</div>}
       {connectionError && connectionError !== message && <div className="notice error" role="status">{connectionError}</div>}
       <small>Telegram ID: {game.telegramUser?.id} · версия {game.version}</small>
+      <SupportContact authenticated={phase === 'ready'} isAdmin={Boolean(game?.admin)} />
     </section></main>;
   }
 
@@ -1467,6 +1470,7 @@ export default function Home() {
             } catch (error) { setMessage(''); throw error; }
           }}
           onOpenInbox={() => showSection('social', 'inbox')} />
+        <section className="card"><SupportContact authenticated isAdmin={Boolean(game.admin)} /></section>
         </div>}
       </>}
 

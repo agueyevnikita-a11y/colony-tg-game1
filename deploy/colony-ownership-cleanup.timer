@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily cleanup of COLONY ownership verification records
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+Persistent=true
+Unit=colony-ownership-cleanup.service
+
+[Install]
+WantedBy=timers.target

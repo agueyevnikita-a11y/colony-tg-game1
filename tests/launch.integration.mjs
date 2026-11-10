@@ -20,6 +20,7 @@ import { runSupplyProjectsIntegration } from './supply-projects.integration.mjs'
 import { runAllianceCreationIntegration } from './alliance-creation.integration.mjs';
 import { runPremiumPurchasesIntegration } from './premium-purchases.integration.mjs';
 import { runPublicPlayerIntegration } from './public-player.integration.mjs';
+import { runSupportOwnershipIntegration } from './support-ownership.integration.mjs';
 
 test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
@@ -72,7 +73,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     const text = await response.text();
     let data;
     try { data = JSON.parse(text); } catch { data = text; }
-    return { status: response.status, data };
+    return { status: response.status, data, headers: response.headers };
   }
 
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -1531,6 +1532,7 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runSupplyProjectsIntegration({ t, sql, request, initData, playerId });
   await runAllianceCreationIntegration({ t, sql, request, initData, playerId });
   await runPremiumPurchasesIntegration({ t, sql, request, initData });
+  await runSupportOwnershipIntegration({ t, sql, request, initData, playerId, adminId });
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;

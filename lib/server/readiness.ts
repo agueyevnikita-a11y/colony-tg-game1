@@ -19,6 +19,7 @@ export const REQUIRED_SCHEMA: Readonly<Record<string, readonly string[]>> = {
   notification_preferences: ['user_id', 'enabled'],
   notification_jobs: ['processing_at', 'sent_at', 'cancelled_at'],
   player_feedback: ['user_id', 'client_version'],
+  account_ownership_proofs: ['id', 'user_id', 'token_hash', 'expires_at', 'consumed_at', 'revoked_at', 'request_ref'],
   alliance_cooperation_progress: ['alliance_id', 'shared_science', 'drilling_level', 'analysis_level'],
   alliance_cooperation_operations: ['id', 'ends_at', 'settled_at', 'team_bonus_percent'],
   alliance_cooperation_contributions: ['id', 'user_id', 'cost_json', 'reward_json', 'claimed_at'],

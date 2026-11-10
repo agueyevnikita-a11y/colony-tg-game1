@@ -1,0 +1,10 @@
+[Unit]
+Description=Remove old COLONY account ownership verification records
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/colony/current/deploy
+ExecStart=/usr/bin/docker compose exec -T app node scripts/cleanup-ownership-proofs.mjs
+User=root
