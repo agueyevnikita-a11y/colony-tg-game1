@@ -23,6 +23,25 @@ mkdir -p -- "$backup_dir"
 chown root:root -- "$backup_dir"
 chmod 0700 -- "$backup_dir"
 
+# Coordinate the entire snapshot/checksum with the reviewed privacy worker.
+# The worker acquires release.lock first, then data.lock; it must not invoke
+# this script while already holding data.lock in another process.
+lock_file=/var/lock/colony-data.lock
+command -v flock >/dev/null || { printf 'Missing flock; backup was not started.\n' >&2; exit 1; }
+if (set -o noclobber; : > "$lock_file") 2>/dev/null; then
+  chmod 0600 -- "$lock_file"
+fi
+if [[ -L "$lock_file" || ! -f "$lock_file" || "$(stat -c %u -- "$lock_file")" != 0 ]]; then
+  printf 'Refusing an unsafe COLONY data lock.\n' >&2
+  exit 1
+fi
+if (( (8#$(stat -c %a -- "$lock_file") & 022) != 0 )); then
+  printf 'COLONY data lock is writable by another user.\n' >&2
+  exit 1
+fi
+exec 8>>"$lock_file"
+flock --exclusive 8
+
 compose=(docker compose --project-directory "$script_dir" --env-file "$script_dir/.env" -f "$script_dir/compose.yml")
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 partial="$(mktemp "$backup_dir/colony-${stamp}-XXXXXX.dump.partial")"

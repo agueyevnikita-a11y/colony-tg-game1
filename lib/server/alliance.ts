@@ -7,6 +7,7 @@ import { getAllianceDailyState } from '@/lib/server/alliance-daily';
 import { getAllianceCooperationState } from '@/lib/server/alliance-cooperation';
 import { getAllianceCompetitionState } from '@/lib/server/alliance-competition';
 import { getAllianceDirectory } from '@/lib/server/alliance-directory';
+import { closedPlayerIds } from './closed-player-visibility';
 import {
   ALLIANCE_CREATE_COST,
   ALLIANCE_CREATE_CURRENCY,
@@ -66,14 +67,14 @@ async function ensureProject(tx: any, allianceId: string) {
   return inserted[0];
 }
 
-async function playerLeaderboard(tx: any) {
+async function playerLeaderboard(tx: any, hiddenPlayers: string[]) {
   return tx<any[]>`
     SELECT u.id AS user_id, u.colony_name, COALESCE(gs.hq_level,1) AS hq_level,
            COALESCE(gs.city_score,0)::bigint AS city_score, sp.points::bigint AS points
     FROM season_progress sp
     JOIN users u ON u.id=sp.user_id
     LEFT JOIN game_states gs ON gs.user_id=u.id
-    WHERE sp.season_id=${ACTIVE_SEASON_ID}
+    WHERE sp.season_id=${ACTIVE_SEASON_ID} AND NOT(u.id=ANY(${tx.array(hiddenPlayers)}::uuid[]))
     ORDER BY sp.points DESC, gs.city_score DESC NULLS LAST, gs.hq_level DESC NULLS LAST, u.created_at ASC
     LIMIT 50
   `;
@@ -95,6 +96,8 @@ async function allianceLeaderboard(tx: any) {
 }
 
 export async function getAllianceState(tx: any, userId: string) {
+  const hiddenPlayers = await closedPlayerIds(tx);
+  const hiddenSet = new Set(hiddenPlayers);
   // Keep cooperation's guild/operation locks before the competition period lock.
   const cooperation = await getAllianceCooperationState(tx, userId);
   const competition = await getAllianceCompetitionState(tx, userId);
@@ -104,7 +107,7 @@ export async function getAllianceState(tx: any, userId: string) {
     THEN alliance_left_at+make_interval(hours=>${ALLIANCE_REJOIN_COOLDOWN_HOURS}) ELSE NULL END AS available_at
     FROM users WHERE id=${userId}`;
   const entry = { availableAt: entryRow?.available_at ? new Date(entryRow.available_at).toISOString() : null };
-  const [players, alliancesTop] = await Promise.all([playerLeaderboard(tx), allianceLeaderboard(tx)]);
+  const [players, alliancesTop] = await Promise.all([playerLeaderboard(tx, hiddenPlayers), allianceLeaderboard(tx)]);
 
   if (!m) {
     const recommended = await tx<any[]>`
@@ -178,7 +181,7 @@ export async function getAllianceState(tx: any, userId: string) {
   const officerCount = members.filter((x: any) => x.role === 'officer').length;
 
   return {
-    membership: m,
+    membership: { ...m, owner_user_id: hiddenSet.has(m.owner_user_id) ? null : m.owner_user_id },
     entry,
     cooperation,
     competition,
@@ -189,7 +192,9 @@ export async function getAllianceState(tx: any, userId: string) {
       memberLimit: m.member_limit,
       prestige: Number(m.prestige ?? 0),
       seasonPoints,
-      members,
+      members: members.filter((member: any) => !hiddenSet.has(member.user_id)),
+      memberCount: members.length,
+      hiddenMemberCount: members.filter((member: any) => hiddenSet.has(member.user_id)).length,
       officerCount,
     },
     project: {

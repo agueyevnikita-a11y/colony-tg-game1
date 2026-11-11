@@ -8,6 +8,7 @@ try {
   // Only the new verification records; never game accounts, requests or backups.
   const deleted = await sql`DELETE FROM account_ownership_proofs WHERE issued_at < now()-interval '6 days' RETURNING id`;
   await sql`DELETE FROM api_rate_limits WHERE bucket_key LIKE 'support-proof:%' AND updated_at < now()-interval '1 day'`;
+  await sql`DELETE FROM api_rate_limits WHERE bucket_key LIKE 'privacy-request:%' AND updated_at < now()-interval '1 day'`;
   console.log(`Expired ownership verification records removed: ${deleted.length}`);
 } catch {
   console.error('Ownership verification cleanup failed; no credentials or request details are logged.');

@@ -923,6 +923,7 @@ export default function Home() {
   }
 
   if (game.limited) {
+    if (game.closed) return <main className="app accessGate"><section className="card accessCard"><div className="betaMark">COLONY · v{APP_VERSION}</div><h1>Аккаунт закрыт</h1><p>Доступ к игре остановлен по твоей заявке. Статус удаления рабочей базы и копий можно проверить ниже. До начала удаления заявку можно отозвать.</p><SupportContact key={String(game.telegramUser?.id ?? 'closed')} authenticated /></section></main>;
     const maintenance=game.access?.blockReason==='maintenance';
     return <main className="app accessGate"><section className="card accessCard">
       <div className="betaMark">COLONY · v{APP_VERSION}</div>
@@ -1470,7 +1471,7 @@ export default function Home() {
             } catch (error) { setMessage(''); throw error; }
           }}
           onOpenInbox={() => showSection('social', 'inbox')} />
-        <section className="card"><SupportContact authenticated isAdmin={Boolean(game.admin)} /></section>
+        <section className="card"><SupportContact key={planOwner + ':support'} authenticated isAdmin={Boolean(game.admin)} /></section>
         </div>}
       </>}
 

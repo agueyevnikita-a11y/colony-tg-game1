@@ -19,6 +19,10 @@ const stubs = asModule(`
   export class NextResponse extends Response { static json(value, init) { return Response.json(value, init); } }
   export const cleanupRateLimits = async () => { state.cleanups++; };
   export const logErrorEvent = async value => { state.errors.push(value); };
+  // The queue fixtures belong to open accounts; real ledger/locks are covered in integration.
+  export const lockAccountIdentity = async (_tx, id) => 'open-fixture-' + id;
+  export const readAccountCase = async () => null;
+  export const isClosedCase = () => false;
   export async function sql(strings, ...values) {
     const text = strings.join('?'); state.queries.push({ text, values });
     if (text.includes('SELECT enabled FROM feature_flags')) {
@@ -30,15 +34,20 @@ const stubs = asModule(`
       for (const job of due) job.processing_at = 'claimed';
       return due.map(job => ({ id: job.id }));
     }
-    if (text.includes('SELECT nj.*')) return state.jobs.filter(job => values[0].includes(job.id)).map(job => ({ ...job }));
+    if (text.includes('SELECT nj.*')) {
+      const selected = text.includes('nj.id=ANY(')
+        ? state.jobs.filter(job => values[0].includes(job.id))
+        : state.jobs.filter(job => job.id === values[0] && job.sent_at === null && job.cancelled_at === null);
+      return selected.map(job => ({ ...job }));
+    }
     if (text.includes('SET sent_at=now()')) {
       const job = state.jobs.find(job => job.id === values[0]);
       job.sent_at = 'sent'; job.processing_at = null; job.error_text = null;
       return [];
     }
-    if (text.includes("error_text='notifications_disabled'")) {
+    if (text.includes("error_text='notifications_disabled_or_account_closed'")) {
       const job = state.jobs.find(job => job.id === values[0]);
-      job.cancelled_at = 'cancelled'; job.processing_at = null; job.error_text = 'notifications_disabled';
+      job.cancelled_at = 'cancelled'; job.processing_at = null; job.error_text = 'notifications_disabled_or_account_closed';
       return [];
     }
     throw new Error('Unexpected notification test SQL');
@@ -49,6 +58,7 @@ const stubs = asModule(`
 const { POST } = await import(await compile('../app/api/cron/notifications/route.ts', {
   'next/server': stubs, '@/lib/server/db': stubs, '@/lib/server/errors': stubs,
   '@/lib/server/rate-limit': stubs, '@/lib/server/notifications': await compile('../lib/server/notifications.ts'),
+  '@/lib/server/account-closure': stubs, '@/scripts/privacy/lib/case-store.mjs': stubs,
 }));
 
 const pendingJob = overrides => ({

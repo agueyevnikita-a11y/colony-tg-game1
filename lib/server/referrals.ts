@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { sql } from '@/lib/server/db';
 import { REFERRAL_BONUS, REFERRAL_QUALIFICATION_HQ, referralBonusForCount, referralRoadmapStatus, type ReferralProgram } from '@/lib/game/referrals';
 import { pushInbox } from '@/lib/server/inbox';
+import { closedPlayerIds } from './closed-player-visibility';
 
 export async function referralSchemaReady(tx: any): Promise<boolean> {
   const rows = await tx<any[]>`
@@ -23,6 +24,7 @@ const ROADMAP = [
 ] as const;
 
 export async function getReferralProgram(tx: any, userId: string): Promise<ReferralProgram> {
+  const hiddenPlayers = new Set(await closedPlayerIds(tx));
   const enabled = await referralSchemaReady(tx);
   const [totals] = await tx<any[]>`
     SELECT count(*)::int AS total,count(*) FILTER(WHERE referral_qualified_at IS NOT NULL)::int AS qualified
@@ -43,7 +45,7 @@ export async function getReferralProgram(tx: any, userId: string): Promise<Refer
     ORDER BY u.created_at DESC,u.id LIMIT 100
   `;
   const [invitation] = await tx<any[]>`
-    SELECT inviter.colony_name,COALESCE(gs.hq_level,1) AS hq_level,
+    SELECT inviter.id AS inviter_user_id,inviter.colony_name,COALESCE(gs.hq_level,1) AS hq_level,
            me.referral_qualified_at
     FROM users me JOIN users inviter ON inviter.id=me.referred_by AND inviter.id<>me.id
     LEFT JOIN game_states gs ON gs.user_id=me.id WHERE me.id=${userId}
@@ -89,10 +91,10 @@ export async function getReferralProgram(tx: any, userId: string): Promise<Refer
     receivedCount,
     receivedReward,
     invitedBy: invitation ? {
-      name: invitation.colony_name || 'Колония друга',
+      name: hiddenPlayers.has(invitation.inviter_user_id) ? 'Закрытая колония' : invitation.colony_name || 'Колония друга',
       hqLevel: Number(invitation.hq_level), qualified: !!invitation.referral_qualified_at, bonusClaimed: ownBonusClaimed,
     } : null,
-    friends: friendRows.map((row: any) => ({
+    friends: friendRows.filter((row: any) => !hiddenPlayers.has(row.id)).map((row: any) => ({
       userId: row.id, name: row.colony_name || 'Колония друга',
       hqLevel: Number(row.hq_level), qualifiedAt: row.referral_qualified_at ? new Date(row.referral_qualified_at).toISOString() : null,
       bonusClaimed: row.bonus_claimed === true,

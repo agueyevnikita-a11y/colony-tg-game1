@@ -3,6 +3,8 @@ import { sql } from '@/lib/server/db';
 import { notificationText, type NotificationKind } from '@/lib/server/notifications';
 import { logErrorEvent } from '@/lib/server/errors';
 import { cleanupRateLimits } from '@/lib/server/rate-limit';
+import { lockAccountIdentity } from '@/lib/server/account-closure';
+import { readAccountCase, isClosedCase } from '@/scripts/privacy/lib/case-store.mjs';
 
 export const runtime='nodejs';
 export async function POST(request:Request){
@@ -19,17 +21,26 @@ export async function POST(request:Request){
     const ids=claimed.map(x=>x.id);
     const jobs=await sql<any[]>`SELECT nj.*,u.telegram_id,np.enabled,np.building_ready,np.research_ready,np.expedition_ready,u.bot_write_allowed FROM notification_jobs nj JOIN users u ON u.id=nj.user_id JOIN notification_preferences np ON np.user_id=nj.user_id WHERE nj.id=ANY(${sql.array(ids)}::uuid[])`;
     let sent=0,skipped=0,failed=0;
-    for(const job of jobs){
-      const kind=job.kind as NotificationKind;
-      const allowedByKind=kind==='building_ready'?job.building_ready:kind==='research_ready'?job.research_ready:job.expedition_ready;
-      if(!job.enabled||!job.bot_write_allowed||!allowedByKind){await sql`UPDATE notification_jobs SET cancelled_at=now(),processing_at=NULL,error_text='notifications_disabled' WHERE id=${job.id}`;skipped++;continue;}
-      const payload=typeof job.payload==='string'?JSON.parse(job.payload):job.payload;
-      const result=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:Number(job.telegram_id),text:notificationText(kind,payload),reply_markup:botUsername?{inline_keyboard:[[{text:'Открыть COLONY',url:`https://t.me/${botUsername}?startapp`}]]}:undefined})});
-      if(result.ok){await sql`UPDATE notification_jobs SET sent_at=now(),processing_at=NULL,error_text=NULL WHERE id=${job.id}`;sent++;continue;}
-      const errorText=(await result.text()).slice(0,500);
-      if(result.status===403){await sql.begin(async tx=>{await tx`UPDATE users SET bot_write_allowed=false WHERE id=${job.user_id}`;await tx`UPDATE notification_jobs SET cancelled_at=now(),processing_at=NULL,error_text=${errorText} WHERE user_id=${job.user_id} AND sent_at IS NULL AND cancelled_at IS NULL`;});}
-      else {await sql`UPDATE notification_jobs SET processing_at=NULL,error_text=${errorText} WHERE id=${job.id}`;await logErrorEvent({userId:job.user_id,source:'notification_delivery',error:new Error(errorText),context:{status:result.status,kind}});}
-      failed++;
+    for(const candidate of jobs){
+      // Closure waits for a bounded in-flight delivery; after it is acknowledged
+      // no queued delivery may pass this identity lock and the durable ledger.
+      const outcome=await sql.begin(async tx=>{
+        const key=await lockAccountIdentity(tx,Number(candidate.telegram_id));
+        const [job]=await tx<any[]>`SELECT nj.*,u.telegram_id,np.enabled,np.building_ready,np.research_ready,np.expedition_ready,u.bot_write_allowed FROM notification_jobs nj JOIN users u ON u.id=nj.user_id JOIN notification_preferences np ON np.user_id=nj.user_id WHERE nj.id=${candidate.id} AND nj.sent_at IS NULL AND nj.cancelled_at IS NULL FOR UPDATE OF nj`;
+        if(!job)return 'skipped';
+        const kind=job.kind as NotificationKind;
+        const allowedByKind=kind==='building_ready'?job.building_ready:kind==='research_ready'?job.research_ready:job.expedition_ready;
+        if(isClosedCase(await readAccountCase(key))||!job.enabled||!job.bot_write_allowed||!allowedByKind){await tx`UPDATE notification_jobs SET cancelled_at=now(),processing_at=NULL,error_text='notifications_disabled_or_account_closed' WHERE id=${job.id}`;return 'skipped';}
+        const payload=typeof job.payload==='string'?JSON.parse(job.payload):job.payload;
+        let result:Response;
+        try { result=await fetch(`https://api.telegram.org/bot${token}/sendMessage`,{method:'POST',signal:AbortSignal.timeout(8000),headers:{'content-type':'application/json'},body:JSON.stringify({chat_id:Number(job.telegram_id),text:notificationText(kind,payload),reply_markup:botUsername?{inline_keyboard:[[{text:'Открыть COLONY',url:`https://t.me/${botUsername}?startapp`}]]}:undefined})}); }
+        catch {await tx`UPDATE notification_jobs SET processing_at=NULL,error_text='delivery_timeout_or_network_error' WHERE id=${job.id}`;return 'failed';}
+        if(result.ok){await tx`UPDATE notification_jobs SET sent_at=now(),processing_at=NULL,error_text=NULL WHERE id=${job.id}`;return 'sent';}
+        if(result.status===403){await tx`UPDATE users SET bot_write_allowed=false WHERE id=${job.user_id}`;await tx`UPDATE notification_jobs SET cancelled_at=now(),processing_at=NULL,error_text='delivery_forbidden' WHERE user_id=${job.user_id} AND sent_at IS NULL AND cancelled_at IS NULL`;}
+        else await tx`UPDATE notification_jobs SET processing_at=NULL,error_text='delivery_failed' WHERE id=${job.id}`;
+        return 'failed';
+      });
+      if(outcome==='sent')sent++;else if(outcome==='skipped')skipped++;else failed++;
     }
     return NextResponse.json({ok:true,processed:jobs.length,sent,skipped,failed});
   }catch(error){await logErrorEvent({source:'notification_cron',error});return NextResponse.json({ok:false,error:'cron_error'},{status:500});}

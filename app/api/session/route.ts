@@ -7,6 +7,7 @@ import { logErrorEvent } from '@/lib/server/errors';
 import { getAccessState, MaintenanceAccessError } from '@/lib/server/access';
 import { APP_VERSION } from '@/lib/version';
 import { RateLimitError } from '@/lib/server/rate-limit';
+import { AccountClosedError } from '@/lib/server/account-closure';
 
 export const runtime = 'nodejs';
 
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
     const game = await reconcilePlayer(userId);
     return NextResponse.json({ ok: true, userId, telegramUser: auth.user, admin: access.isAdmin, access, version:APP_VERSION, ...game },{headers:{'Cache-Control':'no-store'}});
   } catch (error) {
+    if (error instanceof AccountClosedError) {
+      return NextResponse.json({ok:true,userId:null,telegramUser:{id:error.telegramId},admin:false,limited:true,closed:true,closure:error.request,access:{allowed:false,blockReason:'account_closed'},version:APP_VERSION},{headers:{'Cache-Control':'no-store'}});
+    }
     if (error instanceof MaintenanceAccessError) {
       return NextResponse.json({
         ok: true, userId: null, telegramUser: { id: error.telegramId }, admin: false,
@@ -33,14 +37,14 @@ export async function POST(request: Request) {
       const message = error.code === 'TELEGRAM_AUTH_EXPIRED'
         ? 'Сессия Telegram истекла. Закройте игру и откройте её заново через бота.'
         : 'Откройте COLONY через Telegram, чтобы войти в свою колонию.';
-      return NextResponse.json({ ok: false, code: error.code, error: message }, { status: 401 });
+      return NextResponse.json({ ok: false, code: error.code, error: message }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     }
     if (error instanceof RateLimitError) {
       return NextResponse.json({ ok: false, code: 'RATE_LIMITED', error: error.message }, {
-        status: 429, headers: { 'Retry-After': String(error.retryAfterSec) },
+        status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(error.retryAfterSec) },
       });
     }
     void logErrorEvent({ userId, source: 'session', error });
-    return NextResponse.json({ ok: false, code: 'SERVICE_UNAVAILABLE', error: 'Колония временно недоступна. Попробуйте ещё раз немного позже.' }, { status: 503 });
+    return NextResponse.json({ ok: false, code: 'SERVICE_UNAVAILABLE', error: 'Колония временно недоступна. Попробуйте ещё раз немного позже.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
 }

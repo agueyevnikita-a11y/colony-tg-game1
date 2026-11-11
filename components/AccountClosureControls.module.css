@@ -1,0 +1,173 @@
+.controls {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.section {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+
+.section summary {
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.content,
+.form,
+.request,
+.plan {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.content p,
+.result p,
+.plan p {
+  margin: 0;
+}
+
+.hint,
+.field {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  font-size: 13px;
+}
+
+.form {
+  padding-top: 4px;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.button {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.button:disabled,
+.input:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.section summary:focus-visible,
+.input:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 9px;
+}
+
+.result,
+.request,
+.plan,
+.notice,
+.error {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.result {
+  display: grid;
+  gap: 8px;
+  background: var(--bg);
+}
+
+.request {
+  background: var(--panel2);
+}
+
+.plan {
+  background: var(--bg);
+}
+
+.facts,
+.counts {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+}
+
+.facts dt,
+.counts dt {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.facts dd,
+.counts dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.counts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.counts dd {
+  flex-shrink: 0;
+}
+
+.controls code {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.plan ul {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.notice {
+  color: var(--text);
+}
+
+.error {
+  color: var(--danger);
+}

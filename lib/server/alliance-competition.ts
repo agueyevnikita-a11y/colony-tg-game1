@@ -1,6 +1,7 @@
 import { competitionWeek, competitionPrize, competitionCosmetics, allocateAlliancePool, COMPETITION_PRIZES,
   COMPETITION_MIN_REWARD_POINTS, COMPETITION_MIN_TEAM_CONTRIBUTORS, COMPETITION_POINTS_PER_MODULE, type AllianceCompetitionState } from '@/lib/game/alliance-competition';
 import { grantCosmetic } from '@/lib/server/cosmetics';
+import { closedPlayerIds } from './closed-player-visibility';
 
 export async function allianceCompetitionSchemaReady(tx: any) {
   const [row] = await tx`SELECT to_regclass('alliance_competition_periods') AS periods,
@@ -95,6 +96,7 @@ export async function finalizeCompetitionPeriod(tx: any, periodId: string) {
 }
 
 export async function getAllianceCompetitionState(tx: any, userId: string): Promise<AllianceCompetitionState> {
+  const hiddenPlayers = new Set(await closedPlayerIds(tx));
   const period = competitionWeek();
   const result: AllianceCompetitionState = { available: false, period, minimumRewardPoints: COMPETITION_MIN_REWARD_POINTS,
     pointsPerModule: COMPETITION_POINTS_PER_MODULE, minimumTeamContributors: COMPETITION_MIN_TEAM_CONTRIBUTORS, binding: null, players: [], alliances: [],
@@ -110,7 +112,7 @@ export async function getAllianceCompetitionState(tx: any, userId: string): Prom
       WHERE a.user_id=${userId} ORDER BY a.claimed_at NULLS FIRST,p.ends_at DESC,a.kind LIMIT 30`,
   ]);
   result.available = true;
-  result.players = players.slice(0, 50).map((row: any) => ({ userId: row.user_id, name: row.name,
+  result.players = players.filter((row: any) => !hiddenPlayers.has(row.user_id)).slice(0, 50).map((row: any) => ({ userId: row.user_id, name: row.name,
     points: Number(row.points), rank: Number(row.rank), crystals: Number(row.points) >= COMPETITION_MIN_REWARD_POINTS ? competitionPrize(Number(row.rank))?.personal ?? 0 : 0 }));
   result.alliances = alliances.slice(0, 50).map((row: any) => ({ allianceId: row.alliance_id, name: row.name, points: Number(row.points),
     rank: row.rank === null ? null : Number(row.rank), pool: competitionPrize(Number(row.rank))?.alliancePool ?? 0,

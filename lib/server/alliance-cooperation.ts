@@ -4,6 +4,7 @@ import { storageCaps } from '@/lib/game/economy';
 import { productionMultipliers } from '@/lib/game/research';
 import { completedResearchKeys } from './research';
 import { recordAllianceCompetitionContribution } from './alliance-competition';
+import { closedPlayerIds } from './closed-player-visibility';
 import {
   ALLIANCE_COOPERATION_DURATION_SEC, ALLIANCE_COOPERATION_MAX_UNITS, ALLIANCE_COOPERATION_SHARED_SCIENCE,
   ALLIANCE_COOPERATION_TECH_COSTS, COOPERATION_ROLES, COOPERATION_TECHNOLOGIES,
@@ -88,6 +89,7 @@ async function oreCapacity(tx: any, userId: string) {
 }
 
 export async function getAllianceCooperationState(tx: any, userId: string) {
+  const hiddenPlayers = new Set(await closedPlayerIds(tx));
   const rules = { durationSec: ALLIANCE_COOPERATION_DURATION_SEC, maxUnitsPerPlayer: ALLIANCE_COOPERATION_MAX_UNITS,
     sharedSciencePerUnit: ALLIANCE_COOPERATION_SHARED_SCIENCE };
   if (!(await allianceCooperationSchemaReady(tx))) return { available: false, current: null, pending: [], progress: null, roleOptions: COOPERATION_ROLES, rules };
@@ -116,7 +118,7 @@ export async function getAllianceCooperationState(tx: any, userId: string) {
     COALESCE(NULLIF(u.colony_name,''),'Колонист') AS name,
     EXISTS(SELECT 1 FROM alliance_members am WHERE am.user_id=u.id AND am.alliance_id=${member.alliance_id}) AS is_current_member
     FROM users u WHERE u.id IN ${tx(participantIds)}` : [];
-  const team = participantIds.map(participantId => {
+  const team = participantIds.filter(participantId => !hiddenPlayers.has(participantId)).map(participantId => {
     const profile = participantProfiles.find((row: any) => row.id === participantId);
     const modules = currentRows.filter((row: any) => row.user_id === participantId);
     return { name: String(profile?.name ?? 'Колонист'), isMe: participantId === userId,

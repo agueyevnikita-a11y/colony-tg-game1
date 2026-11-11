@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import styles from './SupportContact.module.css';
+import { AccountClosureControls } from './AccountClosureControls';
 
 const SUPPORT_EMAIL = 'colonygamehelpdesk@yandex.com';
 const SUPPORT_SUBJECT = encodeURIComponent('COLONY: поддержка и персональные данные');
@@ -148,6 +149,7 @@ export function SupportContact({ authenticated = false, isAdmin = false }: { aut
   return <div className={styles.contact}>
     <span className={styles.label}>Поддержка и вопросы о персональных данных</span>
     <a className={styles.address} href={`mailto:${SUPPORT_EMAIL}?subject=${SUPPORT_SUBJECT}`}>{SUPPORT_EMAIL}</a>
+    <AccountClosureControls authenticated={authenticated} isAdmin={isAdmin} />
     {authenticated && <div className={styles.proof}>
       <p className={styles.hint}>Код поможет связать письмо с твоим существующим аккаунтом. Он подтверждает доступ к аккаунту и не разрешает удаление или выдачу данных. Отправь его только на почту поддержки.</p>
       <p className={styles.hint}>Новый код отменяет предыдущий, если его ещё не проверили.</p>

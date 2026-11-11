@@ -34,6 +34,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: PostgreSQL 16 tools for verified backup restoration
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
       - run: npm run typecheck
       - run: npm test
       - run: npm run db:init

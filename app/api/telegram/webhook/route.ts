@@ -4,6 +4,8 @@ import { logErrorEvent } from '@/lib/server/errors';
 import { fulfillPurchase, markRefundedPurchase } from '@/lib/server/payments';
 import { botUsername, buildBotReply, parseBotUpdate } from '@/lib/server/bot-commands';
 import { callTelegramApi, matchesWebhookSecret, withDeadline } from '@/lib/server/telegram-api';
+import { lockAccountIdentity } from '@/lib/server/account-closure';
+import { readAccountCase, isClosedCase } from '@/scripts/privacy/lib/case-store.mjs';
 
 export const runtime = 'nodejs';
 
@@ -53,7 +55,10 @@ export async function POST(request: Request) {
       // Delivery results are unavailable in this mode; payments keep their verified API flow.
       return NextResponse.json({ method: 'sendMessage', ...buildBotReply(update) });
     } else if (update.kind === 'write_access_allowed') {
-      await sql`UPDATE users SET bot_write_allowed=true WHERE telegram_id=${update.userId}`;
+      await sql.begin(async tx=>{
+        const key=await lockAccountIdentity(tx,update.userId);
+        if(!isClosedCase(await readAccountCase(key))) await tx`UPDATE users SET bot_write_allowed=true WHERE telegram_id=${update.userId}`;
+      });
     } else if (update.kind === 'payment') {
       const { payment, userId } = update;
       await sql.begin(async tx => {

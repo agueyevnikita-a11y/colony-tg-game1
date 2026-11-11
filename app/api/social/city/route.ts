@@ -4,6 +4,7 @@ import { ensurePlayer } from '@/lib/server/game';
 import { sql } from '@/lib/server/db';
 import { cityGridSize } from '@/lib/game/config';
 import { calculateComfort } from '@/lib/game/comfort';
+import { closedPlayerIds } from '@/lib/server/closed-player-visibility';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
       throw new Error('Некорректный ID колонии');
     }
     const targetCondition = hasUserId ? sql`u.id=${body.userId.toLowerCase()}` : sql`u.telegram_id=${body.telegramId}`;
+    const hiddenPlayers = await closedPlayerIds(sql);
 
     const users = await sql<any[]>`
       SELECT u.id, u.colony_name, u.profile_bio, u.created_at,
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
       FROM users u
       JOIN game_states gs ON gs.user_id=u.id
       LEFT JOIN player_stats ps ON ps.user_id=u.id
-      WHERE ${targetCondition}
+      WHERE ${targetCondition} AND NOT(u.id=ANY(${sql.array(hiddenPlayers)}::uuid[]))
       LIMIT 1
     `;
     const target = users[0];

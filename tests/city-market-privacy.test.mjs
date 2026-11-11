@@ -51,6 +51,7 @@ function query(strings, ...values) {
   }).then(resolve, reject);
   return statement;
 }
+query.array = value => value;
 globalThis.__colonyCityMarketPrivacy = { state, sql: query, ownId };
 const shim = asModule(`
   const context = globalThis.__colonyCityMarketPrivacy;
@@ -66,6 +67,8 @@ const shim = asModule(`
   export const storageCaps = () => { throw new Error('Unexpected storage mutation'); };
   export const completedResearchKeys = () => { throw new Error('Unexpected research mutation'); };
   export const productionMultipliers = () => { throw new Error('Unexpected production mutation'); };
+  // These fixtures are open accounts; ledger behavior has separate PG/FS coverage.
+  export const closedPlayerIds = async () => [];
 `);
 const authUrl = await compile('../lib/server/telegram-auth.ts');
 const decorUrl = await compile('../lib/game/decor.ts');
@@ -73,11 +76,13 @@ const { POST: city } = await import(await compile('../app/api/social/city/route.
   'next/server': shim, '@/lib/server/telegram-auth': authUrl, '@/lib/server/game': shim, '@/lib/server/db': shim,
   '@/lib/game/config': await compile('../lib/game/config.ts'),
   '@/lib/game/comfort': await compile('../lib/game/comfort.ts', { './decor': decorUrl }),
+  '@/lib/server/closed-player-visibility': shim,
 }));
 const marketRulesUrl = await compile('../lib/game/market.ts');
 const { getMarketState } = await import(await compile('../lib/server/market.ts', {
   './db': shim, './feature-access': shim, '@/lib/game/market': marketRulesUrl, '@/lib/server/progression': shim,
   '@/lib/game/economy': shim, '@/lib/server/research': shim, '@/lib/game/research': shim,
+  './closed-player-visibility': shim,
 }));
 
 function request(body, authenticated = true) {
@@ -118,7 +123,7 @@ test('city UUID lookup returns only game profile and preserves city rendering da
   assert.equal(result.contracts_completed, 4);
   assert.equal(Object.hasOwn(result, 'premium_until'), false);
   assert.match(state.queries[0].text, /WHERE u\.id=\?/);
-  assert.deepEqual(state.queries[0].values, [cityId]);
+  assert.deepEqual(state.queries[0].values, [cityId, []]);
   assert.equal(state.ensureCalls.length, 1);
 });
 
@@ -128,7 +133,7 @@ test('legacy shared city links resolve by numeric Telegram ID without exposing T
   assert.equal(response.status, 200);
   assertPrivateFieldsAbsent((await response.json()).city);
   assert.match(state.queries[0].text, /WHERE u\.telegram_id=\?/);
-  assert.deepEqual(state.queries[0].values, [77]);
+  assert.deepEqual(state.queries[0].values, [77, []]);
 });
 
 test('invalid UUID never falls back to supplied Telegram ID; malformed targets stop before city queries', async t => {

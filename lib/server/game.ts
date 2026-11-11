@@ -1,4 +1,5 @@
 import { sql } from './db';
+import { assertAccountOpen } from './account-closure';
 import { BUILDINGS, HQ_UPGRADES, cityGridSize, type BuildingType } from '@/lib/game/config';
 import { ACHIEVEMENTS, DAILY_QUESTS, WEEKLY_QUESTS } from '@/lib/game/progression';
 import { upgradeTimeSec, passiveRate, storageCaps, upgradeCost } from '@/lib/game/economy';
@@ -39,6 +40,9 @@ export async function ensurePlayer(tg: {
   return sql.begin(async (tx) => {
     const entryAccess = await getAccessState(tx, null, Number(tg.id));
     if (entryAccess.blockReason === 'maintenance') throw new MaintenanceAccessError(entryAccess, Number(tg.id));
+    if (process.env.NODE_ENV !== 'development' || process.env.ACCOUNT_ERASURE_SECRET || process.env.ACCOUNT_CLOSURE_DIR) {
+      await assertAccountOpen(tx, Number(tg.id));
+    }
 
     const rows = await tx<{ id: string; created_at: Date }[]>`
       INSERT INTO users (telegram_id, username, first_name, language_code)

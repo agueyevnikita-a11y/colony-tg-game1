@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
@@ -21,12 +23,19 @@ import { runAllianceCreationIntegration } from './alliance-creation.integration.
 import { runPremiumPurchasesIntegration } from './premium-purchases.integration.mjs';
 import { runPublicPlayerIntegration } from './public-player.integration.mjs';
 import { runSupportOwnershipIntegration } from './support-ownership.integration.mjs';
+import { runAccountClosureIntegration } from './account-closure.integration.mjs';
+import { runAccountErasureDataIntegration } from './account-erasure-data.integration.mjs';
+import { runPrivacyOperatorIntegration } from './privacy-operator.integration.mjs';
+import { runClosedPlayerVisibilityIntegration } from './closed-player-visibility.integration.mjs';
+import { initPrivacyStore } from '../scripts/privacy/lib/case-store.mjs';
 
-test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 240_000 }, async (t) => {
+test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY_TEST_DATABASE !== '1', timeout: 420_000 }, async (t) => {
   const databaseUrl = new URL(process.env.DATABASE_URL || '');
   assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(databaseUrl.hostname), 'Integration tests require a local test database');
   assert.match(databaseUrl.pathname, /^\/colony_(ci|test)$/, 'Use colony_ci or colony_test, never the live game database');
   const sql = postgres(databaseUrl.toString(), { max: 1, connect_timeout: 5 });
+  const launchSettings=await sql`SELECT setting_key,value FROM system_settings WHERE setting_key IN ('maintenance','beta_required')`;
+  for(const setting of launchSettings)await sql`UPDATE system_settings SET value=${sql.json({...setting.value,enabled:false})} WHERE setting_key=${setting.setting_key}`;
   const botToken = `123456789:${crypto.randomBytes(26).toString('base64url')}`;
   const webhookSecret = crypto.randomBytes(32).toString('hex');
   const adminId = crypto.randomInt(900_000_000_000, 999_999_999_000);
@@ -34,6 +43,10 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   const port = 3210;
   const baseUrl = `http://127.0.0.1:${port}`;
   const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const previousPrivacy={secret:process.env.ACCOUNT_ERASURE_SECRET,directory:process.env.ACCOUNT_CLOSURE_DIR};
+  const privacy={directory:await mkdtemp(path.join(os.tmpdir(),'colony-privacy-test-')),secret:crypto.randomBytes(32).toString('hex')};
+  process.env.ACCOUNT_ERASURE_SECRET=privacy.secret; process.env.ACCOUNT_CLOSURE_DIR=privacy.directory;
+  await initPrivacyStore();
   let output = '';
   const server = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '--port', String(port)], {
     cwd: fileURLToPath(new URL('../', import.meta.url)),
@@ -53,8 +66,14 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     server.kill();
     if (server.exitCode === null) await Promise.race([once(server, 'exit'), delay(3000)]);
     if (maintenanceChanged) await sql`UPDATE system_settings SET value=${sql.json(originalMaintenance)} WHERE setting_key='maintenance'`;
+    for(const setting of launchSettings)await sql`UPDATE system_settings SET value=${sql.json(setting.value)} WHERE setting_key=${setting.setting_key}`;
     await sql`DELETE FROM users WHERE telegram_id=ANY(${sql.array([adminId, playerId])}::bigint[])`;
     await sql.end({ timeout: 2 });
+    assert.equal(path.dirname(path.resolve(privacy.directory)),path.resolve(os.tmpdir()));
+    assert.ok(path.basename(privacy.directory).startsWith('colony-privacy-test-'));
+    await rm(privacy.directory,{recursive:true,force:true});
+    if(previousPrivacy.secret===undefined)delete process.env.ACCOUNT_ERASURE_SECRET;else process.env.ACCOUNT_ERASURE_SECRET=previousPrivacy.secret;
+    if(previousPrivacy.directory===undefined)delete process.env.ACCOUNT_CLOSURE_DIR;else process.env.ACCOUNT_CLOSURE_DIR=previousPrivacy.directory;
   });
 
   function initData(id, userFields = {}, authDate = Math.floor(Date.now() / 1000), startParam) {
@@ -64,10 +83,10 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     params.set('hash', crypto.createHmac('sha256', key).update(data).digest('hex'));
     return params.toString();
   }
-  async function request(path, { method = 'GET', body, auth, secret } = {}) {
+  async function request(path, { method = 'GET', body, auth, secret, headers:extraHeaders={} } = {}) {
     const response = await fetch(`${baseUrl}${path}`, {
       method, signal: AbortSignal.timeout(15_000),
-      headers: { 'content-type': 'application/json', ...(auth ? { 'x-telegram-init-data': auth } : {}), ...(secret ? { 'x-telegram-bot-api-secret-token': secret } : {}) },
+      headers: { 'content-type': 'application/json', ...(auth ? { 'x-telegram-init-data': auth } : {}), ...(secret ? { 'x-telegram-bot-api-secret-token': secret } : {}),...extraHeaders },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
@@ -88,6 +107,8 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
     assert.equal(ready.status, 200, JSON.stringify(ready.data));
     assert.equal(ready.data.version, version);
     assert.deepEqual(ready.data.checks, { configuration: 'ok', database: 'ok', schema: 'ok' });
+    assert.equal(ready.data.privacyStorage, 'ok');
+    assert.equal(ready.data.privacyCapability, 1);
     assert.equal((await request('/api/health')).status, 200);
   });
   await t.test('local scenario tools stay unavailable in production and do not create test identities', async () => {
@@ -1533,6 +1554,10 @@ test('production Mini App launch against PostgreSQL', { skip: process.env.COLONY
   await runAllianceCreationIntegration({ t, sql, request, initData, playerId });
   await runPremiumPurchasesIntegration({ t, sql, request, initData });
   await runSupportOwnershipIntegration({ t, sql, request, initData, playerId, adminId });
+  await runAccountErasureDataIntegration({ t, sql });
+  await runAccountClosureIntegration({t,sql,request,initData,adminId,playerId,privacy});
+  await runClosedPlayerVisibilityIntegration({t,sql,request,initData,playerId,privacy});
+  await runPrivacyOperatorIntegration({t,sql,privacy});
 
   await t.test('maintenance blocks ordinary players while preserving admin access', async () => {
     originalMaintenance = (await sql`SELECT value FROM system_settings WHERE setting_key='maintenance'`)[0].value;

@@ -48,6 +48,11 @@ services:
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?Set ADMIN_TELEGRAM_IDS in deploy/.env}
       SUPPORT_URL: ${SUPPORT_URL:-}
       ALLOW_DEV_AUTH: "false"
+      ACCOUNT_ERASURE_SECRET: ${ACCOUNT_ERASURE_SECRET:?Set a separate permanent 64-hex ACCOUNT_ERASURE_SECRET}
+      ACCOUNT_CLOSURE_DIR: /app/privacy/accounts
+      PRIVACY_RECORD_UID: "1000"
+    volumes:
+      - /opt/colony/shared/privacy/accounts:/app/privacy/accounts
     ports:
       - "127.0.0.1:3000:3000"
     healthcheck:
@@ -60,6 +65,27 @@ services:
     init: true
     stop_grace_period: 30s
     logging: *bounded-logging
+
+  privacy-tools:
+    profiles: [tools]
+    image: colony-russia:local
+    user: "0:0"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://colony:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}@db:5432/${COLONY_DB_NAME:-colony}
+      ACCOUNT_ERASURE_SECRET: ${ACCOUNT_ERASURE_SECRET:?Set ACCOUNT_ERASURE_SECRET}
+      ACCOUNT_CLOSURE_DIR: /privacy/accounts
+      PRIVACY_OPERATIONS_DIR: /privacy/operations
+      PRIVACY_RECORD_UID: "1000"
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:?Set ADMIN_TELEGRAM_IDS}
+    volumes:
+      - /opt/colony/shared/privacy:/privacy
+      - /var/backups/colony:/var/backups/colony
+    entrypoint: [node, scripts/privacy-operator.mjs]
+    healthcheck:
+      disable: true
+    init: true
+    restart: "no"
 
   db-tools:
     profiles: [tools]

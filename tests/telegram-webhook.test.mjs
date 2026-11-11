@@ -115,6 +115,10 @@ test('purchase lookup deadline cancels a stalled query', async () => {
 const state = { queries: [], purchases: [], api: [], errors: [], premiumGrants: 0, inbox: [], analytics: [], grants: [] };
 globalThis.__colonyWebhookTest = state;
 const stubs = asModule(`
+  // Payment/command fixtures have no closure; privacy integration exercises the real ledger.
+  export const lockAccountIdentity = async (_tx, id) => 'open-fixture-' + id;
+  export const readAccountCase = async () => null;
+  export const isClosedCase = () => false;
   const state = globalThis.__colonyWebhookTest;
   export class NextResponse extends Response { static json(value, init) { return Response.json(value, init); } }
   export const logErrorEvent = async value => state.errors.push(value);
@@ -144,6 +148,7 @@ const paymentsUrl = await compile('../lib/server/payments.ts', {
 const { POST } = await import(await compile('../app/api/telegram/webhook/route.ts', {
   'next/server': stubs, '@/lib/server/db': stubs, '@/lib/server/errors': stubs, '@/lib/server/payments': paymentsUrl,
   '@/lib/server/bot-commands': commandsUrl, '@/lib/server/telegram-api': apiUrl,
+  '@/lib/server/account-closure': stubs, '@/scripts/privacy/lib/case-store.mjs': stubs,
 }));
 
 function setup(t) {

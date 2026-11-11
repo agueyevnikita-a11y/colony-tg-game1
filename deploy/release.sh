@@ -8,16 +8,21 @@ unset CDPATH ENV BASH_ENV COMPOSE_FILE COMPOSE_PROJECT_NAME DOCKER_HOST DOCKER_C
 repo=agueyevnikita-a11y/colony-tg-game1
 root=/opt/colony
 shared_env="$root/shared/.env"
+privacy_floor_file="$root/shared/privacy-capability-floor"
 sha="${1:-}"
 run_id="${2:-}"
 [[ "$EUID" -eq 0 && "$#" -eq 2 && "$sha" =~ ^[0-9a-f]{40}$ && "$run_id" =~ ^[1-9][0-9]{0,19}$ ]] || {
   printf 'Usage (root): release.sh <full commit SHA> <successful CI run ID>\n' >&2; exit 2;
 }
-for command in python3 curl docker flock cmp sha256sum; do command -v "$command" >/dev/null; done
+for command in python3 curl docker flock cmp sha256sum stat; do command -v "$command" >/dev/null; done
 [[ -f "$shared_env" && ! -L "$shared_env" ]] || { printf 'Missing protected shared environment file.\n' >&2; exit 1; }
 [[ "$(stat -c %u "$shared_env")" == 0 ]] || { printf 'Shared environment must be root-owned.\n' >&2; exit 1; }
 [[ "$((8#$(stat -c %a "$shared_env") & 077))" == 0 ]] || { printf 'Shared environment permissions are too broad.\n' >&2; exit 1; }
-exec 9>/var/lock/colony-release.lock
+lock_file=/var/lock/colony-release.lock
+if (set -o noclobber; : > "$lock_file") 2>/dev/null; then chmod 0600 -- "$lock_file"; fi
+[[ ! -L "$lock_file" && -f "$lock_file" && "$(stat -c %u -- "$lock_file")" == 0 && "$(stat -c %h -- "$lock_file")" == 1 && "$((8#$(stat -c %a -- "$lock_file") & 077))" == 0 ]] || { printf 'Unsafe publication lock.\n' >&2; exit 1; }
+exec 9<>"$lock_file"
+[[ "$(stat -c '%d:%i' -- "$lock_file")" == "$(stat -Lc '%d:%i' -- /proc/$$/fd/9)" ]] || { printf 'Publication lock changed.\n' >&2; exit 1; }
 flock -n 9 || { printf 'Another COLONY release is in progress.\n' >&2; exit 1; }
 old_release="$(readlink -f -- "$root/current")"
 [[ -L "$root/current" && "$old_release" == "$root/releases/"* && -d "$old_release/deploy" ]] || { printf 'Unexpected current release path.\n' >&2; exit 1; }
@@ -32,6 +37,27 @@ candidate_started=false
 old_compose=(docker compose --project-name colony-russia --project-directory "$old_release/deploy" --env-file "$shared_env" -f "$old_release/deploy/compose.yml" -f "$old_release/deploy/https.compose.yml")
 rollback_compose=()
 new_compose=()
+old_privacy_capability=0
+
+read_privacy_floor() {
+  python3 - "$privacy_floor_file" <<'PY'
+import os,re,stat,sys
+try:
+    fd=os.open(sys.argv[1],os.O_RDONLY|os.O_NOFOLLOW)
+except FileNotFoundError:
+    print(0);sys.exit(0)
+except OSError:
+    sys.exit('Privacy capability floor is not readable safely')
+with os.fdopen(fd,'r',encoding='ascii') as stream:
+    info=os.fstat(stream.fileno())
+    if not stat.S_ISREG(info.st_mode) or info.st_uid!=0 or info.st_nlink!=1 or stat.S_IMODE(info.st_mode)!=0o600 or info.st_size>16:
+        sys.exit('Privacy capability floor has unsafe type, ownership or permissions')
+    value=stream.read().strip()
+    if not re.fullmatch(r'[0-9]{1,6}',value):sys.exit('Invalid privacy capability floor')
+    print(int(value))
+PY
+}
+privacy_floor="$(read_privacy_floor)"
 
 verify_ci() {
   python3 - "$repo" "$sha" "$run_id" <<'PY'
@@ -52,14 +78,20 @@ PY
 }
 
 check_http() {
-  local base="$1"
+  local base="$1" current_floor
+  current_floor="$(read_privacy_floor)" || return 1
+  (( current_floor >= privacy_floor )) || { printf 'Privacy capability floor decreased during publication.\n' >&2; return 1; }
   for endpoint in health/live health ready; do
     curl --fail --silent --show-error --connect-timeout 3 --max-time 10 "$base/api/$endpoint" > "$work/health.json" || return 1
-    python3 - "$work/health.json" "$version" <<'PY' || return 1
+    python3 - "$work/health.json" "$version" "$endpoint" "$current_floor" <<'PY' || return 1
 import json,sys
 with open(sys.argv[1]) as stream:data=json.load(stream)
 assert data.get('ok') is True and data.get('service')=='colony' and data.get('version')==sys.argv[2], 'Health or version mismatch'
 assert all(value=='ok' for value in data.get('checks',{}).values()), 'Readiness checks failed'
+if sys.argv[3]=='ready':
+    capability=data.get('privacyCapability',0)
+    assert isinstance(capability,int) and not isinstance(capability,bool) and capability>=int(sys.argv[4]), 'Privacy capability is below the protected floor'
+    if int(sys.argv[4])>0:assert data.get('privacyStorage')=='ok', 'Privacy journal is not ready'
 PY
   done
 }
@@ -100,8 +132,11 @@ finish() {
   local code=$?
   trap - EXIT INT TERM HUP
   if [[ "$success" != true && "$activation_started" == true ]]; then
-    printf 'Release failed; restoring the previous application image. Database is not restored or replaced.\n' >&2
-    if "${rollback_compose[@]}" up -d --no-deps --no-build --wait --wait-timeout 180 app; then
+    local rollback_floor
+    if ! rollback_floor="$(read_privacy_floor)" || (( rollback_floor < privacy_floor || old_privacy_capability < rollback_floor )); then
+      printf 'Release failed; rollback is below the protected privacy floor or its floor cannot be verified. Stopping the application; database is not restored.\n' >&2
+      "${new_compose[@]}" stop --timeout 30 app || printf 'Application stop failed; immediate operator attention required.\n' >&2
+    elif "${rollback_compose[@]}" up -d --no-deps --no-build --wait --wait-timeout 180 app; then
       ln -s -- "$old_release" "$root/current.rollback-$sha"
       mv -Tf -- "$root/current.rollback-$sha" "$root/current"
       printf 'Previous application restored; verify its health before retrying.\n' >&2
@@ -127,6 +162,18 @@ db_volume_before="$(db_volume "$db_before")"
 printf '%s\n' "$db_before" > "$work/database-container-before.txt"
 printf '%s\n' "$db_volume_before" > "$work/database-volume-before.txt"
 old_image="$(docker inspect --format '{{.Image}}' "$app_before")"
+if curl --fail --silent --show-error --connect-timeout 3 --max-time 10 http://127.0.0.1:3000/api/ready > "$work/old-ready.json"; then
+  old_privacy_capability="$(python3 - "$work/old-ready.json" <<'PY'
+import json,sys
+data=json.load(open(sys.argv[1],encoding='utf-8'))
+value=data.get('privacyCapability',0)
+assert isinstance(value,int) and not isinstance(value,bool) and value>=0 and data.get('ok') is True
+if value>0:assert data.get('privacyStorage')=='ok'
+print(value)
+PY
+)"
+fi
+printf '%s\n' "$old_privacy_capability" > "$work/old-privacy-capability.txt"
 rollback_tag="colony-russia:before-${sha:0:12}-$(date -u +%Y%m%dT%H%M%SZ)"
 docker image tag "$old_image" "$rollback_tag"
 printf 'services:\n  app:\n    image: %s\n' "$rollback_tag" > "$work/rollback.compose.yml"
@@ -169,7 +216,7 @@ fi
 for file in db/schema.sql Dockerfile deploy/compose.yml deploy/https.compose.yml deploy/Caddyfile deploy/provision-app-role.mjs deploy/backup.sh; do
   [[ -f "$old_release/$file" && -f "$release/$file" ]] && cmp --silent -- "$old_release/$file" "$release/$file" || { printf 'Manual review required for infrastructure/schema change: %s\n' "$file" >&2; exit 1; }
 done
-for file in deploy/release.sh deploy/ssh-deploy-command.sh; do
+for file in deploy/release.sh deploy/ssh-deploy-command.sh deploy/privacy-operator.sh; do
   if [[ -f "$old_release/$file" ]]; then cmp --silent -- "$old_release/$file" "$release/$file" || { printf 'Manual review required for deployment-control change: %s\n' "$file" >&2; exit 1; }; fi
 done
 if [[ -L "$release/deploy/.env" ]]; then
@@ -180,6 +227,10 @@ else
   ln -s -- "$shared_env" "$release/deploy/.env"
 fi
 printf 'services:\n  app:\n    image: %s\n' "$image" > "$release/deploy/release-image.compose.yml"
+release_services="$(docker compose --profile tools --project-directory "$release/deploy" --env-file "$shared_env" -f "$release/deploy/compose.yml" config --services)"
+if [[ $'\n'"$release_services"$'\n' == *$'\nprivacy-tools\n'* ]]; then
+  printf '  privacy-tools:\n    image: %s\n' "$image" >> "$release/deploy/release-image.compose.yml"
+fi
 new_compose=(docker compose --project-name colony-russia --project-directory "$release/deploy" --env-file "$shared_env" -f "$release/deploy/compose.yml" -f "$release/deploy/https.compose.yml" -f "$release/deploy/release-image.compose.yml")
 "${new_compose[@]}" config --quiet
 version="$(python3 - "$release/package.json" <<'PY'
@@ -210,6 +261,14 @@ check_counts "$work/counts-pre-activation.json"
 activation_started=true
 "${new_compose[@]}" up -d --no-deps --no-build --wait --wait-timeout 180 app
 check_http http://127.0.0.1:3000
+python3 - "$work/health.json" "$release/.colony-privacy-capability" <<'PY'
+import json,os,sys
+data=json.load(open(sys.argv[1],encoding='utf-8'))
+value=data.get('privacyCapability',0)
+assert isinstance(value,int) and not isinstance(value,bool) and value>=0
+with open(sys.argv[2],'w',encoding='ascii') as output:output.write(str(value)+'\n')
+os.chmod(sys.argv[2],0o600)
+PY
 read_flags > "$work/flags-after.json"
 cmp --silent "$work/flags-before.json" "$work/flags-after.json" || { printf 'Flags differ after activation.\n' >&2; exit 1; }
 read_counts > "$work/counts-after.json"

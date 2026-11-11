@@ -83,6 +83,9 @@ const shared = asModule(`
   export async function recordDailySession(_tx, id) { context.state.calls.push('daily-session'); context.state.db.dailySessions.push(id); }
   export function recordProgressEvent() { throw new Error('Unexpected progression call'); }
   export function unlockAchievements() { throw new Error('Unexpected achievement call'); }
+  // This suite isolates maintenance; durable closure has its own PG/FS suite.
+  export async function assertAccountOpen() {}
+  export class AccountClosedError extends Error {}
 `);
 async function compile(path, imports = {}, stubUnused = false) {
   let source = await fs.readFile(new URL(path, import.meta.url), 'utf8');
@@ -104,6 +107,7 @@ const authUrl = await compile('../lib/server/telegram-auth.ts');
 const rateLimitUrl = await compile('../lib/server/rate-limit.ts', { '@/lib/server/db': shared });
 const gameUrl = await compile('../lib/server/game.ts', {
   './db': shared,
+  './account-closure': shared,
   '@/lib/server/access': accessUrl,
   '@/lib/server/rate-limit': rateLimitUrl,
   '@/lib/server/progression': shared,
@@ -126,6 +130,7 @@ const routeImports = {
   '@/lib/server/rate-limit': rateLimitUrl,
   '@/lib/server/progression': shared,
   '@/lib/server/errors': shared,
+  '@/lib/server/account-closure': shared,
   '@/lib/version': shared,
 };
 const { POST: session } = await import(await compile('../app/api/session/route.ts', routeImports));
